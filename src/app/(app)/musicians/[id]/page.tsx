@@ -116,13 +116,10 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 16 }}>
                   {musician.instruments.map((i: string) => <span key={i} className="chip">{i}</span>)}
                 </div>
-                {/* Church-only actions */}
+                {/* Church-only actions — outreach is always anchored to a specific request */}
                 {isChurch && (
                   <div style={{ display: "flex", gap: 8 }}>
-                    <Link href={`/messages?musician=${musician.profile_id}`} className="btn btn--primary">
-                      Message {name.split(" ")[0]}
-                    </Link>
-                    <Link href={`/musicians/${id}/invite`} className="btn btn--secondary">
+                    <Link href={`/musicians/${id}/invite`} className="btn btn--primary">
                       Invite to a request
                     </Link>
                   </div>
@@ -193,10 +190,7 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
             </dl>
             {isChurch && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--sm-border-subtle)" }}>
-                <Link href={`/messages?musician=${musician.profile_id}`} className="btn btn--primary" style={{ textAlign: "center", textDecoration: "none" }}>
-                  Message {name.split(" ")[0]}
-                </Link>
-                <Link href={`/musicians/${id}/invite`} className="btn btn--secondary" style={{ textAlign: "center", textDecoration: "none" }}>
+                <Link href={`/musicians/${id}/invite`} className="btn btn--primary" style={{ textAlign: "center", textDecoration: "none" }}>
                   Invite to a request
                 </Link>
               </div>

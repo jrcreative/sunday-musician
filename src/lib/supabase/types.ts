@@ -119,13 +119,28 @@ export type Database = {
       threads: {
         Row: {
           id: string;
-          request_id: string | null;
+          request_id: string;
           church_profile_id: string;
           musician_profile_id: string;
+          last_read_at_church: string | null;
+          last_read_at_musician: string | null;
+          archived_at: string | null;
+          archive_reason: string | null;
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["threads"]["Row"], "created_at" | "updated_at" | "id"> & { request_id?: string | null };
+        Insert: {
+          id?: string;
+          request_id: string;
+          church_profile_id: string;
+          musician_profile_id: string;
+          last_read_at_church?: string | null;
+          last_read_at_musician?: string | null;
+          archived_at?: string | null;
+          archive_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
         Update: Partial<Database["public"]["Tables"]["threads"]["Insert"]>;
         Relationships: [];
       };

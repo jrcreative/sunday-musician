@@ -215,7 +215,7 @@ function RequestCard({ r, myInstruments }: { r: OpenRequest; myInstruments: Set<
       {/* Action */}
       <div style={{ display: "flex", flexDirection: "column", gap: 7, flexShrink: 0 }}>
         <Link href={`/requests/${r.id}`} className="btn btn--primary btn--sm">View request</Link>
-        <Link href={`/messages?church_id=${r.church_profile_id}`} className="btn btn--ghost btn--sm">Message church</Link>
+        <Link href={`/messages?church_id=${r.church_profile_id}&request_id=${r.id}`} className="btn btn--ghost btn--sm">Message church</Link>
       </div>
     </div>
   );
