@@ -15,6 +15,7 @@ const churchNav = [
   { href: "/find", label: "Find musicians", icon: SearchIcon },
   { href: "/requests", label: "My requests", icon: InboxIcon },
   { href: "/messages", label: "Messages", icon: MsgIcon },
+  { href: "/reviews", label: "Reviews", icon: StarIcon },
 ];
 
 const musicianNav = [
@@ -22,6 +23,7 @@ const musicianNav = [
   { href: "/find", label: "Browse musicians", icon: SearchIcon },
   { href: "/availability", label: "Availability", icon: CalendarIcon },
   { href: "/messages", label: "Messages", icon: MsgIcon },
+  { href: "/reviews", label: "Reviews", icon: StarIcon },
 ];
 
 const CLEARED_KEY = "sm_unread_cleared_at";
@@ -236,4 +238,7 @@ function PlusIcon(p: React.SVGProps<SVGSVGElement>) {
 }
 function CalendarIcon(p: React.SVGProps<SVGSVGElement>) {
   return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+}
+function StarIcon(p: React.SVGProps<SVGSVGElement>) {
+  return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
 }
