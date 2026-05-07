@@ -1,0 +1,326 @@
+/* Sunday Musician — Design System
+   Tokens + UI primitives, ported from the Claude Design prototype.
+   Mirrors --global-palette* Kadence theme tokens from sundaymusician.com. */
+
+:root {
+  /* Base palette */
+  --sm-palette-1:  #e47b02;
+  --sm-palette-2:  #ed8f0c;
+  --sm-palette-3:  #1f2933;
+  --sm-palette-4:  #3e4c59;
+  --sm-palette-5:  #52606d;
+  --sm-palette-6:  #7b8794;
+  --sm-palette-7:  #f3f4f7;
+  --sm-palette-8:  #f9f9fb;
+  --sm-palette-9:  #ffffff;
+  --sm-palette-11: #13612e;
+  --sm-palette-12: #1159af;
+  --sm-palette-13: #b82105;
+  --sm-palette-14: #f7630c;
+  --sm-palette-15: #f5a524;
+
+  --sm-logo-bronze: #c17e3d;
+
+  /* Semantic foreground/background */
+  --sm-fg-1: var(--sm-palette-3);
+  --sm-fg-2: var(--sm-palette-4);
+  --sm-fg-3: var(--sm-palette-5);
+  --sm-fg-4: var(--sm-palette-6);
+  --sm-fg-on-accent: var(--sm-palette-9);
+
+  --sm-bg-1: var(--sm-palette-9);
+  --sm-bg-2: var(--sm-palette-8);
+  --sm-bg-3: var(--sm-palette-7);
+  --sm-border-subtle: var(--sm-palette-7);
+  --sm-border: #e2e5ea;
+  --sm-border-strong: var(--sm-palette-6);
+
+  /* Interactive */
+  --sm-accent:        var(--sm-palette-1);
+  --sm-accent-hover:  var(--sm-palette-2);
+  --sm-link:          var(--sm-palette-1);
+  --sm-link-hover:    var(--sm-palette-2);
+
+  /* Buttons */
+  --sm-btn-bg:           var(--sm-palette-1);
+  --sm-btn-bg-hover:     var(--sm-palette-2);
+  --sm-btn-fg:           var(--sm-palette-9);
+  --sm-btn-sec-bg:       var(--sm-palette-7);
+  --sm-btn-sec-bg-hover: var(--sm-palette-2);
+  --sm-btn-sec-fg:       var(--sm-palette-3);
+  --sm-btn-sec-fg-hover: var(--sm-palette-9);
+
+  /* Status */
+  --sm-status-success: var(--sm-palette-11);
+  --sm-status-info:    var(--sm-palette-12);
+  --sm-status-error:   var(--sm-palette-13);
+  --sm-status-warn:    var(--sm-palette-15);
+
+  /* Typography */
+  --sm-font-body:    "Source Sans 3", system-ui, sans-serif;
+  --sm-font-display: "Source Sans 3", system-ui, sans-serif;
+  --sm-font-logo:    "Work Sans", system-ui, sans-serif;
+  --sm-font-mono:    ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --sm-w-regular:  400;
+  --sm-w-medium:   500;
+  --sm-w-semibold: 600;
+  --sm-w-bold:     700;
+
+  --sm-fs-small:   0.875rem;
+  --sm-fs-medium:  1rem;
+  --sm-fs-large:   1.25rem;
+  --sm-fs-xlarge:  2.625rem;
+  --sm-fs-larger:  3.25rem;
+  --sm-fs-xxlarge: 4.25rem;
+
+  --sm-lh-tight:  1.15;
+  --sm-lh-snug:   1.3;
+  --sm-lh-normal: 1.6;
+
+  --sm-ls-tight: -0.01em;
+  --sm-ls-wide:   0.06em;
+
+  /* Spacing */
+  --sm-space-1: 0.44rem;
+  --sm-space-2: 0.67rem;
+  --sm-space-3: 1rem;
+  --sm-space-4: 1.5rem;
+  --sm-space-5: 2.25rem;
+  --sm-space-6: 3.38rem;
+  --sm-space-7: 5.06rem;
+
+  /* Layout */
+  --sm-content-narrow: 842px;
+  --sm-content:        1290px;
+  --sm-content-wide:   1520px;
+
+  /* Radii */
+  --sm-radius-sm:   3px;
+  --sm-radius-md:   6px;
+  --sm-radius-pill: 999px;
+
+  /* Shadows */
+  --sm-shadow-natural: 6px 6px 9px rgba(0,0,0,0.2);
+  --sm-shadow-deep:   12px 12px 50px rgba(0,0,0,0.4);
+
+  /* Motion */
+  --sm-ease:     cubic-bezier(0.2, 0.6, 0.2, 1);
+  --sm-dur-fast: 120ms;
+  --sm-dur-base: 160ms;
+  --sm-dur-slow: 240ms;
+}
+
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+
+.sm-eyebrow {
+  font-size: var(--sm-fs-small);
+  font-weight: var(--sm-w-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--sm-ls-wide);
+  color: var(--sm-fg-3);
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: var(--sm-radius-sm);
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 14.5px;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--sm-dur-base) var(--sm-ease),
+    color var(--sm-dur-base) var(--sm-ease),
+    border-color var(--sm-dur-base) var(--sm-ease);
+}
+
+.btn--primary {
+  background: var(--sm-btn-bg);
+  color: var(--sm-btn-fg);
+}
+.btn--primary:hover { background: var(--sm-btn-bg-hover); }
+
+.btn--secondary {
+  background: var(--sm-btn-sec-bg);
+  color: var(--sm-btn-sec-fg);
+}
+.btn--secondary:hover {
+  background: var(--sm-btn-sec-bg-hover);
+  color: var(--sm-btn-sec-fg-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--sm-fg-2);
+  border-color: var(--sm-border-subtle);
+}
+.btn--ghost:hover { background: var(--sm-bg-2); color: var(--sm-fg-1); }
+
+.btn--quiet {
+  background: transparent;
+  color: var(--sm-fg-2);
+  padding: 8px 12px;
+}
+.btn--quiet:hover { color: var(--sm-fg-1); background: var(--sm-bg-2); }
+
+.btn--sm { padding: 6px 12px; font-size: 13px; }
+.btn--lg { padding: 13px 24px; font-size: 16px; }
+.btn--icon { padding: 8px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ============================================================
+   FORM CONTROLS
+   ============================================================ */
+
+.input, .select, .textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--sm-border-subtle);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-bg-1);
+  font-size: 14.5px;
+  color: var(--sm-fg-1);
+  outline: none;
+  transition: border-color var(--sm-dur-base) var(--sm-ease);
+}
+.input:hover, .select:hover, .textarea:hover { border-color: var(--sm-fg-4); }
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--sm-accent);
+  box-shadow: 0 0 0 3px rgba(228, 123, 2, 0.12);
+}
+.textarea { min-height: 96px; resize: vertical; line-height: 1.55; }
+.input::placeholder, .textarea::placeholder { color: var(--sm-fg-4); }
+
+.label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sm-fg-2);
+  margin-bottom: 6px;
+}
+
+/* ============================================================
+   CHIPS
+   ============================================================ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-bg-3);
+  color: var(--sm-fg-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.chip--accent  { background: rgba(228,123,2,0.10); color: var(--sm-accent); }
+.chip--success { background: rgba(19,97,46,0.08);  color: var(--sm-status-success); }
+.chip--info    { background: rgba(17,89,175,0.08);  color: var(--sm-status-info); }
+.chip--warn    { background: rgba(245,165,36,0.14); color: #8a5a05; }
+.chip--outline { background: transparent; border-color: var(--sm-border-subtle); }
+
+.chip button {
+  background: none; border: none; padding: 0; margin-left: 2px;
+  color: inherit; opacity: 0.6; cursor: pointer;
+  display: inline-flex;
+}
+.chip button:hover { opacity: 1; }
+
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--sm-radius-sm);
+  border: 1px solid var(--sm-border-subtle);
+  background: var(--sm-bg-1);
+  color: var(--sm-fg-2);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--sm-dur-base) var(--sm-ease);
+}
+.toggle-chip:hover { border-color: var(--sm-fg-4); color: var(--sm-fg-1); }
+.toggle-chip[aria-pressed="true"] {
+  border-color: var(--sm-accent);
+  background: rgba(228,123,2,0.07);
+  color: var(--sm-accent);
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--sm-border-subtle);
+  margin-bottom: 24px;
+}
+.tab {
+  background: none;
+  border: none;
+  padding: 12px 18px;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--sm-fg-3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--sm-dur-base) var(--sm-ease), border-color var(--sm-dur-base) var(--sm-ease);
+}
+.tab:hover { color: var(--sm-fg-1); }
+.tab[aria-current="page"] {
+  color: var(--sm-fg-1);
+  border-bottom-color: var(--sm-accent);
+  font-weight: 600;
+}
+.tab .count {
+  display: inline-block;
+  margin-left: 6px;
+  background: var(--sm-bg-3);
+  color: var(--sm-fg-3);
+  font-size: 11.5px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.tab[aria-current="page"] .count { background: var(--sm-accent); color: white; }
+
+/* ============================================================
+   AVATAR PALETTE
+   ============================================================ */
+
+.av-1 { background: #f5d8b8; color: #8a5a05; }
+.av-2 { background: #d8e4f5; color: #1159af; }
+.av-3 { background: #d8f5dd; color: #13612e; }
+.av-4 { background: #f5d8d8; color: #b82105; }
+.av-5 { background: #ebd8f5; color: #5b1faf; }
+.av-6 { background: #f5ecd8; color: #8a5a05; }
+
+/* ============================================================
+   SCREEN READER UTILITY
+   ============================================================ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

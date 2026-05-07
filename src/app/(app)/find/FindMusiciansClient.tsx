@@ -1,0 +1,310 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+
+const INSTRUMENTS = [
+  "Acoustic Guitar", "Electric Guitar", "Bass Guitar", "Piano / Keys", "Organ",
+  "Drums", "Cajon / Hand Percussion", "Violin", "Viola", "Cello",
+  "Trumpet", "Trombone", "Saxophone", "Flute", "Clarinet",
+  "Lead Vocals", "Background Vocals", "Other",
+];
+
+const DISTANCE_OPTIONS = [
+  { value: 10,   label: "Within 10 miles" },
+  { value: 25,   label: "Within 25 miles" },
+  { value: 50,   label: "Within 50 miles" },
+  { value: 100,  label: "Within 100 miles" },
+  { value: 9999, label: "Any distance" },
+];
+
+const AV_COLORS = ["#f5d8b8","#d8e4f5","#d8f5dd","#f5d8d8","#ebd8f5","#f5ecd8"];
+const AV_TEXT   = ["#8a5a05","#1159af","#13612e","#b82105","#5b1faf","#8a5a05"];
+
+type Musician = {
+  id: string;
+  profile_id: string;
+  city: string;
+  state: string;
+  instruments: string[];
+  primary_instrument: string;
+  years_experience: number;
+  is_volunteer: boolean;
+  fee_min: number;
+  fee_max: number;
+  travel_radius_miles: number;
+  bio: string;
+  rating: number;
+  review_count: number;
+  available: boolean;
+  profiles: { display_name: string; avatar_url: string | null } | null;
+};
+
+function initials(name: string) {
+  return name.split(" ").map(w => w[0]).slice(0, 2).join("");
+}
+
+export function FindMusiciansClient({
+  musicians,
+  viewerLocation,
+  isChurch,
+}: {
+  musicians: Musician[];
+  viewerLocation: { city: string; state: string; zip: string | null } | null;
+  isChurch: boolean;
+}) {
+  const [selectedInstruments, setSelectedInstruments] = useState<string[]>([]);
+  const [dateNeeded, setDateNeeded] = useState("");
+  const [maxDistance, setMaxDistance] = useState(9999);
+  const [availableOnly, setAvailableOnly] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const activeFilterCount = [
+    selectedInstruments.length > 0,
+    dateNeeded !== "",
+    maxDistance !== 9999,
+    availableOnly,
+  ].filter(Boolean).length;
+
+  const filtered = useMemo(() => {
+    return musicians.filter(m => {
+      if (query) {
+        const q = query.toLowerCase();
+        const nameMatch = m.profiles?.display_name.toLowerCase().includes(q);
+        const instrMatch = m.instruments.some(i => i.toLowerCase().includes(q));
+        if (!nameMatch && !instrMatch) return false;
+      }
+      if (selectedInstruments.length > 0) {
+        const hasInstrument = selectedInstruments.some(sel =>
+          m.instruments.some(mi => mi.toLowerCase().includes(sel.toLowerCase()))
+        );
+        if (!hasInstrument) return false;
+      }
+      if (dateNeeded || availableOnly) {
+        if (!m.available) return false;
+      }
+      if (maxDistance !== 9999) {
+        const radius = m.travel_radius_miles ?? 0;
+        if (radius < maxDistance && radius !== 9999) return false;
+      }
+      return true;
+    });
+  }, [musicians, query, selectedInstruments, dateNeeded, availableOnly, maxDistance]);
+
+  function toggleInstrument(i: string) {
+    setSelectedInstruments(prev =>
+      prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+    );
+  }
+
+  function clearAll() {
+    setSelectedInstruments([]);
+    setDateNeeded("");
+    setMaxDistance(9999);
+    setAvailableOnly(false);
+    setQuery("");
+  }
+
+  const locationLabel = isChurch ? "Your church" : "Your location";
+
+  return (
+    <div style={{ padding: "32px 32px 80px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 28, alignItems: "start" }}>
+
+        {/* Filter sidebar */}
+        <aside style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22, position: "sticky", top: 90, background: "var(--sm-bg-1)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)" }}>
+              Filters
+              {activeFilterCount > 0 && (
+                <span style={{ marginLeft: 8, background: "var(--sm-accent)", color: "#fff", fontSize: 11, padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>
+                  {activeFilterCount}
+                </span>
+              )}
+            </div>
+            {activeFilterCount > 0 && (
+              <button onClick={clearAll} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12.5, color: "var(--sm-fg-3)", padding: 0 }}>
+                Clear all
+              </button>
+            )}
+          </div>
+
+          {viewerLocation && (viewerLocation.city || viewerLocation.state) && (
+            <div style={{ marginBottom: 16, padding: "8px 10px", background: "var(--sm-bg-2)", borderRadius: "var(--sm-radius-sm)", fontSize: 12.5, color: "var(--sm-fg-3)" }}>
+              📍 {locationLabel}: {[viewerLocation.city, viewerLocation.state].filter(Boolean).join(", ")}
+            </div>
+          )}
+
+          {/* Instrument */}
+          <FilterSection label="Instrument">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {INSTRUMENTS.map(i => {
+                const active = selectedInstruments.includes(i);
+                return (
+                  <button key={i} type="button" onClick={() => toggleInstrument(i)} style={{
+                    border: `1.5px solid ${active ? "var(--sm-accent)" : "var(--sm-border-subtle)"}`,
+                    borderRadius: "var(--sm-radius-sm)", padding: "4px 10px",
+                    background: active ? "rgba(228,123,2,0.07)" : "var(--sm-bg-1)",
+                    cursor: "pointer", fontSize: 12.5,
+                    color: active ? "var(--sm-accent)" : "var(--sm-fg-2)",
+                    fontWeight: active ? 600 : 400,
+                  }}>{i}</button>
+                );
+              })}
+            </div>
+          </FilterSection>
+
+          {/* Date available */}
+          <FilterSection label="Date needed">
+            <input
+              type="date"
+              className="input"
+              value={dateNeeded}
+              onChange={e => { setDateNeeded(e.target.value); if (e.target.value) setAvailableOnly(true); }}
+              min={new Date().toISOString().split("T")[0]}
+            />
+            <label style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 8, cursor: "pointer" }}>
+              <input type="checkbox" checked={availableOnly} onChange={e => setAvailableOnly(e.target.checked)} />
+              <span style={{ fontSize: 13, color: "var(--sm-fg-2)" }}>Available musicians only</span>
+            </label>
+            {(dateNeeded || availableOnly) && (
+              <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "var(--sm-fg-4)", lineHeight: 1.4 }}>
+                Based on self-reported availability
+              </p>
+            )}
+          </FilterSection>
+
+          {/* Distance */}
+          <FilterSection label={`Distance from ${isChurch ? "your church" : "you"}`} noBorder>
+            <select className="select" value={maxDistance} onChange={e => setMaxDistance(Number(e.target.value))}>
+              {DISTANCE_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            {maxDistance !== 9999 && (
+              <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "var(--sm-fg-4)", lineHeight: 1.4 }}>
+                Shows musicians willing to travel at least {maxDistance} miles
+              </p>
+            )}
+          </FilterSection>
+        </aside>
+
+        {/* Results */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Search bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ position: "relative", flex: 1, maxWidth: 380, minWidth: 220 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+                style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--sm-fg-4)", pointerEvents: "none" }}>
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input className="input" style={{ paddingLeft: 36 }} placeholder="Search by name or instrument"
+                value={query} onChange={e => setQuery(e.target.value)} />
+            </div>
+            <span style={{ fontSize: 14, color: "var(--sm-fg-2)" }}>
+              <strong style={{ color: "var(--sm-fg-1)" }}>{filtered.length}</strong> {filtered.length === 1 ? "musician" : "musicians"}
+            </span>
+          </div>
+
+          {/* Active filter chips */}
+          {(selectedInstruments.length > 0 || dateNeeded || maxDistance !== 9999 || availableOnly) && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>Filtering by:</span>
+              {selectedInstruments.map(i => (
+                <ActiveChip key={i} label={i} onRemove={() => toggleInstrument(i)} />
+              ))}
+              {dateNeeded && (
+                <ActiveChip label={`Available ${dateNeeded}`} onRemove={() => { setDateNeeded(""); setAvailableOnly(false); }} />
+              )}
+              {availableOnly && !dateNeeded && (
+                <ActiveChip label="Available now" onRemove={() => setAvailableOnly(false)} />
+              )}
+              {maxDistance !== 9999 && (
+                <ActiveChip label={`Within ${maxDistance} mi`} onRemove={() => setMaxDistance(9999)} />
+              )}
+            </div>
+          )}
+
+          {/* Cards */}
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "56px 24px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", color: "var(--sm-fg-3)" }}>
+              <h3 style={{ color: "var(--sm-fg-1)", margin: "0 0 8px", fontSize: 18 }}>No musicians match those filters</h3>
+              <p style={{ margin: "0 0 18px" }}>Try widening your distance or removing a filter.</p>
+              <button className="btn btn--secondary" onClick={clearAll}>Clear filters</button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 18 }}>
+              {filtered.map(m => {
+                const name = m.profiles?.display_name ?? "Musician";
+                const idx = m.id.charCodeAt(0) % 6;
+                const feeLabel = m.is_volunteer ? "Volunteer" : `$${m.fee_min}–$${m.fee_max}`;
+                return (
+                  <Link key={m.id} href={`/musicians/${m.id}`} style={{ textDecoration: "none" }}>
+                    <div style={{
+                      border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)",
+                      padding: 20, background: "var(--sm-bg-1)", display: "flex", flexDirection: "column",
+                      gap: 12, cursor: "pointer", height: "100%",
+                    }}>
+                      <div style={{ display: "flex", gap: 13, alignItems: "flex-start" }}>
+                        <div style={{ width: 52, height: 52, borderRadius: "var(--sm-radius-sm)", background: AV_COLORS[idx], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 17, color: AV_TEXT[idx], flexShrink: 0 }}>
+                          {initials(name)}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--sm-fg-1)" }}>{name}</div>
+                          <div style={{ fontSize: 13, color: "var(--sm-fg-3)", marginTop: 2 }}>{m.city}, {m.state}</div>
+                          {m.years_experience > 0 && (
+                            <div style={{ fontSize: 12.5, color: "var(--sm-fg-4)", marginTop: 3 }}>
+                              {m.rating > 0 && <span style={{ color: "var(--sm-accent)", marginRight: 6 }}>★ {m.rating}</span>}
+                              {m.years_experience} yrs exp
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                        {m.instruments.slice(0, 3).map(i => <span key={i} className="chip">{i}</span>)}
+                        {m.instruments.length > 3 && <span className="chip">+{m.instruments.length - 3}</span>}
+                      </div>
+                      {m.bio && (
+                        <p style={{ fontSize: 13, color: "var(--sm-fg-2)", lineHeight: 1.5, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          {m.bio}
+                        </p>
+                      )}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "1px solid var(--sm-border-subtle)", fontSize: 13, marginTop: "auto" }}>
+                        <span style={{ color: m.available ? "var(--sm-status-success)" : "var(--sm-fg-4)", fontWeight: 500 }}>
+                          {m.available ? "● Available" : "○ Not available"}
+                        </span>
+                        <span style={{ color: m.is_volunteer ? "var(--sm-status-success)" : "var(--sm-fg-2)", fontWeight: 500 }}>
+                          {feeLabel}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterSection({ label, children, noBorder }: { label: string; children: React.ReactNode; noBorder?: boolean }) {
+  return (
+    <div style={{ padding: "14px 0", borderTop: noBorder ? "none" : "1px solid var(--sm-border-subtle)" }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: "var(--sm-fg-1)" }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="chip chip--accent" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      {label}
+      <button onClick={onRemove} aria-label={`Remove ${label}`} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", lineHeight: 1 }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </span>
+  );
+}
