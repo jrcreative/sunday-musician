@@ -20,8 +20,8 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
     profiles: { display_name: string; avatar_url: string | null } | null;
   };
   type ReviewRow = {
-    id: string; rating: number; body: string; created_at: string;
-    church_profiles: { church_name: string } | null;
+    id: string; rating: number; body: string; submitted_at: string;
+    church_name: string | null;
   };
 
   const [{ data: musician }, { data: profile }] = await Promise.all([
@@ -35,12 +35,40 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
 
   if (!musician) notFound();
 
-  const { data: reviews } = await supabase
-    .from("reviews")
-    .select(`*, church_profiles(church_name)`)
-    .eq("musician_profile_id", id)
-    .order("created_at", { ascending: false })
-    .limit(5) as unknown as { data: ReviewRow[] | null; error: unknown };
+  // Released reviews about this musician — written by churches, on periods that
+  // have been released. Two-step query to keep filter syntax simple.
+  const { data: releasedPeriods } = await supabase
+    .from("review_periods")
+    .select("id, bookings!inner(church_profile_id, musician_profile_id, church_profiles(church_name))")
+    .eq("bookings.musician_profile_id", id)
+    .not("released_at", "is", null) as unknown as { data: Array<{
+      id: string;
+      bookings: { church_profile_id: string; church_profiles: { church_name: string } | null } | null;
+    }> | null };
+
+  const periodIds = (releasedPeriods ?? []).map(p => p.id);
+  const churchByPeriod = new Map<string, string | null>();
+  for (const p of releasedPeriods ?? []) {
+    churchByPeriod.set(p.id, p.bookings?.church_profiles?.church_name ?? null);
+  }
+
+  const { data: rawReviews } = periodIds.length > 0
+    ? await supabase
+        .from("reviews")
+        .select("id, period_id, rating, body, submitted_at")
+        .in("period_id", periodIds)
+        .eq("reviewer_role", "church")
+        .order("submitted_at", { ascending: false })
+        .limit(5)
+    : { data: [] as { id: string; period_id: string; rating: number; body: string; submitted_at: string }[] };
+
+  const reviews: ReviewRow[] = (rawReviews ?? []).map(r => ({
+    id: r.id,
+    rating: r.rating,
+    body: r.body,
+    submitted_at: r.submitted_at,
+    church_name: churchByPeriod.get(r.period_id) ?? null,
+  }));
 
   const isChurch = profile?.role === "church";
   const isOwnProfile = musician.profile_id === user.id;
@@ -131,12 +159,12 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
                 <div key={r.id} style={{ borderTop: "1px solid var(--sm-border-subtle)", padding: "18px 0" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                     <div style={{ width: 32, height: 32, borderRadius: "var(--sm-radius-sm)", background: AV_COLORS[i % 6], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 12, color: AV_TEXT[i % 6] }}>
-                      {r.church_profiles?.church_name?.[0] ?? "C"}
+                      {r.church_name?.[0] ?? "C"}
                     </div>
                     <div>
-                      <div style={{ fontWeight: 600, color: "var(--sm-fg-1)", fontSize: 14 }}>{r.church_profiles?.church_name}</div>
+                      <div style={{ fontWeight: 600, color: "var(--sm-fg-1)", fontSize: 14 }}>{r.church_name}</div>
                       <div style={{ color: "var(--sm-fg-4)", fontSize: 12.5 }}>
-                        {new Date(r.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                        {new Date(r.submitted_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                       </div>
                     </div>
                     <span style={{ marginLeft: "auto", color: "var(--sm-accent)", fontSize: 13 }}>{"★".repeat(r.rating)}</span>

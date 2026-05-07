@@ -4,6 +4,7 @@ export type MessageKind = "text" | "proposal";
 export type ProposalStatus = "pending" | "accepted" | "declined" | "countered";
 export type UnavailabilitySource = "manual" | "ical" | "google" | "pco";
 export type CalendarKind = "ical" | "google" | "pco";
+export type ReviewerRole = "musician" | "church";
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
@@ -149,15 +150,79 @@ export type Database = {
       reviews: {
         Row: {
           id: string;
-          musician_profile_id: string;
-          church_profile_id: string;
-          request_id: string;
+          period_id: string;
+          reviewer_role: ReviewerRole;
           rating: number;
           body: string;
+          submitted_at: string;
+        };
+        Insert: {
+          id?: string;
+          period_id: string;
+          reviewer_role: ReviewerRole;
+          rating: number;
+          body: string;
+          submitted_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["reviews"]["Insert"]>;
+        Relationships: [];
+      };
+      bookings: {
+        Row: {
+          id: string;
+          request_id: string;
+          thread_id: string;
+          church_profile_id: string;
+          musician_profile_id: string;
+          service_date: string;
+          fee: number | null;
+          fee_type: string | null;
+          accepted_at: string;
           created_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["reviews"]["Row"], "created_at" | "id">;
-        Update: Partial<Database["public"]["Tables"]["reviews"]["Insert"]>;
+        Insert: {
+          id?: string;
+          request_id: string;
+          thread_id: string;
+          church_profile_id: string;
+          musician_profile_id: string;
+          service_date: string;
+          fee?: number | null;
+          fee_type?: string | null;
+          accepted_at?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bookings"]["Insert"]>;
+        Relationships: [];
+      };
+      review_periods: {
+        Row: {
+          id: string;
+          booking_id: string;
+          reveal_at: string;
+          released_at: string | null;
+          prompt_musician_at: string | null;
+          prompt_church_at: string | null;
+          reminder_musician_at: string | null;
+          reminder_church_at: string | null;
+          released_email_musician_at: string | null;
+          released_email_church_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          booking_id: string;
+          reveal_at: string;
+          released_at?: string | null;
+          prompt_musician_at?: string | null;
+          prompt_church_at?: string | null;
+          reminder_musician_at?: string | null;
+          reminder_church_at?: string | null;
+          released_email_musician_at?: string | null;
+          released_email_church_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["review_periods"]["Insert"]>;
         Relationships: [];
       };
       unavailability_blocks: {
@@ -222,6 +287,7 @@ export type Database = {
       proposal_status: ProposalStatus;
       unavailability_source: UnavailabilitySource;
       calendar_kind: CalendarKind;
+      reviewer_role: ReviewerRole;
     };
   };
 };
