@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/shell/Sidebar";
+import { AppShell } from "@/components/shell/AppShell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -14,11 +14,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .single();
 
   return (
-    <div className="app" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "244px 1fr" }}>
-      <Sidebar profile={profile} userId={user.id} />
-      <main className="main" style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
-        {children}
-      </main>
-    </div>
+    <AppShell profile={profile} userId={user.id}>
+      {children}
+    </AppShell>
   );
 }

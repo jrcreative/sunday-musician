@@ -185,7 +185,7 @@ export function ThreadClient({
   let lastDate = "";
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24, padding: "24px 32px 32px", height: "calc(100vh - 65px)" }}>
+    <div className="sm-thread-layout">
 
       {/* ── Chat ── */}
       <div style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", display: "flex", flexDirection: "column", overflow: "hidden" }}>

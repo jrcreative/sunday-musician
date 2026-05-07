@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MobileMenuButton } from "./MobileMenuButton";
 
 interface Crumb { label: string; href?: string; }
 
@@ -10,16 +11,17 @@ interface TopbarProps {
 
 export function Topbar({ title, crumbs, right }: TopbarProps) {
   return (
-    <header style={{
-      display: "flex", alignItems: "center", gap: 16,
-      padding: "14px 32px",
+    <header className="sm-topbar" style={{
+      display: "flex", alignItems: "center", gap: 12,
+      padding: "10px 16px",
       borderBottom: "1px solid var(--sm-border-subtle)",
       background: "var(--sm-bg-1)",
       position: "sticky", top: 0, zIndex: 10,
     }}>
-      <div>
+      <MobileMenuButton />
+      <div style={{ minWidth: 0, flex: 1 }}>
         {crumbs && crumbs.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--sm-fg-3)", marginBottom: 2 }}>
+          <div className="sm-only-desktop" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--sm-fg-3)", marginBottom: 2 }}>
             {crumbs.map((c, i) => (
               <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {c.href ? <Link href={c.href} style={{ color: "var(--sm-fg-3)", textDecoration: "none" }}>{c.label}</Link> : <span>{c.label}</span>}
@@ -28,9 +30,9 @@ export function Topbar({ title, crumbs, right }: TopbarProps) {
             ))}
           </div>
         )}
-        <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0, letterSpacing: "-0.005em" }}>{title}</h1>
+        <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0, letterSpacing: "-0.005em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</h1>
       </div>
-      {right && <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>{right}</div>}
+      {right && <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>{right}</div>}
     </header>
   );
 }

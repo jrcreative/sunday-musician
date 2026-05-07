@@ -93,8 +93,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         title={request.title}
         crumbs={[...crumbBase, { label: request.title }]}
       />
-      <div style={{ padding: "32px 32px 80px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 32, alignItems: "start" }}>
+      <div className="page">
+        <div className="sm-split sm-split--profile" style={{ gap: 32 }}>
 
           {/* Main content */}
           <div>
@@ -122,7 +122,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             </div>
 
             {/* Details grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px 40px", marginBottom: 32 }}>
+            <div className="sm-row-2" style={{ gap: "24px 40px", marginBottom: 32 }}>
               <div>
                 <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Instruments needed</h3>
                 {request.instruments_needed.length > 0 ? (

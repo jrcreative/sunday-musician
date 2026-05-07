@@ -134,17 +134,7 @@ export function Sidebar({ profile, userId }: { profile: Profile | null; userId: 
   }
 
   return (
-    <aside className="sidebar" style={{
-      borderRight: "1px solid var(--sm-border-subtle)",
-      padding: "22px 18px 18px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 28,
-      position: "sticky",
-      top: 0,
-      height: "100vh",
-      background: "var(--sm-bg-1)",
-    }}>
+    <aside className="sidebar sm-sidebar">
       {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 6px 14px", borderBottom: "1px solid var(--sm-border-subtle)" }}>
         <Image src="/assets/sm-logo-icon.svg" alt="" width={32} height={32} />

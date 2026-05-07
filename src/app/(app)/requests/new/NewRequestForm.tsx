@@ -175,7 +175,7 @@ export function NewRequestForm({
   }
 
   return (
-    <div style={{ padding: "32px 32px 80px", maxWidth: 760, margin: "0 auto" }}>
+    <div className="page page--narrow">
       {/* Step indicator */}
       <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 40 }}>
         {STEPS.map((s, i) => (
@@ -214,7 +214,7 @@ export function NewRequestForm({
         <div>
           <h2 style={{ fontSize: 28, fontWeight: 700, margin: "0 0 6px", letterSpacing: "-0.01em" }}>Tell us about the service</h2>
           <p style={{ fontSize: 16, color: "var(--sm-fg-3)", margin: "0 0 28px" }}>This is what musicians will see first. Be plain — what&apos;s the service, when is it, where is it.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px" }}>
+          <div className="sm-row-2" style={{ gap: "16px 20px" }}>
             <div style={{ gridColumn: "1 / -1" }}>
               <label className="label">Request title</label>
               <input className="input" placeholder="e.g. Sunday morning — pianist needed"
@@ -289,7 +289,7 @@ export function NewRequestForm({
               </button>
             ))}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px" }}>
+          <div className="sm-row-2" style={{ gap: "16px 20px" }}>
             <div>
               <label className="label">Rehearsals</label>
               <select className="select" value={data.rehearsals} onChange={e => set("rehearsals", e.target.value)}>
@@ -359,7 +359,7 @@ export function NewRequestForm({
               </button>
             ))}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px" }}>
+          <div className="sm-row-2" style={{ gap: "16px 20px" }}>
             <div>
               <label className="label">Offered fee</label>
               <div style={{ display: "flex" }}>
