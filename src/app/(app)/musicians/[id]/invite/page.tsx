@@ -29,7 +29,7 @@ export default async function InviteMusicianPage({ params }: { params: Promise<{
 
   const { data: requests } = await supabase
     .from("service_requests")
-    .select("id, title, service_date, service_type")
+    .select("id, title, service_date, service_type, offered_fee, fee_type, notes")
     .eq("church_profile_id", cp.id)
     .eq("status", "open")
     .order("service_date", { ascending: true });

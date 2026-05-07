@@ -26,69 +26,69 @@ const musicianNav = [
   { href: "/reviews", label: "Reviews", icon: StarIcon },
 ];
 
-const CLEARED_KEY = "sm_unread_cleared_at";
-
 export function Sidebar({ profile, userId }: { profile: Profile | null; userId: string }) {
   const pathname = usePathname();
   const isChurch = profile?.role !== "musician";
   const nav = isChurch ? churchNav : musicianNav;
   const initials = profile?.display_name?.split(" ").map(w => w[0]).slice(0, 2).join("") ?? "?";
 
+  // Per-thread unread is server-side (last_read_at_* on threads). The badge
+  // here is a sum: count of threads where the latest message is from the other
+  // side and newer than my last_read_at.
   const [unreadCount, setUnreadCount] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const threadDataRef = useRef<Map<string, { lastReadAt: string | null; archived: boolean }>>(new Map());
+  const profileSideRef = useRef<{ column: "church_profile_id" | "musician_profile_id"; profileId: string | null }>({
+    column: "church_profile_id", profileId: null,
+  });
 
-  // Clear badge and record timestamp when on /messages
-  useEffect(() => {
-    if (pathname.startsWith("/messages")) {
-      localStorage.setItem(CLEARED_KEY, new Date().toISOString());
-      setUnreadCount(0);
+  async function recompute() {
+    const supabase = createClient();
+    const { column, profileId } = profileSideRef.current;
+    if (!profileId) return;
+
+    // Pull threads with my last_read_at + their latest message timestamp.
+    const { data } = await supabase
+      .from("threads")
+      .select("id, archived_at, last_read_at_church, last_read_at_musician, messages(created_at, sender_profile_id)")
+      .eq(column, profileId) as unknown as { data: Array<{
+        id: string; archived_at: string | null;
+        last_read_at_church: string | null; last_read_at_musician: string | null;
+        messages: { created_at: string; sender_profile_id: string }[];
+      }> | null };
+
+    let count = 0;
+    threadDataRef.current.clear();
+    for (const t of data ?? []) {
+      const myLastRead = isChurch ? t.last_read_at_church : t.last_read_at_musician;
+      threadDataRef.current.set(t.id, { lastReadAt: myLastRead, archived: !!t.archived_at });
+      // Count threads with at least one message from the other side after my last_read_at.
+      const hasUnread = t.messages.some(m =>
+        m.sender_profile_id !== userId && (myLastRead == null || m.created_at > myLastRead)
+      );
+      if (hasUnread) count++;
     }
-  }, [pathname]);
+    setUnreadCount(count);
+  }
 
-  // Fetch initial unread count and subscribe to new messages
+  // Initial fetch + realtime subscription. Recompute on /messages exits since
+  // visiting a thread updates last_read_at server-side.
   useEffect(() => {
     const supabase = createClient();
-    let threadIds: string[] = [];
     let active = true;
 
     async function init() {
-      const clearedAt = localStorage.getItem(CLEARED_KEY) ?? new Date(0).toISOString();
+      // Resolve our profile-side id once.
+      const tbl = isChurch ? "church_profiles" : "musician_profiles";
+      const { data } = await supabase.from(tbl).select("id").eq("profile_id", userId).maybeSingle();
+      profileSideRef.current = {
+        column: isChurch ? "church_profile_id" : "musician_profile_id",
+        profileId: (data as { id: string } | null)?.id ?? null,
+      };
+      if (!active) return;
+      await recompute();
 
-      // Resolve the profile side's ID
-      let profileColumn: "church_profile_id" | "musician_profile_id";
-      let profileId: string | null = null;
-
-      if (isChurch) {
-        const { data } = await supabase
-          .from("church_profiles").select("id").eq("profile_id", userId).maybeSingle();
-        profileId = data?.id ?? null;
-        profileColumn = "church_profile_id";
-      } else {
-        const { data } = await supabase
-          .from("musician_profiles").select("id").eq("profile_id", userId).maybeSingle();
-        profileId = data?.id ?? null;
-        profileColumn = "musician_profile_id";
-      }
-
-      if (!profileId || !active) return;
-
-      // Get thread IDs for this user
-      const { data: threads } = await supabase
-        .from("threads").select("id").eq(profileColumn, profileId);
-      threadIds = (threads ?? []).map(t => t.id);
-      if (!threadIds.length || !active) return;
-
-      // Count messages from others since last cleared
-      const { count } = await supabase
-        .from("messages")
-        .select("id", { count: "exact", head: true })
-        .in("thread_id", threadIds)
-        .neq("sender_profile_id", userId)
-        .gt("created_at", clearedAt);
-
-      if (active) setUnreadCount(count ?? 0);
-
-      // Realtime: listen for new inserts on messages
+      // Realtime — refresh count whenever a message lands in any thread we know about.
       channelRef.current = supabase
         .channel("sidebar-unread")
         .on(
@@ -97,11 +97,10 @@ export function Sidebar({ profile, userId }: { profile: Profile | null; userId: 
           (payload) => {
             const msg = payload.new as { thread_id: string; sender_profile_id: string };
             if (
-              threadIds.includes(msg.thread_id) &&
-              msg.sender_profile_id !== userId &&
-              !window.location.pathname.startsWith("/messages")
+              threadDataRef.current.has(msg.thread_id) &&
+              msg.sender_profile_id !== userId
             ) {
-              setUnreadCount(prev => prev + 1);
+              recompute();
             }
           }
         )
@@ -109,7 +108,6 @@ export function Sidebar({ profile, userId }: { profile: Profile | null; userId: 
     }
 
     init();
-
     return () => {
       active = false;
       if (channelRef.current) {
@@ -119,6 +117,15 @@ export function Sidebar({ profile, userId }: { profile: Profile | null; userId: 
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, isChurch]);
+
+  // When the user navigates away from a thread, the page render will have
+  // updated last_read_at server-side. Refresh.
+  useEffect(() => {
+    if (!pathname.startsWith("/messages/")) {
+      recompute();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   async function signOut() {
     const supabase = createClient();

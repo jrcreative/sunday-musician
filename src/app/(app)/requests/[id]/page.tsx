@@ -77,7 +77,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
       const { data: thread } = await supabase
         .from("threads").select("id")
         .eq("musician_profile_id", mp.id)
-        .eq("church_profile_id", request.church_profile_id)
+        .eq("request_id", id)
         .maybeSingle();
       threadId = thread?.id ?? null;
     }
@@ -226,7 +226,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                     Continue conversation →
                   </Link>
                 ) : (
-                  <Link href={`/messages?church_id=${request.church_profile_id}`} className="btn btn--primary">
+                  <Link href={`/messages?church_id=${request.church_profile_id}&request_id=${id}`} className="btn btn--primary">
                     Message {request.church_profiles?.church_name ?? "church"}
                   </Link>
                 )}
@@ -276,7 +276,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                       View conversation
                     </Link>
                   ) : (
-                    <Link href={`/messages?church_id=${request.church_profile_id}`} className="btn btn--primary" style={{ textAlign: "center", textDecoration: "none" }}>
+                    <Link href={`/messages?church_id=${request.church_profile_id}&request_id=${id}`} className="btn btn--primary" style={{ textAlign: "center", textDecoration: "none" }}>
                       Message church
                     </Link>
                   )}

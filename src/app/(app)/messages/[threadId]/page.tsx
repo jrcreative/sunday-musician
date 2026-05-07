@@ -30,6 +30,19 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
     .eq("thread_id", threadId)
     .order("created_at", { ascending: true });
 
+  // Mark thread as read for this side. Done as a fire-and-forget update —
+  // RLS guarantees this only succeeds for participants. We don't await
+  // failures because failure isn't user-facing.
+  const { data: myCp } = await supabase
+    .from("church_profiles").select("id").eq("profile_id", user.id).maybeSingle();
+  const isChurchSide = myCp?.id === thread.church_profile_id;
+  const nowIso = new Date().toISOString();
+  if (isChurchSide) {
+    await supabase.from("threads").update({ last_read_at_church: nowIso }).eq("id", threadId);
+  } else {
+    await supabase.from("threads").update({ last_read_at_musician: nowIso }).eq("id", threadId);
+  }
+
   let requestInfo: RequestInfo | null = null;
   if (thread.request_id) {
     const { data: req } = await supabase
@@ -39,10 +52,6 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
       .single();
     if (req) requestInfo = req as RequestInfo;
   }
-
-  const { data: churchProfile } = await supabase
-    .from("church_profiles").select("id").eq("profile_id", user.id).maybeSingle();
-  const isChurchSide = churchProfile?.id === thread.church_profile_id;
 
   let otherName = "Musician";
   if (isChurchSide) {
@@ -59,7 +68,10 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
     <>
       <Topbar
         title={otherName}
-        crumbs={[{ label: "Messages", href: "/messages" }, { label: otherName }]}
+        crumbs={[
+          { label: "Messages", href: "/messages" },
+          { label: requestInfo?.title ?? "Conversation" },
+        ]}
       />
       <ThreadClient
         threadId={threadId}
@@ -67,6 +79,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
         isChurchSide={isChurchSide}
         otherName={otherName}
         requestInfo={requestInfo}
+        archivedAt={thread.archived_at}
+        archiveReason={thread.archive_reason}
         initialMessages={(messages ?? []) as unknown as Parameters<typeof ThreadClient>[0]["initialMessages"]}
       />
     </>

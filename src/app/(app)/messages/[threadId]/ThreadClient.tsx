@@ -28,6 +28,8 @@ export function ThreadClient({
   isChurchSide,
   otherName,
   requestInfo,
+  archivedAt,
+  archiveReason,
   initialMessages,
 }: {
   threadId: string;
@@ -35,6 +37,8 @@ export function ThreadClient({
   isChurchSide: boolean;
   otherName: string;
   requestInfo: RequestInfo | null;
+  archivedAt: string | null;
+  archiveReason: string | null;
   initialMessages: Message[];
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages as Message[]);
@@ -61,6 +65,18 @@ export function ThreadClient({
   }, [messages]);
 
   const isConfirmed = latestProposal?.proposal_status === "accepted";
+  const hasAnyProposal = useMemo(() => messages.some(m => m.kind === "proposal"), [messages]);
+  const isArchived = !!archivedAt;
+  // Churches must lead with a proposal — text composer locked until they send one.
+  const churchMustProposeFirst = isChurchSide && !hasAnyProposal;
+  const composerLocked = isArchived || churchMustProposeFirst;
+  const archiveLabel = archiveReason === "request_closed"
+    ? "Request was closed"
+    : archiveReason === "past_service"
+      ? "Service date has passed"
+      : archiveReason === "stale"
+        ? "Inactive for 21 days"
+        : "Archived";
 
   // Sync sidebar fee to latest proposal fee when it changes
   useEffect(() => {
@@ -235,21 +251,29 @@ export function ThreadClient({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Composer */}
-        <div style={{ borderTop: "1px solid var(--sm-border-subtle)", padding: "10px 14px", background: "var(--sm-bg-1)", display: "flex", gap: 10, alignItems: "flex-end" }}>
-          <textarea
-            ref={textareaRef}
-            placeholder={`Message ${otherName.split(" ")[0]}…`}
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            style={{ flex: 1, resize: "none", border: "none", outline: "none", fontSize: 14.5, background: "transparent", lineHeight: 1.5, padding: "6px 4px", fontFamily: "inherit", color: "var(--sm-fg-1)", minHeight: 34, maxHeight: 140, overflowY: "auto" }}
-          />
-          <button className="btn btn--primary btn--sm" onClick={sendMessage} disabled={!draft.trim() || sending}>
-            Send
-          </button>
-        </div>
+        {/* Composer / lock banner */}
+        {composerLocked ? (
+          <div style={{ borderTop: "1px solid var(--sm-border-subtle)", padding: "14px 18px", background: "var(--sm-bg-2)", textAlign: "center", color: "var(--sm-fg-3)", fontSize: 13.5, lineHeight: 1.5 }}>
+            {isArchived
+              ? `This conversation is archived — ${archiveLabel.toLowerCase()}. You can read it but not send new messages.`
+              : "Send a proposal to start the conversation. Use the panel on the right to set the date and fee."}
+          </div>
+        ) : (
+          <div style={{ borderTop: "1px solid var(--sm-border-subtle)", padding: "10px 14px", background: "var(--sm-bg-1)", display: "flex", gap: 10, alignItems: "flex-end" }}>
+            <textarea
+              ref={textareaRef}
+              placeholder={`Message ${otherName.split(" ")[0]}…`}
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              style={{ flex: 1, resize: "none", border: "none", outline: "none", fontSize: 14.5, background: "transparent", lineHeight: 1.5, padding: "6px 4px", fontFamily: "inherit", color: "var(--sm-fg-1)", minHeight: 34, maxHeight: 140, overflowY: "auto" }}
+            />
+            <button className="btn btn--primary btn--sm" onClick={sendMessage} disabled={!draft.trim() || sending}>
+              Send
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Agreement sidebar ── */}
@@ -313,7 +337,7 @@ export function ThreadClient({
             </div>
             <button
               className="btn btn--primary"
-              disabled={sendingProposal || proposalFee === ""}
+              disabled={sendingProposal || proposalFee === "" || isArchived}
               onClick={sendProposal}
               style={{ width: "100%" }}
             >
