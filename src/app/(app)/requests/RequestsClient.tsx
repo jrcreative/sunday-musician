@@ -47,7 +47,7 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
   };
 
   return (
-    <div style={{ padding: "32px 32px 80px", maxWidth: 1100, width: "100%" }}>
+    <div className="page">
       {requests.length === 0 ? (
         <div style={{ textAlign: "center", padding: "64px 24px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", color: "var(--sm-fg-3)" }}>
           <p style={{ margin: "0 0 16px", fontSize: 16 }}>

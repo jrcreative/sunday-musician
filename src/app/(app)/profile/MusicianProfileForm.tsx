@@ -119,7 +119,7 @@ export function MusicianProfileForm({
   }
 
   return (
-    <form onSubmit={handleSave} style={{ padding: "32px 32px 80px", maxWidth: 720 }}>
+    <form onSubmit={handleSave} className="page page--narrow">
 
       <Section title="About you">
         <div className="field">
@@ -190,7 +190,7 @@ export function MusicianProfileForm({
           <span style={{ fontSize: 14.5 }}>I&apos;m open to volunteering (no pay required)</span>
         </label>
         {!isVolunteer && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+          <div className="sm-row-2" style={{ marginTop: 16 }}>
             <div className="field">
               <label className="label" htmlFor="feeMin">Minimum fee ($ / service)</label>
               <input id="feeMin" type="number" className="input" min={0} value={feeMin}
@@ -206,7 +206,7 @@ export function MusicianProfileForm({
       </Section>
 
       <Section title="Location & travel">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="sm-row-2">
           <div className="field" style={{ gridColumn: "1 / -1" }}>
             <label className="label" htmlFor="address">Street address (optional)</label>
             <input id="address" type="text" className="input" value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St" />

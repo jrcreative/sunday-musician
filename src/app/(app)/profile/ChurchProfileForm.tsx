@@ -86,10 +86,10 @@ export function ChurchProfileForm({
   }
 
   return (
-    <form onSubmit={handleSave} style={{ padding: "32px 32px 80px", maxWidth: 720 }}>
+    <form onSubmit={handleSave} className="page page--narrow">
 
       <Section title="About your church">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="sm-row-2">
           <div className="field">
             <label className="label" htmlFor="churchName">Church name</label>
             <input id="churchName" type="text" className="input" value={churchName} onChange={e => setChurchName(e.target.value)} required />
@@ -106,7 +106,7 @@ export function ChurchProfileForm({
       </Section>
 
       <Section title="Location">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="sm-row-2">
           <div className="field" style={{ gridColumn: "1 / -1" }}>
             <label className="label" htmlFor="address">Street address</label>
             <input id="address" type="text" className="input" value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Church St" />
@@ -127,7 +127,7 @@ export function ChurchProfileForm({
       </Section>
 
       <Section title="Ministry details">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="sm-row-2">
           <div className="field">
             <label className="label" htmlFor="capacity">Seating capacity</label>
             <input id="capacity" type="number" className="input" min={1} value={capacity}

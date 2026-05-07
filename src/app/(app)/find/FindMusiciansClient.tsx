@@ -121,11 +121,11 @@ export function FindMusiciansClient({
   const locationLabel = isChurch ? "Your church" : "Your location";
 
   return (
-    <div style={{ padding: "32px 32px 80px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 28, alignItems: "start" }}>
+    <div className="page">
+      <div className="sm-split sm-split--with-rail">
 
         {/* Filter sidebar */}
-        <aside style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22, position: "sticky", top: 90, background: "var(--sm-bg-1)" }}>
+        <aside className="sm-find-filters" style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22, background: "var(--sm-bg-1)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)" }}>
               Filters

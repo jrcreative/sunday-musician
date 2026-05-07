@@ -69,10 +69,10 @@ export function HomeClient({ musicians }: { musicians: Musician[] }) {
 
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 28, alignItems: "start" }}>
+      <div className="sm-split sm-split--filter">
 
         {/* Filters */}
-        <aside style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22, position: "sticky", top: 76, background: "var(--sm-bg-1)" }}>
+        <aside className="sm-find-filters" style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22, background: "var(--sm-bg-1)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--sm-fg-3)" }}>
               Filters

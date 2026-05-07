@@ -133,6 +133,135 @@
 .page--narrow { max-width: var(--sm-content-narrow); }
 .page--wide   { max-width: var(--sm-content-wide); }
 
+/* Messages thread layout — desktop: chat + request rail, full viewport.
+   Mobile: stacked, chat takes the remaining height. The "request rail" is
+   a thread sidebar showing service date / fee / accept controls; on mobile
+   it appears above the chat as a compact summary. */
+.sm-thread-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 24px;
+  padding: 24px 32px 32px;
+  height: calc(100vh - 65px);
+}
+@media (max-width: 768px) {
+  .sm-thread-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 12px;
+    padding: 12px;
+    height: calc(100vh - 56px);
+  }
+}
+
+/* Public landing page (/) — header, hero, stats, browse. Capped to a wide
+   content max so it doesn't sprawl on huge monitors; padding shrinks on mobile. */
+.sm-landing-row {
+  max-width: var(--sm-content);
+  margin: 0 auto;
+  width: 100%;
+}
+.sm-landing-header {
+  background: var(--sm-bg-1);
+  border-bottom: 1px solid var(--sm-border-subtle);
+  padding: 0 40px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.sm-landing-header .sm-landing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sm-landing-hero {
+  background: var(--sm-bg-1);
+  border-bottom: 1px solid var(--sm-border-subtle);
+  padding: 52px 40px 44px;
+}
+.sm-landing-h1 {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px;
+  line-height: 1.15;
+  color: var(--sm-fg-1);
+}
+.sm-landing-stats-section {
+  background: var(--sm-bg-2);
+  border-bottom: 1px solid var(--sm-border-subtle);
+  padding: 28px 40px;
+}
+.sm-landing-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.sm-landing-browse {
+  padding: 32px 40px 80px;
+}
+@media (max-width: 768px) {
+  .sm-landing-header { padding: 0 16px; height: 56px; }
+  .sm-landing-hero   { padding: 32px 16px 24px; }
+  .sm-landing-h1     { font-size: 28px; line-height: 1.2; }
+  .sm-landing-stats-section { padding: 16px 16px; }
+  .sm-landing-stats  { grid-template-columns: 1fr; gap: 8px; }
+  .sm-landing-browse { padding: 20px 16px 64px; }
+}
+
+/* Find page filter rail — sticky on desktop, inline (top of stack) on mobile. */
+.sm-find-filters { position: sticky; top: 90px; }
+@media (max-width: 768px) {
+  .sm-find-filters { position: static; }
+}
+
+/* Stack utility: side-by-side at desktop, stacked top-to-bottom on mobile.
+   Pages with sidebar+content patterns use this so they collapse cleanly. */
+.sm-split {
+  display: grid;
+  gap: 28px;
+  align-items: start;
+}
+.sm-split--with-rail   { grid-template-columns: 280px 1fr; }
+.sm-split--with-aside  { grid-template-columns: 1fr 360px; }
+.sm-split--filter      { grid-template-columns: 260px 1fr; }
+.sm-split--profile     { grid-template-columns: 1fr 320px; }
+
+/* Form row utilities — N equal columns on desktop, single column on mobile.
+   Used for stat tiles, two-up form fields, etc. */
+.sm-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.sm-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.sm-row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+@media (max-width: 768px) {
+  .sm-row-2,
+  .sm-row-3,
+  .sm-row-4 { grid-template-columns: 1fr; gap: 10px; }
+}
+
+@media (max-width: 768px) {
+  .page { padding: 16px 16px 64px; }
+  .sm-split,
+  .sm-split--with-rail,
+  .sm-split--with-aside,
+  .sm-split--filter,
+  .sm-split--profile {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Hide on either breakpoint */
+.sm-only-desktop { display: initial; }
+.sm-only-mobile  { display: none; }
+@media (max-width: 768px) {
+  .sm-only-desktop { display: none !important; }
+  .sm-only-mobile  { display: initial; }
+}
+
 /* ============================================================
    BUTTONS
    ============================================================ */
@@ -190,6 +319,102 @@
 .btn--lg { padding: 13px 24px; font-size: 16px; }
 .btn--icon { padding: 8px; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Industry-standard 44×44 minimum tap target on touch devices.
+   Bumps padding so even .btn--sm hits the threshold on mobile. */
+@media (max-width: 768px) {
+  .btn         { padding: 12px 20px; font-size: 15px; min-height: 44px; }
+  .btn--sm     { padding: 10px 14px; font-size: 14px; min-height: 40px; }
+  .btn--lg     { padding: 14px 24px; font-size: 17px; min-height: 48px; }
+  .btn--icon   { padding: 10px; min-width: 44px; min-height: 44px; }
+  .input,
+  .select,
+  .textarea    { padding: 12px 14px; font-size: 16px; min-height: 44px; }
+  .textarea    { min-height: 96px; }
+}
+
+/* Topbar — match horizontal padding to .page on desktop so titles align
+   with body content beneath. */
+@media (min-width: 769px) {
+  .sm-topbar {
+    padding: 14px 32px !important;
+  }
+}
+
+/* Hamburger / mobile menu button — fixed 44×44 hit target. Hidden above mobile. */
+.sm-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--sm-radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--sm-fg-1);
+  cursor: pointer;
+  margin-left: -8px;
+}
+.sm-menu-btn:hover { background: var(--sm-bg-2); }
+@media (max-width: 768px) {
+  .sm-menu-btn { display: inline-flex; }
+}
+
+/* App shell — desktop: 244px sidebar + main. Mobile: full-width main with
+   sidebar collapsed off-canvas. JS toggles .sidebar-open on the wrapper. */
+.sm-app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 244px 1fr;
+}
+@media (max-width: 768px) {
+  .sm-app { grid-template-columns: 1fr; }
+}
+
+/* Sidebar — desktop: sticky column. Mobile: off-canvas drawer toggled by
+   .sm-app.sidebar-open. */
+.sm-sidebar {
+  border-right: 1px solid var(--sm-border-subtle);
+  padding: 22px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: var(--sm-bg-1);
+}
+.sm-sidebar-backdrop { display: none; }
+
+@media (max-width: 768px) {
+  .sm-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    max-width: 84vw;
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform 200ms var(--sm-ease, ease);
+    box-shadow: 2px 0 24px rgba(0, 0, 0, 0.12);
+    overflow-y: auto;
+  }
+  .sm-app.sidebar-open .sm-sidebar { transform: translateX(0); }
+  .sm-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 55;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms var(--sm-ease, ease);
+  }
+  .sm-app.sidebar-open .sm-sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
 
 /* ============================================================
    FORM CONTROLS

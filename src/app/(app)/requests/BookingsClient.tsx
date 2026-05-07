@@ -34,10 +34,10 @@ export function BookingsClient({ bookings }: { bookings: Booking[] }) {
   ];
 
   return (
-    <div style={{ padding: "32px 32px 80px", maxWidth: 900, width: "100%" }}>
+    <div className="page page--narrow">
 
       {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 36 }}>
+      <div className="sm-row-3" style={{ gap: 16, marginBottom: 36 }}>
         {stats.map(s => (
           <div key={s.label} style={{
             padding: "20px 24px",

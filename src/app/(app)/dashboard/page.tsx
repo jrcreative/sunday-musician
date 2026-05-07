@@ -37,7 +37,7 @@ export default async function DashboardPage() {
           title="Dashboard"
           right={<Link href="/requests/new" className="btn btn--primary btn--sm">+ New request</Link>}
         />
-        <div style={{ padding: "32px 32px 80px", maxWidth: 1400, width: "100%" }}>
+        <div className="page page--wide">
           <div style={{ marginBottom: 28 }}>
             <div className="sm-eyebrow" style={{ marginBottom: 8 }}>
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
@@ -50,9 +50,9 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 28, alignItems: "start" }}>
+          <div className="sm-split sm-split--with-aside" style={{ gap: 28 }}>
             <div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 32 }}>
+              <div className="sm-row-3" style={{ marginBottom: 32 }}>
                 {[
                   { label: "Open requests", val: openCount, sub: "awaiting reply" },
                   { label: "Confirmed", val: confirmedCount, sub: "this month" },
@@ -226,7 +226,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Topbar title="Dashboard" />
-      <div style={{ padding: "32px 32px 80px", maxWidth: 1000, width: "100%" }}>
+      <div className="page">
 
         {/* Greeting */}
         <div style={{ marginBottom: 32 }}>
@@ -244,7 +244,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 40 }}>
+        <div className="sm-row-3" style={{ marginBottom: 40 }}>
           {stats.map(s => (
             <div key={s.label} style={{ padding: "20px 22px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--sm-fg-3)", marginBottom: 8 }}>{s.label}</div>

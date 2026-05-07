@@ -94,8 +94,8 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
           ) : undefined
         }
       />
-      <div style={{ padding: "32px 32px 80px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 32, alignItems: "start" }}>
+      <div className="page">
+        <div className="sm-split sm-split--profile" style={{ gap: 32 }}>
           <div>
             {/* Header */}
             <div style={{ display: "flex", gap: 22, alignItems: "flex-start", paddingBottom: 28, borderBottom: "1px solid var(--sm-border-subtle)", marginBottom: 28 }}>

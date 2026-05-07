@@ -333,7 +333,7 @@ export function AvailabilityClient({
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 24, alignItems: "start" }}>
+      <div className="sm-split sm-split--with-aside" style={{ gap: 24 }}>
 
         {/* Calendar */}
         <div style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", padding: 20 }}>
