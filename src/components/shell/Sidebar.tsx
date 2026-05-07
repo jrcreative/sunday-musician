@@ -20,6 +20,7 @@ const churchNav = [
 const musicianNav = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { href: "/find", label: "Browse musicians", icon: SearchIcon },
+  { href: "/availability", label: "Availability", icon: CalendarIcon },
   { href: "/messages", label: "Messages", icon: MsgIcon },
 ];
 
@@ -232,4 +233,7 @@ function MsgIcon(p: React.SVGProps<SVGSVGElement>) {
 }
 function PlusIcon(p: React.SVGProps<SVGSVGElement>) {
   return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5v14"/></svg>;
+}
+function CalendarIcon(p: React.SVGProps<SVGSVGElement>) {
+  return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
 }

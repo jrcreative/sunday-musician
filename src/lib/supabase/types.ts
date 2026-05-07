@@ -2,6 +2,8 @@ export type UserRole = "church" | "musician";
 export type RequestStatus = "open" | "in_progress" | "filled" | "cancelled";
 export type MessageKind = "text" | "proposal";
 export type ProposalStatus = "pending" | "accepted" | "declined" | "countered";
+export type UnavailabilitySource = "manual" | "ical" | "google" | "pco";
+export type CalendarKind = "ical" | "google" | "pco";
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
@@ -158,6 +160,58 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["reviews"]["Insert"]>;
         Relationships: [];
       };
+      unavailability_blocks: {
+        Row: {
+          id: string;
+          musician_profile_id: string;
+          start_date: string;
+          end_date: string;
+          source: UnavailabilitySource;
+          external_id: string | null;
+          note: string | null;
+          connection_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          musician_profile_id: string;
+          start_date: string;
+          end_date: string;
+          source?: UnavailabilitySource;
+          external_id?: string | null;
+          note?: string | null;
+          connection_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["unavailability_blocks"]["Insert"]>;
+        Relationships: [];
+      };
+      calendar_connections: {
+        Row: {
+          id: string;
+          musician_profile_id: string;
+          kind: CalendarKind;
+          label: string;
+          ical_url: string | null;
+          meta: Json;
+          last_synced_at: string | null;
+          last_error: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          musician_profile_id: string;
+          kind: CalendarKind;
+          label: string;
+          ical_url?: string | null;
+          meta?: Json;
+          last_synced_at?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["calendar_connections"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -166,6 +220,8 @@ export type Database = {
       request_status: RequestStatus;
       message_kind: MessageKind;
       proposal_status: ProposalStatus;
+      unavailability_source: UnavailabilitySource;
+      calendar_kind: CalendarKind;
     };
   };
 };

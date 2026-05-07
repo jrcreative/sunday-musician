@@ -123,6 +123,16 @@
   color: var(--sm-fg-3);
 }
 
+/* Standard page wrapper — left-aligned, capped to the canonical content width.
+   Use .page--narrow on form-heavy screens (profile, request flows). */
+.page {
+  padding: 32px 32px 80px;
+  max-width: var(--sm-content);
+  width: 100%;
+}
+.page--narrow { max-width: var(--sm-content-narrow); }
+.page--wide   { max-width: var(--sm-content-wide); }
+
 /* ============================================================
    BUTTONS
    ============================================================ */
