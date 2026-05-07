@@ -48,26 +48,39 @@ export function FindMusiciansClient({
   musicians,
   viewerLocation,
   isChurch,
+  blocks,
 }: {
   musicians: Musician[];
   viewerLocation: { city: string; state: string; zip: string | null } | null;
   isChurch: boolean;
+  blocks: { musician_profile_id: string; start_date: string; end_date: string }[];
 }) {
   const [selectedInstruments, setSelectedInstruments] = useState<string[]>([]);
   const [dateNeeded, setDateNeeded] = useState("");
   const [maxDistance, setMaxDistance] = useState(9999);
-  const [availableOnly, setAvailableOnly] = useState(false);
   const [query, setQuery] = useState("");
 
   const activeFilterCount = [
     selectedInstruments.length > 0,
     dateNeeded !== "",
     maxDistance !== 9999,
-    availableOnly,
   ].filter(Boolean).length;
+
+  // Map musicianId → list of blocked ranges, for fast date checks.
+  const blocksByMusician = useMemo(() => {
+    const map = new Map<string, { start_date: string; end_date: string }[]>();
+    for (const b of blocks) {
+      const arr = map.get(b.musician_profile_id) ?? [];
+      arr.push({ start_date: b.start_date, end_date: b.end_date });
+      map.set(b.musician_profile_id, arr);
+    }
+    return map;
+  }, [blocks]);
 
   const filtered = useMemo(() => {
     return musicians.filter(m => {
+      // Master toggle: unavailable musicians never appear in browse.
+      if (!m.available) return false;
       if (query) {
         const q = query.toLowerCase();
         const nameMatch = m.profiles?.display_name.toLowerCase().includes(q);
@@ -80,8 +93,9 @@ export function FindMusiciansClient({
         );
         if (!hasInstrument) return false;
       }
-      if (dateNeeded || availableOnly) {
-        if (!m.available) return false;
+      if (dateNeeded) {
+        const ranges = blocksByMusician.get(m.id) ?? [];
+        if (ranges.some(r => dateNeeded >= r.start_date && dateNeeded <= r.end_date)) return false;
       }
       if (maxDistance !== 9999) {
         const radius = m.travel_radius_miles ?? 0;
@@ -89,7 +103,7 @@ export function FindMusiciansClient({
       }
       return true;
     });
-  }, [musicians, query, selectedInstruments, dateNeeded, availableOnly, maxDistance]);
+  }, [musicians, query, selectedInstruments, dateNeeded, maxDistance, blocksByMusician]);
 
   function toggleInstrument(i: string) {
     setSelectedInstruments(prev =>
@@ -101,7 +115,6 @@ export function FindMusiciansClient({
     setSelectedInstruments([]);
     setDateNeeded("");
     setMaxDistance(9999);
-    setAvailableOnly(false);
     setQuery("");
   }
 
@@ -160,16 +173,12 @@ export function FindMusiciansClient({
               type="date"
               className="input"
               value={dateNeeded}
-              onChange={e => { setDateNeeded(e.target.value); if (e.target.value) setAvailableOnly(true); }}
+              onChange={e => setDateNeeded(e.target.value)}
               min={new Date().toISOString().split("T")[0]}
             />
-            <label style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 8, cursor: "pointer" }}>
-              <input type="checkbox" checked={availableOnly} onChange={e => setAvailableOnly(e.target.checked)} />
-              <span style={{ fontSize: 13, color: "var(--sm-fg-2)" }}>Available musicians only</span>
-            </label>
-            {(dateNeeded || availableOnly) && (
+            {dateNeeded && (
               <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "var(--sm-fg-4)", lineHeight: 1.4 }}>
-                Based on self-reported availability
+                Hides musicians blocked on this date
               </p>
             )}
           </FilterSection>
@@ -207,17 +216,14 @@ export function FindMusiciansClient({
           </div>
 
           {/* Active filter chips */}
-          {(selectedInstruments.length > 0 || dateNeeded || maxDistance !== 9999 || availableOnly) && (
+          {(selectedInstruments.length > 0 || dateNeeded || maxDistance !== 9999) && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
               <span style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>Filtering by:</span>
               {selectedInstruments.map(i => (
                 <ActiveChip key={i} label={i} onRemove={() => toggleInstrument(i)} />
               ))}
               {dateNeeded && (
-                <ActiveChip label={`Available ${dateNeeded}`} onRemove={() => { setDateNeeded(""); setAvailableOnly(false); }} />
-              )}
-              {availableOnly && !dateNeeded && (
-                <ActiveChip label="Available now" onRemove={() => setAvailableOnly(false)} />
+                <ActiveChip label={`Available ${dateNeeded}`} onRemove={() => setDateNeeded("")} />
               )}
               {maxDistance !== 9999 && (
                 <ActiveChip label={`Within ${maxDistance} mi`} onRemove={() => setMaxDistance(9999)} />
@@ -269,10 +275,7 @@ export function FindMusiciansClient({
                           {m.bio}
                         </p>
                       )}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "1px solid var(--sm-border-subtle)", fontSize: 13, marginTop: "auto" }}>
-                        <span style={{ color: m.available ? "var(--sm-status-success)" : "var(--sm-fg-4)", fontWeight: 500 }}>
-                          {m.available ? "● Available" : "○ Not available"}
-                        </span>
+                      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", paddingTop: 10, borderTop: "1px solid var(--sm-border-subtle)", fontSize: 13, marginTop: "auto" }}>
                         <span style={{ color: m.is_volunteer ? "var(--sm-status-success)" : "var(--sm-fg-2)", fontWeight: 500 }}>
                           {feeLabel}
                         </span>

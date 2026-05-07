@@ -1,0 +1,10 @@
+[build]
+  command = "next build"
+  publish = ".next"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Scheduled functions are configured per-file via the `config` export.
+# See netlify/functions/sync-calendars.mts.

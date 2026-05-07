@@ -39,7 +39,7 @@ export default async function OpenRequestsPage() {
 
   const { data: mp } = await supabase
     .from("musician_profiles")
-    .select("instruments, city, state, travel_radius_miles")
+    .select("id, instruments, city, state, travel_radius_miles")
     .eq("profile_id", user.id)
     .maybeSingle();
 
@@ -51,6 +51,17 @@ export default async function OpenRequestsPage() {
   };
 
   const today = new Date().toISOString().split("T")[0];
+
+  // Fetch this musician's unavailability so we can hide requests on blocked dates.
+  const musicianId = (mp as { id: string } | null)?.id;
+  const { data: blocks } = musicianId
+    ? await supabase
+        .from("unavailability_blocks")
+        .select("start_date, end_date")
+        .eq("musician_profile_id", musicianId)
+        .gte("end_date", today)
+    : { data: [] as { start_date: string; end_date: string }[] };
+
   const { data: rows } = await supabase
     .from("service_requests")
     .select("id, title, service_type, service_date, service_time, offered_fee, fee_type, instruments_needed, rehearsals, notes, status, church_profile_id, church_profiles(church_name, city, state)")
@@ -66,7 +77,10 @@ export default async function OpenRequestsPage() {
       }> | null;
     };
 
-  const requests: OpenRequest[] = (rows ?? []).map(r => ({
+  const blockedRanges = (blocks ?? []) as { start_date: string; end_date: string }[];
+  const isBlocked = (d: string) => blockedRanges.some(b => d >= b.start_date && d <= b.end_date);
+
+  const requests: OpenRequest[] = (rows ?? []).filter(r => !isBlocked(r.service_date)).map(r => ({
     id: r.id,
     title: r.title,
     service_type: r.service_type,
