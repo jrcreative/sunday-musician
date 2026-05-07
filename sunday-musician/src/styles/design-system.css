@@ -1,0 +1,247 @@
+/* =============================================================================
+   Sunday Musician — Colors & Typography Tokens
+   Single source of truth. Mirrors the WordPress (Kadence) theme tokens used
+   on sundaymusician.com so this file can drop into the production theme.
+   ============================================================================= */
+
+@import url("./fonts/fonts.css");
+
+:root {
+  /* ---------------------------------------------------------------------------
+     COLOR — base palette (mirrors --global-palette1..15 from the live site)
+     --------------------------------------------------------------------------- */
+  --sm-palette-1:  #e47b02; /* Primary brand orange — interactive */
+  --sm-palette-2:  #ed8f0c; /* Secondary orange — hover state */
+  --sm-palette-3:  #1f2933; /* Near-black — primary text */
+  --sm-palette-4:  #3e4c59; /* Dark slate */
+  --sm-palette-5:  #52606d; /* Medium gray */
+  --sm-palette-6:  #7b8794; /* Light-medium gray */
+  --sm-palette-7:  #f3f4f7; /* Very light gray — secondary button bg */
+  --sm-palette-8:  #f9f9fb; /* Near white — subtle backgrounds */
+  --sm-palette-9:  #ffffff; /* White */
+  --sm-palette-10: oklch(from #e47b02 l calc(c * -1) calc(h + 180)); /* Computed complement */
+  --sm-palette-11: #13612e; /* Success green */
+  --sm-palette-12: #1159af; /* Info blue */
+  --sm-palette-13: #b82105; /* Error red */
+  --sm-palette-14: #f7630c; /* Vivid orange */
+  --sm-palette-15: #f5a524; /* Amber */
+
+  /* Logo-only bronze — distinct from --sm-palette-1, do NOT recolor with orange */
+  --sm-logo-bronze: #c17e3d;
+
+  /* ---------------------------------------------------------------------------
+     COLOR — semantic foreground / background
+     --------------------------------------------------------------------------- */
+  --sm-fg-1: var(--sm-palette-3);  /* primary text */
+  --sm-fg-2: var(--sm-palette-4);  /* secondary text, sub-headings */
+  --sm-fg-3: var(--sm-palette-5);  /* tertiary text, metadata */
+  --sm-fg-4: var(--sm-palette-6);  /* muted text, placeholders */
+  --sm-fg-on-accent: var(--sm-palette-9); /* text on orange */
+
+  --sm-bg-1: var(--sm-palette-9);  /* page background */
+  --sm-bg-2: var(--sm-palette-8);  /* subtle surface */
+  --sm-bg-3: var(--sm-palette-7);  /* secondary surface */
+  --sm-border-subtle: var(--sm-palette-7);
+  --sm-border-strong: var(--sm-palette-6);
+
+  /* Interactive */
+  --sm-accent:        var(--sm-palette-1);
+  --sm-accent-hover:  var(--sm-palette-2);
+  --sm-link:          var(--sm-palette-1);
+  --sm-link-hover:    var(--sm-palette-2);
+
+  /* Buttons (mirror Kadence semantic tokens) */
+  --sm-btn-bg:           var(--sm-palette-1);
+  --sm-btn-bg-hover:     var(--sm-palette-2);
+  --sm-btn-fg:           var(--sm-palette-9);
+  --sm-btn-fg-hover:     var(--sm-palette-9);
+  --sm-btn-sec-bg:       var(--sm-palette-7);
+  --sm-btn-sec-bg-hover: var(--sm-palette-2);
+  --sm-btn-sec-fg:       var(--sm-palette-3);
+  --sm-btn-sec-fg-hover: var(--sm-palette-9);
+
+  /* Status */
+  --sm-status-success: var(--sm-palette-11);
+  --sm-status-info:    var(--sm-palette-12);
+  --sm-status-error:   var(--sm-palette-13);
+  --sm-status-warn:    var(--sm-palette-15);
+
+  /* ---------------------------------------------------------------------------
+     TYPOGRAPHY — families
+     --------------------------------------------------------------------------- */
+  --sm-font-body:    "Source Sans 3", system-ui, sans-serif;
+  --sm-font-display: "Source Sans 3", system-ui, sans-serif; /* same as body */
+  --sm-font-logo:    "Work Sans", system-ui, sans-serif;     /* lockup only */
+  --sm-font-mono:    ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* Weights */
+  --sm-w-regular:  400;
+  --sm-w-medium:   500;
+  --sm-w-semibold: 600;
+  --sm-w-bold:     700;
+
+  /* ---------------------------------------------------------------------------
+     TYPOGRAPHY — size scale (mirrors --global-font-size-* on the live site)
+     --------------------------------------------------------------------------- */
+  --sm-fs-small:   0.875rem; /* 14px — metadata, labels */
+  --sm-fs-medium:  1rem;     /* 16px — body */
+  --sm-fs-large:   1.25rem;  /* 20px — lead paragraph, h3 */
+  --sm-fs-xlarge:  2.625rem; /* 42px — h2, hero subhead */
+  --sm-fs-larger:  3.25rem;  /* 52px — h1 default */
+  --sm-fs-xxlarge: 4.25rem;  /* 68px — hero h1 */
+
+  /* Line heights */
+  --sm-lh-tight:   1.15;
+  --sm-lh-snug:    1.3;
+  --sm-lh-normal:  1.6;
+
+  /* Letter-spacing */
+  --sm-ls-tight:    -0.01em;
+  --sm-ls-normal:   0;
+  --sm-ls-wide:     0.06em;
+  --sm-ls-logo:     0.19em; /* SUNDAY MUSICIAN wordmark */
+
+  /* ---------------------------------------------------------------------------
+     SPACING — geometric scale from the live site
+     --------------------------------------------------------------------------- */
+  --sm-space-1: 0.44rem;
+  --sm-space-2: 0.67rem;
+  --sm-space-3: 1rem;
+  --sm-space-4: 1.5rem;
+  --sm-space-5: 2.25rem;
+  --sm-space-6: 3.38rem;
+  --sm-space-7: 5.06rem;
+
+  /* Content widths */
+  --sm-content-narrow: 842px;
+  --sm-content:        1290px;
+  --sm-content-wide:   1520px;
+  --sm-content-edge:   1.5rem;
+  --sm-content-boxed:  2rem;
+
+  /* ---------------------------------------------------------------------------
+     RADII — small, deliberate
+     --------------------------------------------------------------------------- */
+  --sm-radius-sm: 3px;  /* default — buttons, inputs, cards */
+  --sm-radius-md: 6px;  /* used very rarely */
+  --sm-radius-pill: 999px; /* avoid; reserved for tags if ever needed */
+
+  /* ---------------------------------------------------------------------------
+     SHADOWS — Kadence "expressive shadows"; use sparingly
+     --------------------------------------------------------------------------- */
+  --sm-shadow-natural:  6px 6px 9px rgba(0,0,0,0.2);
+  --sm-shadow-deep:    12px 12px 50px rgba(0,0,0,0.4);
+  --sm-shadow-sharp:    6px 6px 0px rgba(0,0,0,0.2);
+  --sm-shadow-outlined: 6px 6px 0px -3px #fff, 6px 6px #000;
+  --sm-shadow-crisp:    6px 6px 0px #000;
+
+  /* ---------------------------------------------------------------------------
+     MOTION
+     --------------------------------------------------------------------------- */
+  --sm-ease:        cubic-bezier(0.2, 0.6, 0.2, 1);
+  --sm-dur-fast:    120ms;
+  --sm-dur-base:    160ms;
+  --sm-dur-slow:    240ms;
+}
+
+/* =============================================================================
+   SEMANTIC ELEMENT STYLES
+   Apply by adding `class="sm-prose"` to a wrapper, or use the .sm-h1, .sm-h2…
+   utility classes directly on elements.
+   ============================================================================= */
+
+.sm-prose, body.sm-prose {
+  font-family: var(--sm-font-body);
+  font-size: var(--sm-fs-medium);
+  line-height: var(--sm-lh-normal);
+  color: var(--sm-fg-1);
+  background: var(--sm-bg-1);
+}
+
+.sm-h1 {
+  font-family: var(--sm-font-display);
+  font-weight: var(--sm-w-bold);
+  font-size: var(--sm-fs-xxlarge);
+  line-height: var(--sm-lh-tight);
+  letter-spacing: var(--sm-ls-tight);
+  color: var(--sm-fg-1);
+  margin: 0 0 var(--sm-space-4);
+}
+
+.sm-h2 {
+  font-family: var(--sm-font-display);
+  font-weight: var(--sm-w-bold);
+  font-size: var(--sm-fs-xlarge);
+  line-height: var(--sm-lh-snug);
+  color: var(--sm-fg-1);
+  margin: 0 0 var(--sm-space-3);
+}
+
+.sm-h3 {
+  font-family: var(--sm-font-display);
+  font-weight: var(--sm-w-semibold);
+  font-size: var(--sm-fs-large);
+  line-height: var(--sm-lh-snug);
+  color: var(--sm-fg-1);
+  margin: 0 0 var(--sm-space-3);
+}
+
+.sm-h4 {
+  font-family: var(--sm-font-display);
+  font-weight: var(--sm-w-semibold);
+  font-size: var(--sm-fs-medium);
+  line-height: var(--sm-lh-snug);
+  color: var(--sm-fg-1);
+  margin: 0 0 var(--sm-space-2);
+}
+
+.sm-body {
+  font-family: var(--sm-font-body);
+  font-weight: var(--sm-w-regular);
+  font-size: var(--sm-fs-medium);
+  line-height: var(--sm-lh-normal);
+  color: var(--sm-fg-1);
+}
+
+.sm-lead {
+  font-size: var(--sm-fs-large);
+  line-height: var(--sm-lh-normal);
+  color: var(--sm-fg-2);
+  font-weight: var(--sm-w-regular);
+}
+
+.sm-meta {
+  font-size: var(--sm-fs-small);
+  color: var(--sm-fg-3);
+  font-weight: var(--sm-w-regular);
+}
+
+.sm-eyebrow {
+  font-size: var(--sm-fs-small);
+  font-weight: var(--sm-w-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--sm-ls-wide);
+  color: var(--sm-fg-3);
+}
+
+.sm-link {
+  color: var(--sm-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--sm-dur-base) var(--sm-ease);
+}
+.sm-link:hover { color: var(--sm-link-hover); }
+
+.sm-mono {
+  font-family: var(--sm-font-mono);
+  font-size: 0.92em;
+}
+
+/* Logo wordmark — the only place Work Sans is used */
+.sm-wordmark {
+  font-family: var(--sm-font-logo);
+  font-weight: var(--sm-w-medium);
+  letter-spacing: var(--sm-ls-logo);
+  text-transform: uppercase;
+  color: var(--sm-fg-1);
+}
