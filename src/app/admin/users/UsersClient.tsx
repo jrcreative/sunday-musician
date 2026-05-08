@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { DrawerAction, StatusPill } from "../_components/AdminPrimitives";
 
 export type UserRow = {
   id: string;
@@ -11,19 +13,24 @@ export type UserRow = {
   state: string;
   joined: string;             // ISO
   suspended_at: string | null;
+  is_admin: boolean;
   verified: boolean;
   bookings: number;
   amount: number;             // dollars total — earned (musician) or spent (church)
 };
 
-type Filter = {
+export type UserFilter = {
   q: string;
   role: "all" | "church" | "musician";
   status: "all" | "active" | "suspended" | "unverified";
 };
 
-export function UsersClient({ rows }: { rows: UserRow[] }) {
-  const [f, setF] = useState<Filter>({ q: "", role: "all", status: "all" });
+export function UsersClient({ rows: initialRows, initialFilter }: { rows: UserRow[]; initialFilter: UserFilter }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [, startTransition] = useTransition();
+  const [rows, setRows] = useState<UserRow[]>(initialRows);
+  const [f, setF] = useState<UserFilter>(initialFilter);
   const [active, setActive] = useState<UserRow | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -32,20 +39,25 @@ export function UsersClient({ rows }: { rows: UserRow[] }) {
     setTimeout(() => setToast(null), 2800);
   }
 
-  const filtered = useMemo(() => {
-    const q = f.q.trim().toLowerCase();
-    return rows.filter(r => {
-      if (f.role !== "all" && r.role !== f.role) return false;
-      if (f.status === "active" && r.suspended_at) return false;
-      if (f.status === "suspended" && !r.suspended_at) return false;
-      if (f.status === "unverified" && r.verified) return false;
-      if (q) {
-        const hay = `${r.name} ${r.email} ${r.city} ${r.state}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
+  function setFilter(patch: Partial<UserFilter>) {
+    const next = { ...f, ...patch };
+    setF(next);
+    const params = new URLSearchParams();
+    if (next.q.trim()) params.set("q", next.q.trim());
+    if (next.role !== "all") params.set("role", next.role);
+    if (next.status !== "all") params.set("status", next.status);
+    startTransition(() => {
+      router.replace(params.size > 0 ? `${pathname}?${params.toString()}` : pathname);
     });
-  }, [rows, f]);
+  }
+
+  const filtered = useMemo(() => rows, [rows]);
+
+  function patchUser(id: string, patch: Partial<UserRow>) {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r));
+    setActive(prev => prev && prev.id === id ? { ...prev, ...patch } : prev);
+    startTransition(() => router.refresh());
+  }
 
   return (
     <>
@@ -56,16 +68,16 @@ export function UsersClient({ rows }: { rows: UserRow[] }) {
               className="input"
               placeholder="Search name, email, city…"
               value={f.q}
-              onChange={e => setF(s => ({ ...s, q: e.target.value }))}
+              onChange={e => setFilter({ q: e.target.value })}
               style={{ width: 260, padding: "7px 10px" }}
             />
-            <select className="select" value={f.role} onChange={e => setF(s => ({ ...s, role: e.target.value as Filter["role"] }))}
+            <select className="select" value={f.role} onChange={e => setFilter({ role: e.target.value as UserFilter["role"] })}
               style={{ width: 140, padding: "7px 10px" }}>
               <option value="all">All roles</option>
               <option value="church">Churches</option>
               <option value="musician">Musicians</option>
             </select>
-            <select className="select" value={f.status} onChange={e => setF(s => ({ ...s, status: e.target.value as Filter["status"] }))}
+            <select className="select" value={f.status} onChange={e => setFilter({ status: e.target.value as UserFilter["status"] })}
               style={{ width: 160, padding: "7px 10px" }}>
               <option value="all">All statuses</option>
               <option value="active">Active</option>
@@ -109,15 +121,13 @@ export function UsersClient({ rows }: { rows: UserRow[] }) {
                     </div>
                   </td>
                   <td>
-                    <span className={`a-pill ${r.role === "church" ? "a-pill--info" : "a-pill--accent"}`}>
-                      {r.role}
-                    </span>
+                    <StatusPill tone={r.role === "church" ? "info" : "accent"}>{r.role}</StatusPill>
                   </td>
                   <td className="secondary">{[r.city, r.state].filter(Boolean).join(", ") || "—"}</td>
                   <td>
                     {r.suspended_at
-                      ? <span className="a-pill a-pill--error">Suspended</span>
-                      : <span className="a-pill a-pill--success">Active</span>}
+                      ? <StatusPill tone="error">Suspended</StatusPill>
+                      : <StatusPill tone="success">Active</StatusPill>}
                   </td>
                   <td className="num">{r.bookings}</td>
                   <td className="num">${r.amount.toLocaleString()}</td>
@@ -139,7 +149,7 @@ export function UsersClient({ rows }: { rows: UserRow[] }) {
         <UserDrawer
           user={active}
           onClose={() => setActive(null)}
-          onUpdate={(patch) => setActive(prev => prev && prev.id === active.id ? { ...prev, ...patch } : prev)}
+          onUpdate={(patch) => patchUser(active.id, patch)}
           onToast={showToast}
         />
       )}
@@ -190,6 +200,10 @@ function UserDrawer({
   async function toggleSuspend() {
     const newSuspended = !user.suspended_at;
     if (newSuspended && !confirm(`Suspend ${user.name}? They'll be unable to post or message.`)) return;
+    if (newSuspended && user.is_admin) {
+      onToast("Admin accounts cannot be suspended.");
+      return;
+    }
     const result = await call("suspend", `/api/admin/users/${user.id}/suspend`, {
       suspended: newSuspended,
       reason: newSuspended ? reason || null : null,
@@ -232,12 +246,14 @@ function UserDrawer({
             <dt>Status</dt>
             <dd>
               {user.suspended_at
-                ? <span className="a-pill a-pill--error">Suspended</span>
-                : <span className="a-pill a-pill--success">Active</span>}
+                ? <StatusPill tone="error">Suspended</StatusPill>
+                : <StatusPill tone="success">Active</StatusPill>}
               {" "}
               {user.verified
-                ? <span className="a-pill a-pill--success">Verified</span>
-                : <span className="a-pill">Unverified</span>}
+                ? <StatusPill tone="success">Verified</StatusPill>
+                : <StatusPill>Unverified</StatusPill>}
+              {" "}
+              {user.is_admin && <StatusPill tone="accent">Admin</StatusPill>}
             </dd>
             <dt>Bookings</dt><dd>{user.bookings}</dd>
             <dt>{user.role === "musician" ? "Earned" : "Spent"}</dt><dd>${user.amount.toLocaleString()}</dd>
@@ -245,29 +261,17 @@ function UserDrawer({
 
           <div className="section-h">Actions</div>
 
-          <div className="action-row">
-            <div>
-              <div className="label">Send password reset</div>
-              <div className="desc">Emails a reset link to {user.email}.</div>
-            </div>
-            <div className="right">
+          <DrawerAction title="Send password reset" description={`Emails a reset link to ${user.email}.`}>
               <button className="btn btn--sm" disabled={!!pending} onClick={resetPassword}>
                 {pending === "reset" ? "Sending…" : "Send"}
               </button>
-            </div>
-          </div>
+          </DrawerAction>
 
-          <div className="action-row">
-            <div>
-              <div className="label">{user.verified ? "Unverify" : "Verify"} account</div>
-              <div className="desc">Toggle the verified badge shown on their profile.</div>
-            </div>
-            <div className="right">
+          <DrawerAction title={`${user.verified ? "Unverify" : "Verify"} account`} description="Toggle the verified badge shown on their profile.">
               <button className="btn btn--sm" disabled={!!pending} onClick={toggleVerify}>
                 {pending === "verify" ? "…" : user.verified ? "Unverify" : "Verify"}
               </button>
-            </div>
-          </div>
+          </DrawerAction>
 
           <div className="action-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }}>
             <div>
@@ -289,7 +293,7 @@ function UserDrawer({
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
                 className="btn btn--sm"
-                disabled={!!pending}
+                disabled={!!pending || (!user.suspended_at && user.is_admin)}
                 onClick={toggleSuspend}
                 style={{
                   background: !user.suspended_at ? "var(--sm-status-error, #b82105)" : undefined,

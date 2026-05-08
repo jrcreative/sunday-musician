@@ -1,16 +1,17 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminTopbar } from "../AdminTopbar";
+import { DateCell, StatusPill } from "../_components/AdminPrimitives";
 
 // Read-only timeline of every privileged admin action. Latest 500 rows.
 // Filtering is by query param (?actor= / ?level= / ?action=) so admins can
 // share filtered views via URL.
 
-const LEVEL_BADGE: Record<string, string> = {
-  info: "a-pill",
-  success: "a-pill a-pill--success",
-  warn: "a-pill a-pill--warn",
-  danger: "a-pill a-pill--error",
-};
+const LEVEL_TONE = {
+  info: "neutral",
+  success: "success",
+  warn: "warn",
+  danger: "error",
+} as const;
 
 export default async function AdminAuditPage({
   searchParams,
@@ -49,9 +50,7 @@ export default async function AdminAuditPage({
               {(rows ?? []).map(r => (
                 <tr key={r.id}>
                   <td style={{ whiteSpace: "nowrap", color: "var(--sm-fg-3)", fontSize: 12.5 }}>
-                    {new Date(r.created_at).toLocaleString(undefined, {
-                      month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
-                    })}
+                    <DateCell value={r.created_at} />
                   </td>
                   <td className="secondary">{r.actor_email}</td>
                   <td>
@@ -66,7 +65,7 @@ export default async function AdminAuditPage({
                     )}
                   </td>
                   <td>
-                    <span className={LEVEL_BADGE[r.level] ?? "a-pill"}>{r.level}</span>
+                    <StatusPill tone={LEVEL_TONE[r.level as keyof typeof LEVEL_TONE] ?? "neutral"}>{r.level}</StatusPill>
                   </td>
                 </tr>
               ))}

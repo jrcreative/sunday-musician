@@ -1,10 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Append a row to admin_actions. Always called from an /api/admin/*
-// route after the privileged mutation succeeds. Failure to write the
-// audit row is logged but does not block the user-facing response —
-// the alternative would be losing the actual mutation's result on a
-// secondary write failure.
+// Append a row to admin_actions. For privileged work, an audit write is part
+// of the operation, not telemetry. Fail hard if the row cannot be written so
+// callers never report success for an unaudited admin action.
 export async function logAdminAction(input: {
   actorId: string;
   actorEmail: string;
@@ -28,5 +26,6 @@ export async function logAdminAction(input: {
   });
   if (error) {
     console.error("[admin] audit log write failed", error);
+    throw new Error(`Audit log write failed: ${error.message}`);
   }
 }

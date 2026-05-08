@@ -14,10 +14,10 @@ export async function requireAdmin(): Promise<
   }
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin, email, deleted_at")
+    .select("is_admin, email, deleted_at, suspended_at")
     .eq("id", user.id)
     .single();
-  if (!profile || profile.deleted_at || !profile.is_admin) {
+  if (!profile || profile.deleted_at || profile.suspended_at || !profile.is_admin) {
     return { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
   return { ok: true, actor: { id: user.id, email: profile.email ?? user.email ?? "" } };

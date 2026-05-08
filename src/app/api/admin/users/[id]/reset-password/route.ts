@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/app/admin/_lib/require-admin";
 import { logAdminAction } from "@/app/admin/_lib/audit";
-import { withJsonErrors } from "@/lib/api/handler";
+import { withAdminJson } from "@/app/admin/_lib/with-admin-json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,15 +8,12 @@ export const dynamic = "force-dynamic";
 // Sends a password-reset email to the target user's address. We use
 // Supabase's admin generateLink to keep the call entirely server-side
 // and avoid any rate limit on the public auth endpoint.
-export const POST = withJsonErrors(async (
+export const POST = withAdminJson(async (
+  { actor, admin },
   _req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) => {
-  const gate = await requireAdmin();
-  if (!gate.ok) return gate.response;
-
   const { id } = await ctx.params;
-  const admin = createAdminClient();
 
   const { data: target } = await admin
     .from("profiles")
@@ -35,8 +30,8 @@ export const POST = withJsonErrors(async (
   }
 
   await logAdminAction({
-    actorId: gate.actor.id,
-    actorEmail: gate.actor.email,
+    actorId: actor.id,
+    actorEmail: actor.email,
     action: "send_password_reset",
     targetType: "user",
     targetId: target.id,

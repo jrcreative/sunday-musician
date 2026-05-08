@@ -1,6 +1,8 @@
 import Link from "next/link";
+import type { ComponentProps } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminTopbar } from "../AdminTopbar";
+import { DateCell, KpiCard, Money, StatusPill } from "../_components/AdminPrimitives";
 
 // Transactions table. Stripe is the source of truth for the actual
 // money — refunds, disputes, and chargebacks happen in the Stripe
@@ -10,12 +12,12 @@ import { AdminTopbar } from "../AdminTopbar";
 
 type Status = "all" | "scheduled" | "capturing" | "captured" | "failed" | "cancelled";
 
-const STATUS_BADGE: Record<Exclude<Status, "all">, { label: string; cls: string }> = {
-  scheduled: { label: "Scheduled", cls: "a-pill" },
-  capturing: { label: "Capturing", cls: "a-pill a-pill--info" },
-  captured:  { label: "Captured",  cls: "a-pill a-pill--success" },
-  failed:    { label: "Failed",    cls: "a-pill a-pill--error" },
-  cancelled: { label: "Cancelled", cls: "a-pill" },
+const STATUS_BADGE: Record<Exclude<Status, "all">, { label: string; tone: ComponentProps<typeof StatusPill>["tone"] }> = {
+  scheduled: { label: "Scheduled", tone: "neutral" },
+  capturing: { label: "Capturing", tone: "info" },
+  captured:  { label: "Captured",  tone: "success" },
+  failed:    { label: "Failed",    tone: "error" },
+  cancelled: { label: "Cancelled", tone: "neutral" },
 };
 
 export default async function AdminPaymentsPage({
@@ -68,26 +70,10 @@ export default async function AdminPaymentsPage({
       <AdminTopbar title="Payments" sub={`${(payments ?? []).length} transactions`} />
       <div className="a-page">
         <div className="kpi-grid">
-          <div className="kpi">
-            <div className="label">Captured (visible)</div>
-            <div className="val">${(totalGross / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-            <div className="ctx">Gross of charges in this view</div>
-          </div>
-          <div className="kpi">
-            <div className="label">Platform revenue (visible)</div>
-            <div className="val">${(totalPlatform / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-            <div className="ctx">$5 fee × captured</div>
-          </div>
-          <div className="kpi">
-            <div className="label">Scheduled</div>
-            <div className="val">{totalScheduled}</div>
-            <div className="ctx">awaiting event-day capture</div>
-          </div>
-          <div className="kpi">
-            <div className="label">Failed</div>
-            <div className="val">{totalFailed}</div>
-            <div className="ctx">need review</div>
-          </div>
+          <KpiCard label="Captured (visible)" value={<Money cents={totalGross} />} context="Gross of charges in this view" />
+          <KpiCard label="Platform revenue (visible)" value={<Money cents={totalPlatform} />} context="$5 fee × captured" />
+          <KpiCard label="Scheduled" value={totalScheduled} context="awaiting event-day capture" />
+          <KpiCard label="Failed" value={totalFailed} context="need review" />
         </div>
 
         <div className="a-table-wrap">
@@ -125,22 +111,19 @@ export default async function AdminPaymentsPage({
               {(payments ?? []).map(p => {
                 const badge = p.status in STATUS_BADGE
                   ? STATUS_BADGE[p.status as Exclude<Status, "all">]
-                  : { label: p.status, cls: "a-pill" };
+                  : { label: p.status, tone: "neutral" as const };
                 const date = p.captured_at ?? p.failed_at ?? p.scheduled_for ?? "";
-                const dateLabel = date
-                  ? new Date(date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
-                  : "—";
                 return (
                   <tr key={p.id}>
-                    <td>{dateLabel}</td>
+                    <td><DateCell value={date} /></td>
                     <td>{churchById.get(p.church_profile_id) ?? "—"}</td>
                     <td>{musicianById.get(p.musician_profile_id) ?? "—"}</td>
                     <td>
-                      <span className={badge.cls}>{badge.label}</span>
+                      <StatusPill tone={badge.tone}>{badge.label}</StatusPill>
                     </td>
-                    <td className="num">${(p.charge_total / 100).toFixed(2)}</td>
-                    <td className="num">${(p.musician_amount / 100).toFixed(2)}</td>
-                    <td className="num">${(p.platform_fee / 100).toFixed(2)}</td>
+                    <td className="num"><Money cents={p.charge_total} maximumFractionDigits={2} /></td>
+                    <td className="num"><Money cents={p.musician_amount} maximumFractionDigits={2} /></td>
+                    <td className="num"><Money cents={p.platform_fee} maximumFractionDigits={2} /></td>
                     <td>
                       {p.stripe_payment_intent_id ? (
                         <a

@@ -1,41 +1,30 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/app/admin/_lib/require-admin";
-import { logAdminAction } from "@/app/admin/_lib/audit";
-import { withJsonErrors } from "@/lib/api/handler";
+import { withAdminJson } from "@/app/admin/_lib/with-admin-json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Toggle the verified badge. POST body: { verified: boolean }.
-export const POST = withJsonErrors(async (
+export const POST = withAdminJson(async (
+  { actor, admin },
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) => {
-  const gate = await requireAdmin();
-  if (!gate.ok) return gate.response;
-
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
   const verified = !!body.verified;
 
-  const admin = createAdminClient();
   const { data: target } = await admin
     .from("profiles").select("id, display_name").eq("id", id).single();
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const { error } = await admin.from("profiles").update({ verified }).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await logAdminAction({
-    actorId: gate.actor.id,
-    actorEmail: gate.actor.email,
-    action: verified ? "verify_user" : "unverify_user",
-    targetType: "user",
-    targetId: target.id,
-    targetLabel: target.display_name,
-    level: verified ? "success" : "info",
+  const { error } = await admin.rpc("admin_set_user_verified", {
+    p_actor_id: actor.id,
+    p_actor_email: actor.email,
+    p_target_id: id,
+    p_verified: verified,
   });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ ok: true, verified });
 });

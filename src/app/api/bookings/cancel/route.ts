@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withJsonErrors } from "@/lib/api/handler";
+import { requireActiveUser } from "@/lib/api/active-user";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,9 +12,10 @@ export const dynamic = "force-dynamic";
 // payment to 'cancelled' — no Stripe call is needed since nothing was
 // captured (we only charge on the event day).
 export const POST = withJsonErrors(async (req: Request) => {
+  const active = await requireActiveUser();
+  if (!active.ok) return active.response;
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const bookingId = typeof body.bookingId === "string" ? body.bookingId : null;
@@ -30,9 +32,9 @@ export const POST = withJsonErrors(async (req: Request) => {
 
   // Resolve the caller's side via their profile.
   const { data: church } = await supabase
-    .from("church_profiles").select("id").eq("profile_id", user.id).maybeSingle();
+    .from("church_profiles").select("id").eq("profile_id", active.user.id).maybeSingle();
   const { data: musician } = await supabase
-    .from("musician_profiles").select("id").eq("profile_id", user.id).maybeSingle();
+    .from("musician_profiles").select("id").eq("profile_id", active.user.id).maybeSingle();
 
   let role: "church" | "musician" | null = null;
   if (church && church.id === booking.church_profile_id) role = "church";

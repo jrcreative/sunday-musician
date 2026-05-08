@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe, siteUrl } from "@/lib/stripe/server";
 import { withJsonErrors } from "@/lib/api/handler";
+import { requireActiveUser } from "@/lib/api/active-user";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,18 +11,20 @@ export const dynamic = "force-dynamic";
 // Creates (or reuses) a Stripe Connect Express account for the current
 // musician and returns a fresh AccountLink URL for hosted onboarding.
 export const POST = withJsonErrors(async () => {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: profile } = await supabase
-    .from("profiles").select("id, role, email, display_name").eq("id", user.id).single();
-  if (!profile || profile.role !== "musician") {
+  const active = await requireActiveUser();
+  if (!active.ok) return active.response;
+  if (active.user.role !== "musician") {
     return NextResponse.json({ error: "Musician account required" }, { status: 403 });
   }
 
+  const supabase = await createClient();
+
+  const { data: profile } = await supabase
+    .from("profiles").select("id, role, email, display_name").eq("id", active.user.id).single();
+  if (!profile) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+
   const { data: musicianProfile } = await supabase
-    .from("musician_profiles").select("id").eq("profile_id", user.id).single();
+    .from("musician_profiles").select("id").eq("profile_id", active.user.id).single();
   if (!musicianProfile) {
     return NextResponse.json({ error: "Complete your musician profile first" }, { status: 400 });
   }
@@ -46,7 +49,7 @@ export const POST = withJsonErrors(async () => {
       business_type: "individual",
       metadata: {
         musician_profile_id: musicianProfile.id,
-        sm_user_id: user.id,
+        sm_user_id: active.user.id,
       },
     });
     accountId = account.id;

@@ -21,11 +21,11 @@ export default async function AdminLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin, email, deleted_at")
+    .select("is_admin, email, deleted_at, suspended_at")
     .eq("id", user.id)
     .single();
 
-  if (!profile || profile.deleted_at || !profile.is_admin) {
+  if (!profile || profile.deleted_at || profile.suspended_at || !profile.is_admin) {
     redirect("/dashboard");
   }
 

@@ -49,7 +49,7 @@ export default async function FindPage() {
     <>
       <Topbar title={isChurch ? "Find musicians" : "Browse musicians"} />
       <FindMusiciansClient
-        musicians={musicians ?? []}
+        musicians={(musicians ?? []) as unknown as Parameters<typeof FindMusiciansClient>[0]["musicians"]}
         viewerLocation={viewerLocation}
         isChurch={isChurch}
         blocks={(blocks ?? []) as { musician_profile_id: string; start_date: string; end_date: string }[]}
