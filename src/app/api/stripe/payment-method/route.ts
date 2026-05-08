@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/server";
 import { withJsonErrors } from "@/lib/api/handler";
+import { requireActiveUser } from "@/lib/api/active-user";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,12 +11,16 @@ export const dynamic = "force-dynamic";
 // Save a successfully-confirmed PaymentMethod as the church's default. Called
 // by the client after stripe.confirmCardSetup() resolves.
 export const POST = withJsonErrors(async (req: Request) => {
+  const active = await requireActiveUser();
+  if (!active.ok) return active.response;
+  if (active.user.role !== "church") {
+    return NextResponse.json({ error: "Church account required" }, { status: 403 });
+  }
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data: church } = await supabase
-    .from("church_profiles").select("id").eq("profile_id", user.id).single();
+    .from("church_profiles").select("id").eq("profile_id", active.user.id).single();
   if (!church) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json().catch(() => ({}));
@@ -59,12 +64,16 @@ export const POST = withJsonErrors(async (req: Request) => {
 
 // Detach the saved card.
 export const DELETE = withJsonErrors(async () => {
+  const active = await requireActiveUser();
+  if (!active.ok) return active.response;
+  if (active.user.role !== "church") {
+    return NextResponse.json({ error: "Church account required" }, { status: 403 });
+  }
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data: church } = await supabase
-    .from("church_profiles").select("id").eq("profile_id", user.id).single();
+    .from("church_profiles").select("id").eq("profile_id", active.user.id).single();
   if (!church) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const admin = createAdminClient();

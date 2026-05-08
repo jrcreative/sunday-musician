@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeFees } from "@/lib/stripe/fees";
 import { withJsonErrors } from "@/lib/api/handler";
+import { requireActiveUser } from "@/lib/api/active-user";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,9 +16,10 @@ export const dynamic = "force-dynamic";
 // via the existing handle_proposal_accepted trigger), then inserts the
 // payments row scheduled for the service date.
 export const POST = withJsonErrors(async (req: Request) => {
+  const active = await requireActiveUser();
+  if (!active.ok) return active.response;
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const messageId = typeof body.messageId === "string" ? body.messageId : null;
@@ -44,7 +46,7 @@ export const POST = withJsonErrors(async (req: Request) => {
   if (!thread) return NextResponse.json({ error: "Thread not found" }, { status: 404 });
 
   const { data: musician } = await supabase
-    .from("musician_profiles").select("id, profile_id").eq("profile_id", user.id).maybeSingle();
+    .from("musician_profiles").select("id, profile_id").eq("profile_id", active.user.id).maybeSingle();
   if (!musician || musician.id !== thread.musician_profile_id) {
     return NextResponse.json({ error: "Only the musician can accept this proposal" }, { status: 403 });
   }

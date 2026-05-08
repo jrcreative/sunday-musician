@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminTopbar } from "./AdminTopbar";
 import { Sparkline } from "./Sparkline";
+import { KpiCard, Money } from "./_components/AdminPrimitives";
+import { fetchDailyPaymentRollups } from "./_lib/queries";
 
 // 30-day operations dashboard.
 //
@@ -64,25 +66,19 @@ export default async function AdminDashboardPage() {
   // Captured payments — both windows, one query each so we can compute
   // both windows' totals + the daily series for the latest 30 days.
   const [
-    capturedRecentRes,
-    capturedPriorRes,
+    dailyRecent,
+    dailyPrior,
     profilesRes,
     bookingsRecentRes,
     bookingsPriorRes,
+    activeParticipantsRes,
     pendingPaymentsRes,
     failedPaymentsRes,
     suspendedRes,
     flaggedRequestsRes,
   ] = await Promise.all([
-    admin.from("payments")
-      .select("captured_at, charge_total, platform_fee, musician_profile_id, church_profile_id")
-      .gte("captured_at", start30.toISOString())
-      .eq("status", "captured"),
-    admin.from("payments")
-      .select("captured_at, charge_total, platform_fee")
-      .gte("captured_at", start60.toISOString())
-      .lt("captured_at", start30.toISOString())
-      .eq("status", "captured"),
+    fetchDailyPaymentRollups(admin, isoDay(start30)),
+    fetchDailyPaymentRollups(admin, isoDay(start60), isoDay(start30)),
     admin.from("profiles")
       .select("role")
       .is("deleted_at", null),
@@ -95,6 +91,10 @@ export default async function AdminDashboardPage() {
       .gte("accepted_at", start60.toISOString())
       .lt("accepted_at", start30.toISOString())
       .is("cancelled_at", null),
+    admin.from("payments")
+      .select("church_profile_id, musician_profile_id")
+      .gte("captured_at", start30.toISOString())
+      .eq("status", "captured"),
     admin.from("payments").select("id", { count: "exact", head: true }).eq("status", "scheduled"),
     admin.from("payments").select("id", { count: "exact", head: true }).eq("status", "failed"),
     admin.from("profiles").select("id", { count: "exact", head: true }).not("suspended_at", "is", null),
@@ -103,16 +103,14 @@ export default async function AdminDashboardPage() {
     admin.from("payments").select("id", { count: "exact", head: true }).eq("status", "failed"),
   ]);
 
-  const capturedRecent = capturedRecentRes.data ?? [];
-  const capturedPrior = capturedPriorRes.data ?? [];
+  const grossRecent = dailyRecent.reduce((s, p) => s + p.gross_cents, 0);
+  const grossPrior = dailyPrior.reduce((s, p) => s + p.gross_cents, 0);
+  const platformRecent = dailyRecent.reduce((s, p) => s + p.platform_cents, 0);
+  const platformPrior = dailyPrior.reduce((s, p) => s + p.platform_cents, 0);
 
-  const grossRecent = capturedRecent.reduce((s, p) => s + p.charge_total, 0);
-  const grossPrior = capturedPrior.reduce((s, p) => s + p.charge_total, 0);
-  const platformRecent = capturedRecent.reduce((s, p) => s + p.platform_fee, 0);
-  const platformPrior = capturedPrior.reduce((s, p) => s + p.platform_fee, 0);
-
-  const churchesActive = new Set(capturedRecent.map(p => p.church_profile_id)).size;
-  const musiciansActive = new Set(capturedRecent.map(p => p.musician_profile_id)).size;
+  const activeParticipants = activeParticipantsRes.data ?? [];
+  const churchesActive = new Set(activeParticipants.map(p => p.church_profile_id)).size;
+  const musiciansActive = new Set(activeParticipants.map(p => p.musician_profile_id)).size;
 
   const totalChurches = (profilesRes.data ?? []).filter(p => p.role === "church").length;
   const totalMusicians = (profilesRes.data ?? []).filter(p => p.role === "musician").length;
@@ -121,10 +119,12 @@ export default async function AdminDashboardPage() {
   const filledPrior = (bookingsPriorRes.data ?? []).length;
 
   const days = dayBuckets(start30, now);
-  const gmvSeries = bucketByDay(
-    capturedRecent.map(p => ({ date: p.captured_at ?? "", amount: p.charge_total })),
-    days,
-  );
+  const dailyByDay = new Map(dailyRecent.map(d => [d.day, d]));
+  const gmvSeries = days.map(d => {
+    const day = isoDay(d);
+    const rollup = dailyByDay.get(day);
+    return { day, gmv: rollup?.gross_cents ?? 0, count: rollup?.captured_count ?? 0 };
+  });
   const filledSeries = bucketByDay(
     (bookingsRecentRes.data ?? []).map(b => ({ date: b.accepted_at, amount: 1 })),
     days,
@@ -138,14 +138,14 @@ export default async function AdminDashboardPage() {
   const kpis = [
     {
       label: "Gross bookings (30d)",
-      val: `$${(grossRecent / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+      val: <Money cents={grossRecent} />,
       delta: pctDelta(grossRecent, grossPrior),
       ctx: "vs. previous 30 days",
       spark: gmvSeries.map(d => d.gmv),
     },
     {
       label: "Platform revenue",
-      val: `$${(platformRecent / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+      val: <Money cents={platformRecent} />,
       delta: pctDelta(platformRecent, platformPrior),
       ctx: "$5 fee · 30d",
       spark: gmvSeries.map(d => d.gmv),
@@ -216,17 +216,9 @@ export default async function AdminDashboardPage() {
 
         <div className="kpi-grid">
           {kpis.map(k => (
-            <div key={k.label} className="kpi">
-              <div className="label">{k.label}</div>
-              <div className="val">{k.val}</div>
-              <div className="row">
-                <div className={`delta ${k.delta.dir}`}>
-                  {k.delta.dir === "flat" ? "—" : `${k.delta.dir === "up" ? "↑" : "↓"} ${k.delta.value}%`}
-                </div>
-                <div className="ctx">{k.ctx}</div>
-              </div>
+            <KpiCard key={k.label} label={k.label} value={k.val} context={k.ctx} delta={k.delta}>
               {k.spark.length > 0 && <Sparkline data={k.spark} />}
-            </div>
+            </KpiCard>
           ))}
         </div>
 

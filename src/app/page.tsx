@@ -98,7 +98,7 @@ export default async function HomePage() {
               Create a free account to view full profiles and connect directly.
             </p>
           </div>
-          <HomeClient musicians={(musicians ?? []) as Parameters<typeof HomeClient>[0]["musicians"]} />
+          <HomeClient musicians={(musicians ?? []) as unknown as Parameters<typeof HomeClient>[0]["musicians"]} />
         </div>
       </div>
     </div>

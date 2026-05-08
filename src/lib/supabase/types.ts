@@ -481,8 +481,58 @@ export type Database = {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Views: {
+      admin_user_rollups: {
+        Row: {
+          id: string;
+          role: UserRole;
+          name: string;
+          email: string;
+          is_admin: boolean;
+          verified: boolean;
+          suspended_at: string | null;
+          suspend_reason: string | null;
+          created_at: string;
+          side_profile_id: string | null;
+          city: string;
+          state: string;
+          bookings: number;
+          amount_cents: number;
+          search_text: string;
+        };
+        Relationships: [];
+      };
+      admin_daily_payment_rollups: {
+        Row: {
+          day: string;
+          captured_count: number;
+          gross_cents: number;
+          platform_cents: number;
+        };
+        Relationships: [];
+      };
+    };
+    Functions: {
+      admin_set_user_verified: {
+        Args: {
+          p_actor_id: string;
+          p_actor_email: string;
+          p_target_id: string;
+          p_verified: boolean;
+        };
+        Returns: undefined;
+      };
+      admin_set_user_suspension: {
+        Args: {
+          p_actor_id: string;
+          p_actor_email: string;
+          p_target_id: string;
+          p_suspended: boolean;
+          p_reason?: string | null;
+        };
+        Returns: undefined;
+      };
+    };
     Enums: {
       user_role: UserRole;
       request_status: RequestStatus;

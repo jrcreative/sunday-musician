@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/app/admin/_lib/require-admin";
-import { logAdminAction } from "@/app/admin/_lib/audit";
-import { withJsonErrors } from "@/lib/api/handler";
+import { withAdminJson } from "@/app/admin/_lib/with-admin-json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,40 +8,31 @@ export const dynamic = "force-dynamic";
 // Suspended users can still sign in (so they can read the reason) but
 // the RLS policies in the migration prevent them from posting requests
 // or messages.
-export const POST = withJsonErrors(async (
+export const POST = withAdminJson(async (
+  { actor, admin },
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) => {
-  const gate = await requireAdmin();
-  if (!gate.ok) return gate.response;
-
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
   const suspended = !!body.suspended;
   const reason = typeof body.reason === "string" ? body.reason.slice(0, 500) : null;
 
-  const admin = createAdminClient();
-
   const { data: target } = await admin
-    .from("profiles").select("id, display_name").eq("id", id).single();
+    .from("profiles").select("id, display_name, is_admin").eq("id", id).single();
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (target.is_admin && suspended) {
+    return NextResponse.json({ error: "Admin accounts cannot be suspended" }, { status: 400 });
+  }
 
-  const update = suspended
-    ? { suspended_at: new Date().toISOString(), suspend_reason: reason }
-    : { suspended_at: null, suspend_reason: null };
-  const { error } = await admin.from("profiles").update(update).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await logAdminAction({
-    actorId: gate.actor.id,
-    actorEmail: gate.actor.email,
-    action: suspended ? "suspend_user" : "unsuspend_user",
-    targetType: "user",
-    targetId: target.id,
-    targetLabel: target.display_name,
-    level: suspended ? "danger" : "success",
-    metadata: reason ? { reason } : {},
+  const { error } = await admin.rpc("admin_set_user_suspension", {
+    p_actor_id: actor.id,
+    p_actor_email: actor.email,
+    p_target_id: id,
+    p_suspended: suspended,
+    p_reason: reason,
   });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ ok: true, suspended });
 });
