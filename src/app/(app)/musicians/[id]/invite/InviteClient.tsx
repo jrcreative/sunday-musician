@@ -90,7 +90,7 @@ export function InviteClient({
         Invite {musicianName} to a request
       </h2>
       <p style={{ color: "var(--sm-fg-3)", fontSize: 14.5, margin: "0 0 28px", lineHeight: 1.5 }}>
-        Pick one of your open requests. We'll start the conversation with a proposal carrying the date and fee you posted — the musician can accept or counter.
+        Pick one of your open requests. We&apos;ll start the conversation with a proposal carrying the date and fee you posted — the musician can accept or counter.
       </p>
 
       {error && (

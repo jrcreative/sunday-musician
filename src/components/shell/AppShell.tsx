@@ -23,15 +23,21 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
+  // Close on route change. Using the "store previous prop" pattern (a render-
+  // phase setState gated by inequality) instead of an effect — avoids the
+  // cascading-render anti-pattern flagged by react-hooks/set-state-in-effect.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
+    setOpen(false);
+  }
+
   // Toggle event from MobileMenuButton (rendered inside Topbar)
   useEffect(() => {
     const onToggle = () => setOpen(o => !o);
     window.addEventListener("sm:toggle-sidebar", onToggle);
     return () => window.removeEventListener("sm:toggle-sidebar", onToggle);
   }, []);
-
-  // Close on route change
-  useEffect(() => { setOpen(false); }, [pathname]);
 
   // Escape closes
   useEffect(() => {

@@ -30,6 +30,8 @@ export function ThreadClient({
   requestInfo,
   archivedAt,
   archiveReason,
+  bookingId,
+  bookingCancelledAt,
   initialMessages,
 }: {
   threadId: string;
@@ -39,6 +41,8 @@ export function ThreadClient({
   requestInfo: RequestInfo | null;
   archivedAt: string | null;
   archiveReason: string | null;
+  bookingId: string | null;
+  bookingCancelledAt: string | null;
   initialMessages: Message[];
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages as Message[]);
@@ -46,6 +50,32 @@ export function ThreadClient({
   const [sending, setSending] = useState(false);
   const [sendingProposal, setSendingProposal] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [cancelledAt, setCancelledAt] = useState<string | null>(bookingCancelledAt);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  async function cancelBooking() {
+    if (!bookingId || cancelling) return;
+    if (!confirm("Cancel this booking? The card on file will not be charged.")) return;
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await fetch("/api/bookings/cancel", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCancelError(json.error ?? "Could not cancel booking");
+        return;
+      }
+      setCancelledAt(new Date().toISOString());
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   // Proposal form state (church side)
   const [proposalFee, setProposalFee] = useState<number | "">(requestInfo?.offered_fee ?? "");
@@ -78,13 +108,17 @@ export function ThreadClient({
         ? "Inactive for 21 days"
         : "Archived";
 
-  // Sync sidebar fee to latest proposal fee when it changes
-  useEffect(() => {
-    if (latestProposal?.proposal?.fee != null) {
+  // Sync sidebar fee to latest proposal fee when it changes. Using the
+  // "store previous prop" pattern so the reset happens during render, not in
+  // an effect (avoids cascading renders).
+  const [syncedProposalId, setSyncedProposalId] = useState<string | null>(null);
+  if (latestProposal && latestProposal.id !== syncedProposalId) {
+    setSyncedProposalId(latestProposal.id);
+    if (latestProposal.proposal?.fee != null) {
       setProposalFee(latestProposal.proposal.fee);
       setProposalNotes(latestProposal.proposal.notes ?? "");
     }
-  }, [latestProposal?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   // Realtime: INSERTs + UPDATEs
   useEffect(() => {
@@ -161,14 +195,24 @@ export function ThreadClient({
   async function acceptProposal(msgId: string) {
     if (accepting) return;
     setAccepting(msgId);
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("messages")
-      .update({ proposal_status: "accepted" })
-      .eq("id", msgId)
-      .select().single();
-    if (data) setMessages(prev => prev.map(m => m.id === msgId ? data as Message : m));
-    setAccepting(null);
+    setAcceptError(null);
+    try {
+      const res = await fetch("/api/proposals/accept", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messageId: msgId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAcceptError(json.error ?? "Could not accept proposal");
+        return;
+      }
+      setMessages(prev => prev.map(m =>
+        m.id === msgId ? { ...m, proposal_status: "accepted" } : m
+      ));
+    } finally {
+      setAccepting(null);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -182,7 +226,17 @@ export function ThreadClient({
   const fmtShortDate = (iso: string) =>
     new Date(iso + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
-  let lastDate = "";
+  // Mark which messages should display a date divider (first message of each
+  // calendar day). Computed up-front so render doesn't reassign across iterations.
+  const dividerMessageIds = useMemo(() => {
+    const ids = new Set<string>();
+    let prev = "";
+    for (const m of messages) {
+      const d = fmtDate(m.created_at);
+      if (d !== prev) { ids.add(m.id); prev = d; }
+    }
+    return ids;
+  }, [messages]); // fmtDate is stable (defined in scope, no closure deps)
 
   return (
     <div className="sm-thread-layout">
@@ -206,8 +260,7 @@ export function ThreadClient({
           {messages.map((msg) => {
             const isMe = msg.sender_profile_id === currentUserId;
             const msgDate = fmtDate(msg.created_at);
-            const showDivider = msgDate !== lastDate;
-            if (showDivider) lastDate = msgDate;
+            const showDivider = dividerMessageIds.has(msg.id);
 
             return (
               <div key={msg.id}>
@@ -250,6 +303,24 @@ export function ThreadClient({
           })}
           <div ref={messagesEndRef} />
         </div>
+
+        {acceptError && (
+          <div style={{
+            borderTop: "1px solid rgba(197,48,48,0.2)",
+            padding: "10px 18px",
+            background: "rgba(197,48,48,0.06)",
+            color: "var(--sm-status-error, #c53030)",
+            fontSize: 13.5,
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+          }}>
+            <span>{acceptError}</span>
+            <button
+              onClick={() => setAcceptError(null)}
+              aria-label="Dismiss"
+              style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+            >×</button>
+          </div>
+        )}
 
         {/* Composer / lock banner */}
         {composerLocked ? (
@@ -356,6 +427,29 @@ export function ThreadClient({
               )}
               {latestProposal.proposal.notes && <Row label="Notes" value={latestProposal.proposal.notes} />}
             </dl>
+            {bookingId && !cancelledAt && (
+              <>
+                <p style={{ fontSize: 12, color: "var(--sm-fg-4)", lineHeight: 1.4, margin: "8px 0 0" }}>
+                  Card on file will be charged on the service date.
+                </p>
+                <button
+                  className="btn btn--sm"
+                  onClick={cancelBooking}
+                  disabled={cancelling}
+                  style={{ marginTop: 8, alignSelf: "flex-start" }}
+                >
+                  {cancelling ? "Cancelling…" : "Cancel booking"}
+                </button>
+              </>
+            )}
+            {cancelledAt && (
+              <div style={{ marginTop: 8, fontSize: 12.5, color: "var(--sm-fg-3)", padding: "8px 10px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-2)" }}>
+                Booking cancelled. No charge will be made.
+              </div>
+            )}
+            {cancelError && (
+              <div style={{ marginTop: 8, fontSize: 12.5, color: "var(--sm-status-error, #c53030)" }}>{cancelError}</div>
+            )}
           </div>
         )}
 
@@ -390,6 +484,29 @@ export function ThreadClient({
                   )}
                   {latestProposal.proposal.notes && <Row label="Notes" value={latestProposal.proposal.notes} />}
                 </dl>
+                {bookingId && !cancelledAt && (
+                  <>
+                    <p style={{ fontSize: 12, color: "var(--sm-fg-4)", lineHeight: 1.4, margin: "10px 0 0" }}>
+                      Payment will run on the service date. Cancelling stops the charge.
+                    </p>
+                    <button
+                      className="btn btn--sm"
+                      onClick={cancelBooking}
+                      disabled={cancelling}
+                      style={{ marginTop: 8, alignSelf: "flex-start" }}
+                    >
+                      {cancelling ? "Cancelling…" : "Cancel booking"}
+                    </button>
+                  </>
+                )}
+                {cancelledAt && (
+                  <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--sm-fg-3)", padding: "8px 10px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-2)" }}>
+                    Booking cancelled. The card will not be charged.
+                  </div>
+                )}
+                {cancelError && (
+                  <div style={{ marginTop: 8, fontSize: 12.5, color: "var(--sm-status-error, #c53030)" }}>{cancelError}</div>
+                )}
               </>
             )}
           </div>

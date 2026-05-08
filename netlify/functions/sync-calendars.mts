@@ -4,7 +4,7 @@ import type { Config } from "@netlify/functions";
 // All sync logic lives in src/app/api/cron/sync-calendars/route.ts so we have
 // one source of truth that's also testable via curl.
 
-export default async () => {
+const handler = async () => {
   const siteUrl = process.env.URL;          // set automatically by Netlify
   const secret = process.env.CRON_SECRET;   // set in Netlify env vars
 
@@ -24,6 +24,8 @@ export default async () => {
     headers: { "content-type": "application/json" },
   });
 };
+
+export default handler;
 
 export const config: Config = {
   schedule: "@hourly",

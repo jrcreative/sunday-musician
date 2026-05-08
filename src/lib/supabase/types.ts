@@ -5,6 +5,7 @@ export type ProposalStatus = "pending" | "accepted" | "declined" | "countered";
 export type UnavailabilitySource = "manual" | "ical" | "google" | "pco";
 export type CalendarKind = "ical" | "google" | "pco";
 export type ReviewerRole = "musician" | "church";
+export type PaymentStatus = "scheduled" | "capturing" | "captured" | "failed" | "cancelled";
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
@@ -193,6 +194,9 @@ export type Database = {
           fee: number | null;
           fee_type: string | null;
           accepted_at: string;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          cancel_reason: string | null;
           created_at: string;
         };
         Insert: {
@@ -205,9 +209,120 @@ export type Database = {
           fee?: number | null;
           fee_type?: string | null;
           accepted_at?: string;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancel_reason?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["bookings"]["Insert"]>;
+        Relationships: [];
+      };
+      stripe_accounts: {
+        Row: {
+          id: string;
+          musician_profile_id: string;
+          stripe_account_id: string;
+          charges_enabled: boolean;
+          payouts_enabled: boolean;
+          details_submitted: boolean;
+          requirements_due: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          musician_profile_id: string;
+          stripe_account_id: string;
+          charges_enabled?: boolean;
+          payouts_enabled?: boolean;
+          details_submitted?: boolean;
+          requirements_due?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["stripe_accounts"]["Insert"]>;
+        Relationships: [];
+      };
+      stripe_customers: {
+        Row: {
+          id: string;
+          church_profile_id: string;
+          stripe_customer_id: string;
+          default_payment_method: string | null;
+          card_brand: string | null;
+          card_last4: string | null;
+          card_exp_month: number | null;
+          card_exp_year: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          church_profile_id: string;
+          stripe_customer_id: string;
+          default_payment_method?: string | null;
+          card_brand?: string | null;
+          card_last4?: string | null;
+          card_exp_month?: number | null;
+          card_exp_year?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["stripe_customers"]["Insert"]>;
+        Relationships: [];
+      };
+      payments: {
+        Row: {
+          id: string;
+          booking_id: string;
+          church_profile_id: string;
+          musician_profile_id: string;
+          status: PaymentStatus;
+          musician_amount: number;
+          platform_fee: number;
+          stripe_fee_estimate: number;
+          application_fee_amount: number;
+          charge_total: number;
+          stripe_payment_intent_id: string | null;
+          stripe_charge_id: string | null;
+          stripe_customer_id: string;
+          stripe_destination_id: string;
+          stripe_payment_method_id: string;
+          scheduled_for: string;
+          attempted_at: string | null;
+          captured_at: string | null;
+          failed_at: string | null;
+          failure_message: string | null;
+          cancelled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          booking_id: string;
+          church_profile_id: string;
+          musician_profile_id: string;
+          status?: PaymentStatus;
+          musician_amount: number;
+          platform_fee: number;
+          stripe_fee_estimate: number;
+          application_fee_amount: number;
+          charge_total: number;
+          stripe_payment_intent_id?: string | null;
+          stripe_charge_id?: string | null;
+          stripe_customer_id: string;
+          stripe_destination_id: string;
+          stripe_payment_method_id: string;
+          scheduled_for: string;
+          attempted_at?: string | null;
+          captured_at?: string | null;
+          failed_at?: string | null;
+          failure_message?: string | null;
+          cancelled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["payments"]["Insert"]>;
         Relationships: [];
       };
       review_periods: {
@@ -303,6 +418,7 @@ export type Database = {
       unavailability_source: UnavailabilitySource;
       calendar_kind: CalendarKind;
       reviewer_role: ReviewerRole;
+      payment_status: PaymentStatus;
     };
   };
 };

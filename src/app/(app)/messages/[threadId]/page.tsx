@@ -43,6 +43,12 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
     await supabase.from("threads").update({ last_read_at_musician: nowIso }).eq("id", threadId);
   }
 
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("id, cancelled_at, service_date")
+    .eq("thread_id", threadId)
+    .maybeSingle();
+
   let requestInfo: RequestInfo | null = null;
   if (thread.request_id) {
     const { data: req } = await supabase
@@ -81,6 +87,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
         requestInfo={requestInfo}
         archivedAt={thread.archived_at}
         archiveReason={thread.archive_reason}
+        bookingId={booking?.id ?? null}
+        bookingCancelledAt={booking?.cancelled_at ?? null}
         initialMessages={(messages ?? []) as unknown as Parameters<typeof ThreadClient>[0]["initialMessages"]}
       />
     </>
