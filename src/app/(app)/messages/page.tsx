@@ -53,60 +53,55 @@ export default async function MessagesPage({
   }
   const myProfileId = (myProfile as { id: string }).id;
 
+  // Inbox query: denormalized on threads — no join into the messages table.
+  // Preview, unread count, and last-message timestamp are kept current by
+  // a Postgres trigger on message insert (see 20260510 migration).
   const filterCol = isChurch ? "church_profile_id" : "musician_profile_id";
   const { data: rawThreads } = await supabase
     .from("threads")
     .select(`
       id, request_id, archived_at, archive_reason, updated_at,
-      church_profile_id, musician_profile_id,
-      last_read_at_church, last_read_at_musician,
+      last_message_at, last_message_preview, last_message_kind,
+      unread_count_church, unread_count_musician,
       service_requests ( title, service_date ),
       church_profiles ( church_name ),
-      musician_profiles ( profiles ( display_name ) ),
-      messages ( body, created_at, sender_profile_id, kind )
+      musician_profiles ( profiles ( display_name ) )
     `)
     .eq(filterCol, myProfileId)
+    .order("last_message_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false }) as unknown as { data: Array<{
       id: string;
       request_id: string;
       archived_at: string | null;
       archive_reason: string | null;
       updated_at: string;
-      church_profile_id: string;
-      musician_profile_id: string;
-      last_read_at_church: string | null;
-      last_read_at_musician: string | null;
+      last_message_at: string | null;
+      last_message_preview: string | null;
+      last_message_kind: "text" | "proposal" | null;
+      unread_count_church: number;
+      unread_count_musician: number;
       service_requests: { title: string; service_date: string } | null;
       church_profiles: { church_name: string } | null;
       musician_profiles: { profiles: { display_name: string } | null } | null;
-      messages: { body: string | null; created_at: string; sender_profile_id: string; kind: string }[];
     }> | null };
 
   const threads = (rawThreads ?? []).map(t => {
-    const msgs = (t.messages ?? []).slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
-    const last = msgs[0];
-    const myLastRead = isChurch ? t.last_read_at_church : t.last_read_at_musician;
-    // Unread = messages from the other side after my last_read_at.
-    const unread = msgs.filter(m =>
-      m.sender_profile_id !== user.id &&
-      (myLastRead == null || m.created_at > myLastRead)
-    ).length;
     const otherName = isChurch
       ? (t.musician_profiles?.profiles?.display_name ?? "Musician")
       : (t.church_profiles?.church_name ?? "Church");
-    const preview = last
-      ? (last.kind === "proposal" ? "Sent a proposal" : (last.body ?? ""))
-      : "";
+    const preview = t.last_message_kind === "proposal"
+      ? "Sent a proposal"
+      : (t.last_message_preview ?? "");
     return {
       id: t.id,
       requestTitle: t.service_requests?.title ?? "Request",
       serviceDate: t.service_requests?.service_date ?? null,
       archivedAt: t.archived_at,
       archiveReason: t.archive_reason,
-      updatedAt: t.updated_at,
+      updatedAt: t.last_message_at ?? t.updated_at,
       otherName,
       preview,
-      unread,
+      unread: isChurch ? t.unread_count_church : t.unread_count_musician,
     };
   });
 

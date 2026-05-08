@@ -56,10 +56,13 @@
   --sm-status-error:   var(--sm-palette-13);
   --sm-status-warn:    var(--sm-palette-15);
 
-  /* Typography */
-  --sm-font-body:    "Source Sans 3", system-ui, sans-serif;
-  --sm-font-display: "Source Sans 3", system-ui, sans-serif;
-  --sm-font-logo:    "Work Sans", system-ui, sans-serif;
+  /* Typography — variables set by next/font in app/layout.tsx so the fonts
+     are self-hosted, preloaded, and CLS-safe. Falls back to system-ui if
+     the next/font variable isn't applied (e.g. plain HTML test pages). */
+  --sm-font-body:    var(--font-source-sans), system-ui, sans-serif;
+  --sm-font-display: var(--font-source-sans), system-ui, sans-serif;
+  --sm-font-logo:    var(--font-work-sans), system-ui, sans-serif;
+  --sm-font-sans:    var(--font-source-sans), system-ui, sans-serif;
   --sm-font-mono:    ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
   --sm-w-regular:  400;

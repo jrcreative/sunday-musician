@@ -1,5 +1,25 @@
 import type { Metadata, Viewport } from "next";
+import { Source_Sans_3, Work_Sans } from "next/font/google";
 import "./globals.css";
+
+// Self-hosted via next/font — eliminates render-blocking Google Fonts CSS
+// fetch, removes the third-party round trip, and avoids CLS via font-display
+// swap with size-adjust. Wired through CSS variables so the existing
+// --sm-font-* tokens in design-system.css keep working.
+
+const sourceSans = Source_Sans_3({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-source-sans",
+});
+
+const workSans = Work_Sans({
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  display: "swap",
+  variable: "--font-work-sans",
+});
 
 export const metadata: Metadata = {
   title: "Sunday Musician",
@@ -17,7 +37,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className={`h-full ${sourceSans.variable} ${workSans.variable}`}>
       <body className="min-h-full" suppressHydrationWarning>{children}</body>
     </html>
   );
