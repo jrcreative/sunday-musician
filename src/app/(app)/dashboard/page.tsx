@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/shell/Topbar";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ProfileCompleteness } from "../profile/ProfileCompleteness";
+import { musicianCompleteness } from "../profile/completeness";
 
 function greeting() {
   const h = new Date().getHours();
@@ -163,10 +165,24 @@ export default async function DashboardPage() {
   // ── Musician dashboard ────────────────────────────────────────────────────
   const { data: mp } = await supabase
     .from("musician_profiles")
-    .select("id, instruments, city, state")
+    .select("id, instruments, city, state, bio, primary_instrument, fee_min, fee_max, is_volunteer, travel_radius_miles, denomination_tags, experience_notes, gear_notes")
     .eq("profile_id", user.id)
     .maybeSingle() as unknown as {
-      data: { id: string; instruments: string[] | null; city: string; state: string } | null;
+      data: {
+        id: string;
+        instruments: string[];
+        city: string;
+        state: string;
+        bio: string;
+        primary_instrument: string;
+        fee_min: number;
+        fee_max: number;
+        is_volunteer: boolean;
+        travel_radius_miles: number;
+        denomination_tags: string[];
+        experience_notes: string;
+        gear_notes: string;
+      } | null;
     };
 
   // Open requests matching musician's instruments
@@ -251,6 +267,7 @@ export default async function DashboardPage() {
 
   const totalEarned = bookings.reduce((s, b) => s + (b.fee ?? 0), 0);
   const upcomingCount = bookings.filter(b => b.serviceDate && new Date(b.serviceDate + "T12:00:00") >= new Date()).length;
+  const profileCompleteness = musicianCompleteness(mp);
 
   const stats = [
     { label: "Confirmed bookings", value: bookings.length.toString(), sub: "all time" },
@@ -277,6 +294,16 @@ export default async function DashboardPage() {
               : "No new requests matching your instruments right now."}
           </p>
         </div>
+
+        {profileCompleteness.percent < 100 && (
+          <ProfileCompleteness
+            percent={profileCompleteness.percent}
+            missing={profileCompleteness.missing}
+            previewHref="/profile"
+            previewLabel="Complete your profile"
+            openInNewTab={false}
+          />
+        )}
 
         {/* Stats */}
         <div className="sm-row-3" style={{ marginBottom: 40 }}>

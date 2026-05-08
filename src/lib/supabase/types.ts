@@ -97,12 +97,14 @@ export type Database = {
           instruments: string[];
           instruments_detail: Json;
           primary_instrument: string;
-          years_experience: number;
+          experience_notes: string;
+          gear_notes: string;
           is_volunteer: boolean;
           fee_min: number;
           fee_max: number;
           bio: string;
           denomination_tags: string[];
+          profile_videos: Json;
           rating: number;
           review_count: number;
           available: boolean;

@@ -10,11 +10,13 @@ export function ProfileCompleteness({
   missing,
   previewHref,
   previewLabel,
+  openInNewTab = true,
 }: {
   percent: number;
   missing: string[];
   previewHref: string | null;
   previewLabel: string;
+  openInNewTab?: boolean;
 }) {
   return (
     <section style={{
@@ -37,8 +39,8 @@ export function ProfileCompleteness({
         {previewHref && (
           <a
             href={previewHref}
-            target="_blank"
-            rel="noreferrer"
+            target={openInNewTab ? "_blank" : undefined}
+            rel={openInNewTab ? "noreferrer" : undefined}
             className="btn btn--sm"
           >
             {previewLabel}
