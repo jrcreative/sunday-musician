@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
 type Request = {
@@ -17,14 +16,10 @@ type Request = {
 
 export function InviteClient({
   musicianProfileId,
-  churchProfileId,
-  currentUserId,
   musicianName,
   requests,
 }: {
   musicianProfileId: string;
-  churchProfileId: string;
-  currentUserId: string;
   musicianName: string;
   requests: Request[];
 }) {
@@ -35,53 +30,23 @@ export function InviteClient({
   async function handleInvite(req: Request) {
     setInviting(req.id);
     setError(null);
-    const supabase = createClient();
-
-    // Threads are unique per (request, musician). If one already exists, just go to it.
-    const { data: existing } = await supabase
-      .from("threads").select("id")
-      .eq("request_id", req.id)
-      .eq("musician_profile_id", musicianProfileId)
-      .maybeSingle();
-
-    let threadId: string;
-    if (existing) {
-      threadId = existing.id;
-    } else {
-      const { data: created, error: tErr } = await supabase
-        .from("threads")
-        .insert({
-          church_profile_id: churchProfileId,
-          musician_profile_id: musicianProfileId,
-          request_id: req.id,
-        })
-        .select("id").single();
-      if (tErr || !created) { setError(tErr?.message ?? "Could not create thread"); setInviting(null); return; }
-      threadId = created.id;
-    }
-
-    // First message must be a proposal — seed it from the request's terms so
-    // the musician sees concrete date + fee right away.
-    const { error: mErr } = await supabase.from("messages").insert({
-      thread_id: threadId,
-      sender_profile_id: currentUserId,
-      kind: "proposal",
-      body: null,
-      proposal: {
-        fee: req.offered_fee,
-        feeType: req.fee_type,
-        date: req.service_date,
-        notes: req.notes ?? "",
-      },
-      proposal_status: "pending",
+    const res = await fetch(`/api/requests/${req.id}/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ musicianProfileId }),
     });
-    if (mErr) {
-      // If duplicate proposal already exists (re-invite), just route to the thread.
-      router.push(`/messages/${threadId}`);
+    const payload = await res.json().catch(() => ({})) as {
+      threadId?: string;
+      error?: string;
+    };
+
+    if (!res.ok || !payload.threadId) {
+      setError(payload.error ?? "Could not invite musician");
+      setInviting(null);
       return;
     }
 
-    router.push(`/messages/${threadId}`);
+    router.push(`/messages/${payload.threadId}`);
   }
 
   return (

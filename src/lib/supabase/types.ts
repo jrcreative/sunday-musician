@@ -6,8 +6,10 @@ export type UnavailabilitySource = "manual" | "ical" | "google" | "pco";
 export type CalendarKind = "ical" | "google" | "pco";
 export type ReviewerRole = "musician" | "church";
 export type PaymentStatus = "scheduled" | "capturing" | "captured" | "failed" | "cancelled";
+export type EmailDeliveryStatus = "sending" | "sent" | "failed" | "skipped";
+export type EmailDeliveryCategory = "critical" | "payment" | "activity" | "system";
 
-type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
+export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
 export type Database = {
   public: {
@@ -84,6 +86,44 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["notification_preferences"]["Insert"]>;
+        Relationships: [];
+      };
+      email_deliveries: {
+        Row: {
+          id: string;
+          event_key: string;
+          category: EmailDeliveryCategory;
+          dedupe_key: string;
+          recipient_profile_id: string | null;
+          to_email: string;
+          subject: string;
+          template_id: string | null;
+          payload: Json;
+          status: EmailDeliveryStatus;
+          provider_message_id: string | null;
+          error: string | null;
+          sent_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_key: string;
+          category: EmailDeliveryCategory;
+          dedupe_key: string;
+          recipient_profile_id?: string | null;
+          to_email: string;
+          subject: string;
+          template_id?: string | null;
+          payload?: Json;
+          status?: EmailDeliveryStatus;
+          provider_message_id?: string | null;
+          error?: string | null;
+          sent_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["email_deliveries"]["Insert"]>;
         Relationships: [];
       };
       musician_profiles: {

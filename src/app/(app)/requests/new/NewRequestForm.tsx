@@ -127,10 +127,6 @@ export function NewRequestForm({
     setSubmitting(true);
     setError(null);
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
       const fields = {
         title: data.title || "Untitled request",
         service_type: data.serviceType,
@@ -147,6 +143,10 @@ export function NewRequestForm({
       };
 
       if (isEditing && existingRequest) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+
         const { error: updateErr } = await supabase
           .from("service_requests")
           .update(fields)
@@ -154,17 +154,14 @@ export function NewRequestForm({
         if (updateErr) throw updateErr;
         router.push(`/requests/${existingRequest.id}`);
       } else {
-        const { data: churchProfile, error: cpErr } = await supabase
-          .from("church_profiles").select("id").eq("profile_id", user.id).single();
-        if (cpErr || !churchProfile) throw new Error("Church profile not found");
-
-        const { error: insertErr } = await supabase.from("service_requests").insert({
-          ...fields,
-          church_profile_id: churchProfile.id,
-          status: "open",
+        const res = await fetch("/api/requests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fields),
         });
-        if (insertErr) throw insertErr;
-        router.push("/requests");
+        const payload = await res.json().catch(() => ({})) as { id?: string; error?: string };
+        if (!res.ok || !payload.id) throw new Error(payload.error ?? "Could not create request");
+        router.push(`/requests/${payload.id}`);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Something went wrong");
