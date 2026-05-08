@@ -7,6 +7,7 @@ import type { Database } from "@/lib/supabase/types";
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type MusicianProfile = Database["public"]["Tables"]["musician_profiles"]["Row"];
 type InstrumentEntry = { instrument: string; skill: string };
+type VideoEntry = { url: string; title: string; description: string };
 
 const INSTRUMENTS = [
   "Acoustic Guitar", "Electric Guitar", "Bass Guitar", "Piano / Keys", "Organ",
@@ -24,11 +25,37 @@ const TRAVEL_OPTIONS = [
   { value: 9999, label: "Willing to travel anywhere" },
 ];
 const DENOMINATION_OPTIONS = [
+  "Open to any denomination / tradition",
   "Non-denominational", "Baptist", "Southern Baptist", "Catholic",
   "Presbyterian", "Methodist", "Pentecostal / Charismatic", "Lutheran",
   "Episcopal / Anglican", "Reformed", "Church of Christ", "Nazarene",
   "Assembly of God",
 ];
+const OPEN_ANY_DENOMINATION = DENOMINATION_OPTIONS[0];
+
+function videoEntriesFromProfile(mp: MusicianProfile | null): VideoEntry[] {
+  const profileVideos = mp?.profile_videos;
+  if (Array.isArray(profileVideos)) {
+    const videos = profileVideos
+      .map(video => {
+        if (!video || typeof video !== "object" || Array.isArray(video)) return null;
+        const entry = video as Record<string, unknown>;
+        return {
+          url: typeof entry.url === "string" ? entry.url : "",
+          title: typeof entry.title === "string" ? entry.title : "",
+          description: typeof entry.description === "string" ? entry.description : "",
+        };
+      })
+      .filter((video): video is VideoEntry => !!video);
+    if (videos.length > 0) return videos;
+  }
+
+  if (mp?.youtube_links?.length) {
+    return mp.youtube_links.map(url => ({ url, title: "", description: "" }));
+  }
+
+  return [{ url: "", title: "", description: "" }];
+}
 
 export function MusicianProfileForm({
   profile,
@@ -46,7 +73,8 @@ export function MusicianProfileForm({
     if (mp?.instruments?.length) return mp.instruments.map(i => ({ instrument: i, skill: "Intermediate" }));
     return [];
   });
-  const [yearsExperience, setYearsExperience] = useState(mp?.years_experience ?? 0);
+  const [experienceNotes, setExperienceNotes] = useState(mp?.experience_notes ?? "");
+  const [gearNotes, setGearNotes] = useState(mp?.gear_notes ?? "");
   const [isVolunteer, setIsVolunteer] = useState(mp?.is_volunteer ?? false);
   const [feeMin, setFeeMin] = useState(mp?.fee_min ?? 0);
   const [feeMax, setFeeMax] = useState(mp?.fee_max ?? 0);
@@ -56,9 +84,7 @@ export function MusicianProfileForm({
   const [zip, setZip] = useState(mp?.zip ?? "");
   const [travelRadius, setTravelRadius] = useState(mp?.travel_radius_miles ?? 25);
   const [denominationTags, setDenominationTags] = useState<string[]>(mp?.denomination_tags ?? []);
-  const [youtubeLinks, setYoutubeLinks] = useState<string[]>(
-    mp?.youtube_links?.length ? mp.youtube_links : [""]
-  );
+  const [videos, setVideos] = useState<VideoEntry[]>(() => videoEntriesFromProfile(mp));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,16 +99,20 @@ export function MusicianProfileForm({
     setInstruments(prev => prev.filter((_, idx) => idx !== i));
   }
   function toggleDenomination(tag: string) {
-    setDenominationTags(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    );
+    setDenominationTags(prev => {
+      if (prev.includes(tag)) return prev.filter(t => t !== tag);
+      if (tag === OPEN_ANY_DENOMINATION) return [tag];
+      return [...prev.filter(t => t !== OPEN_ANY_DENOMINATION), tag];
+    });
   }
-  function addYoutubeLink() { setYoutubeLinks(prev => [...prev, ""]); }
-  function updateYoutubeLink(i: number, val: string) {
-    setYoutubeLinks(prev => prev.map((l, idx) => idx === i ? val : l));
+  function addVideo() {
+    setVideos(prev => [...prev, { url: "", title: "", description: "" }]);
   }
-  function removeYoutubeLink(i: number) {
-    setYoutubeLinks(prev => prev.filter((_, idx) => idx !== i));
+  function updateVideo(i: number, field: keyof VideoEntry, val: string) {
+    setVideos(prev => prev.map((video, idx) => idx === i ? { ...video, [field]: val } : video));
+  }
+  function removeVideo(i: number) {
+    setVideos(prev => prev.filter((_, idx) => idx !== i));
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -92,6 +122,13 @@ export function MusicianProfileForm({
     setSaved(false);
     const supabase = createClient();
     const instrumentsArr = instruments.map(e => e.instrument).filter(Boolean);
+    const profileVideos = videos
+      .map(video => ({
+        url: video.url.trim(),
+        title: video.title.trim(),
+        description: video.description.trim(),
+      }))
+      .filter(video => video.url);
     const [{ error: profErr }, { error: mpErr }] = await Promise.all([
       supabase.from("profiles").update({ display_name: displayName }).eq("id", profile.id),
       supabase.from("musician_profiles").update({
@@ -100,7 +137,8 @@ export function MusicianProfileForm({
         instruments_detail: instruments,
         instruments: instrumentsArr,
         primary_instrument: instrumentsArr[0] ?? "",
-        years_experience: yearsExperience,
+        experience_notes: experienceNotes,
+        gear_notes: gearNotes,
         is_volunteer: isVolunteer,
         fee_min: isVolunteer ? 0 : feeMin,
         fee_max: isVolunteer ? 0 : feeMax,
@@ -110,7 +148,8 @@ export function MusicianProfileForm({
         zip: zip || null,
         travel_radius_miles: travelRadius,
         denomination_tags: denominationTags,
-        youtube_links: youtubeLinks.filter(Boolean),
+        profile_videos: profileVideos,
+        youtube_links: profileVideos.map(video => video.url),
       }).eq("profile_id", profile.id),
     ]);
     if (profErr || mpErr) setError((profErr ?? mpErr)!.message);
@@ -128,7 +167,7 @@ export function MusicianProfileForm({
         </div>
         <div className="field">
           <label className="label" htmlFor="bio">Bio</label>
-          <textarea id="bio" className="textarea" rows={4} value={bio} onChange={e => setBio(e.target.value)} placeholder="Tell churches about yourself, your experience, and your heart for worship…" />
+          <textarea id="bio" className="textarea" rows={4} value={bio} onChange={e => setBio(e.target.value)} placeholder="Tell churches about yourself and your heart for worship…" />
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
           <input type="checkbox" checked={available} onChange={e => setAvailable(e.target.checked)} />
@@ -180,10 +219,27 @@ export function MusicianProfileForm({
       </Section>
 
       <Section title="Experience & pay">
-        <div className="field" style={{ maxWidth: 200 }}>
-          <label className="label" htmlFor="yearsExp">Years of experience</label>
-          <input id="yearsExp" type="number" className="input" min={0} max={60} value={yearsExperience}
-            onChange={e => setYearsExperience(Number(e.target.value))} />
+        <div className="field">
+          <label className="label" htmlFor="experienceNotes">Experience</label>
+          <textarea
+            id="experienceNotes"
+            className="textarea"
+            rows={5}
+            value={experienceNotes}
+            onChange={e => setExperienceNotes(e.target.value)}
+            placeholder="Share your church, worship-leading, Sunday service, touring, studio, chart, click, or in-ear experience."
+          />
+        </div>
+        <div className="field" style={{ marginTop: 16 }}>
+          <label className="label" htmlFor="gearNotes">Gear / setup</label>
+          <textarea
+            id="gearNotes"
+            className="textarea"
+            rows={4}
+            value={gearNotes}
+            onChange={e => setGearNotes(e.target.value)}
+            placeholder="Describe your guitar rig, pedalboard, amp/modeler, keyboard, drum setup, or anything the church should provide."
+          />
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", margin: "16px 0 0" }}>
           <input type="checkbox" checked={isVolunteer} onChange={e => setIsVolunteer(e.target.checked)} />
@@ -233,20 +289,55 @@ export function MusicianProfileForm({
       </Section>
 
       <Section title="Media links">
-        <p style={{ fontSize: 13.5, color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Add YouTube links so churches can hear you play.</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {youtubeLinks.map((link, i) => (
-            <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input type="url" className="input" value={link} onChange={e => updateYoutubeLink(i, e.target.value)}
-                placeholder="https://youtube.com/watch?v=…" style={{ flex: 1 }} />
-              {youtubeLinks.length > 1 && (
-                <button type="button" onClick={() => removeYoutubeLink(i)} aria-label="Remove"
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--sm-fg-4)", fontSize: 22, lineHeight: 1, padding: "0 4px", flexShrink: 0 }}>×</button>
-              )}
+        <p style={{ fontSize: 13.5, color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Add YouTube videos so churches can hear you play. Titles and descriptions are optional.</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {videos.map((video, i) => (
+            <div key={i} style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 14, background: "var(--sm-bg-1)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--sm-fg-2)" }}>Video {i + 1}</div>
+                {videos.length > 1 && (
+                  <button type="button" onClick={() => removeVideo(i)} className="btn btn--ghost btn--sm">
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div className="field">
+                <label className="label" htmlFor={`videoUrl-${i}`}>YouTube URL</label>
+                <input
+                  id={`videoUrl-${i}`}
+                  type="url"
+                  className="input"
+                  value={video.url}
+                  onChange={e => updateVideo(i, "url", e.target.value)}
+                  placeholder="https://youtube.com/watch?v=…"
+                />
+              </div>
+              <div className="field" style={{ marginTop: 10 }}>
+                <label className="label" htmlFor={`videoTitle-${i}`}>Title</label>
+                <input
+                  id={`videoTitle-${i}`}
+                  type="text"
+                  className="input"
+                  value={video.title}
+                  onChange={e => updateVideo(i, "title", e.target.value)}
+                  placeholder="Live worship set, acoustic demo, keys sample…"
+                />
+              </div>
+              <div className="field" style={{ marginTop: 10 }}>
+                <label className="label" htmlFor={`videoDescription-${i}`}>Description</label>
+                <textarea
+                  id={`videoDescription-${i}`}
+                  className="textarea"
+                  rows={3}
+                  value={video.description}
+                  onChange={e => updateVideo(i, "description", e.target.value)}
+                  placeholder="Add context: your role, song style, venue, band setup, or anything helpful for a church."
+                />
+              </div>
             </div>
           ))}
-          <button type="button" onClick={addYoutubeLink} className="btn btn--ghost btn--sm" style={{ alignSelf: "flex-start", marginTop: 4 }}>
-            + Add link
+          <button type="button" onClick={addVideo} className="btn btn--ghost btn--sm" style={{ alignSelf: "flex-start", marginTop: 4 }}>
+            + Add video
           </button>
         </div>
       </Section>

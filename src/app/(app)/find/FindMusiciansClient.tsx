@@ -28,7 +28,6 @@ type Musician = {
   state: string;
   instruments: string[];
   primary_instrument: string;
-  years_experience: number;
   is_volunteer: boolean;
   fee_min: number;
   fee_max: number;
@@ -258,10 +257,9 @@ export function FindMusiciansClient({
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 16, fontWeight: 600, color: "var(--sm-fg-1)" }}>{name}</div>
                           <div style={{ fontSize: 13, color: "var(--sm-fg-3)", marginTop: 2 }}>{m.city}, {m.state}</div>
-                          {m.years_experience > 0 && (
+                          {m.rating > 0 && (
                             <div style={{ fontSize: 12.5, color: "var(--sm-fg-4)", marginTop: 3 }}>
-                              {m.rating > 0 && <span style={{ color: "var(--sm-accent)", marginRight: 6 }}>★ {m.rating}</span>}
-                              {m.years_experience} yrs exp
+                              <span style={{ color: "var(--sm-accent)" }}>★ {m.rating}</span>
                             </div>
                           )}
                         </div>

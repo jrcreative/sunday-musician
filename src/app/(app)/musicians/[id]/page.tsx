@@ -6,6 +6,48 @@ import Link from "next/link";
 const AV_COLORS = ["#f5d8b8","#d8e4f5","#d8f5dd","#f5d8d8","#ebd8f5","#f5ecd8"];
 const AV_TEXT   = ["#8a5a05","#1159af","#13612e","#b82105","#5b1faf","#8a5a05"];
 
+type VideoEntry = { url: string; title: string; description: string };
+
+function youtubeEmbedUrl(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.hostname.replace(/^www\./, "");
+    let videoId: string | null = null;
+
+    if (host === "youtu.be") videoId = url.pathname.split("/").filter(Boolean)[0] ?? null;
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      if (url.pathname === "/watch") videoId = url.searchParams.get("v");
+      if (url.pathname.startsWith("/embed/")) videoId = url.pathname.split("/").filter(Boolean)[1] ?? null;
+      if (url.pathname.startsWith("/shorts/")) videoId = url.pathname.split("/").filter(Boolean)[1] ?? null;
+    }
+
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function profileVideosFromRow(profileVideos: unknown, youtubeLinks: string[]): VideoEntry[] {
+  if (Array.isArray(profileVideos)) {
+    const videos = profileVideos
+      .map(video => {
+        if (!video || typeof video !== "object" || Array.isArray(video)) return null;
+        const entry = video as Record<string, unknown>;
+        return {
+          url: typeof entry.url === "string" ? entry.url : "",
+          title: typeof entry.title === "string" ? entry.title : "",
+          description: typeof entry.description === "string" ? entry.description : "",
+        };
+      })
+      .filter((video): video is VideoEntry => !!video && video.url.trim().length > 0);
+    if (videos.length > 0) return videos;
+  }
+
+  return youtubeLinks
+    .filter(link => link.trim().length > 0)
+    .map(url => ({ url, title: "", description: "" }));
+}
+
 export default async function MusicianProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
@@ -14,8 +56,9 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
 
   type MusicianRow = {
     id: string; profile_id: string; city: string; state: string;
-    instruments: string[]; primary_instrument: string; years_experience: number;
+    instruments: string[]; primary_instrument: string;
     fee_min: number; fee_max: number; bio: string; denomination_tags: string[];
+    experience_notes: string; gear_notes: string; youtube_links: string[]; profile_videos: unknown;
     rating: number; review_count: number; available: boolean;
     profiles: { display_name: string; avatar_url: string | null } | null;
   };
@@ -76,6 +119,9 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
   const name = musician.profiles?.display_name ?? "Musician";
   const initials = name.split(" ").map((w: string) => w[0]).slice(0, 2).join("");
   const idx = musician.id.charCodeAt(0) % 6;
+  const videoEmbeds = profileVideosFromRow(musician.profile_videos, musician.youtube_links ?? [])
+    .map(video => ({ ...video, embedUrl: youtubeEmbedUrl(video.url) }))
+    .filter(video => video.embedUrl);
 
   const crumbBase = isChurch
     ? [{ label: "Find musicians", href: "/find" }]
@@ -142,9 +188,62 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
             {/* Denomination tags */}
             {musician.denomination_tags?.length > 0 && (
               <div style={{ marginBottom: 28 }}>
-                <h3 style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 10px" }}>Comfortable serving</h3>
+                <h3 style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 10px" }}>Denominations / traditions</h3>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {musician.denomination_tags.map((t: string) => <span key={t} className="chip chip--outline">{t}</span>)}
+                </div>
+              </div>
+            )}
+
+            {musician.experience_notes?.trim() && (
+              <div style={{ marginBottom: 28 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 14px" }}>Experience</h3>
+                <p style={{ color: "var(--sm-fg-2)", lineHeight: 1.65, margin: 0, whiteSpace: "pre-line" }}>{musician.experience_notes}</p>
+              </div>
+            )}
+
+            {musician.gear_notes?.trim() && (
+              <div style={{ marginBottom: 28 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 14px" }}>Gear / setup</h3>
+                <p style={{ color: "var(--sm-fg-2)", lineHeight: 1.65, margin: 0, whiteSpace: "pre-line" }}>{musician.gear_notes}</p>
+              </div>
+            )}
+
+            {videoEmbeds.length > 0 && (
+              <div style={{ marginBottom: 28 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 14px" }}>Video</h3>
+                <div style={{ display: "grid", gap: 14 }}>
+                  {videoEmbeds.map(video => (
+                    <div key={video.url} style={{ display: "grid", gap: 8 }}>
+                      <iframe
+                        src={video.embedUrl ?? undefined}
+                        title={video.title || `${name} video`}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        style={{
+                          width: "100%",
+                          aspectRatio: "16 / 9",
+                          border: "0",
+                          borderRadius: "var(--sm-radius-sm)",
+                          background: "var(--sm-bg-3)",
+                        }}
+                      />
+                      {(video.title || video.description) && (
+                        <div>
+                          {video.title && (
+                            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--sm-fg-1)", marginBottom: video.description ? 3 : 0 }}>
+                              {video.title}
+                            </div>
+                          )}
+                          {video.description && (
+                            <p style={{ fontSize: 13.5, color: "var(--sm-fg-3)", lineHeight: 1.55, margin: 0, whiteSpace: "pre-line" }}>
+                              {video.description}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -181,8 +280,6 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
               <dd style={{ margin: "0 0 16px", fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>
                 ${musician.fee_min}–${musician.fee_max} <span style={{ fontWeight: 400, color: "var(--sm-fg-3)", fontSize: 13 }}>/ service</span>
               </dd>
-              <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Years of experience</dt>
-              <dd style={{ margin: "0 0 16px", fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>{musician.years_experience} years</dd>
               <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Availability</dt>
               <dd style={{ margin: isChurch ? "0 0 16px" : 0, fontSize: 14.5, fontWeight: 500, color: musician.available ? "var(--sm-status-success)" : "var(--sm-fg-3)" }}>
                 {musician.available ? "Currently available" : "Not available"}
