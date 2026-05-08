@@ -36,6 +36,11 @@ const LOG_ICON = (
     <line x1="9" y1="17" x2="15" y2="17"/>
   </svg>
 );
+const STAR_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12 2 15.1 8.4 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.4 12 2"/>
+  </svg>
+);
 
 const NAV: { group: string; items: NavItem[] }[] = [
   {
@@ -59,6 +64,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "Compliance",
     items: [
+      { href: "/admin/reviews", label: "Review Lab", icon: STAR_ICON },
       { href: "/admin/audit", label: "Audit log", icon: LOG_ICON },
     ],
   },
