@@ -31,6 +31,24 @@ export default async function DashboardPage() {
     const openCount = requests?.filter(r => r.status === "open").length ?? 0;
     const confirmedCount = requests?.filter(r => r.status === "filled").length ?? 0;
 
+    // Card-on-file expiry warning. We surface this on the dashboard (not
+    // just /profile/billing) because a missed expiry would silently fail
+    // the next event-day capture.
+    const { data: stripeCustomer } = churchProfile
+      ? await supabase
+          .from("stripe_customers")
+          .select("card_exp_month, card_exp_year, default_payment_method")
+          .eq("church_profile_id", churchProfile.id)
+          .maybeSingle()
+      : { data: null };
+    const cardExpiringSoon = (() => {
+      if (!stripeCustomer?.default_payment_method || !stripeCustomer.card_exp_month || !stripeCustomer.card_exp_year) return false;
+      const expiry = new Date(stripeCustomer.card_exp_year, stripeCustomer.card_exp_month, 1);
+      // eslint-disable-next-line react-hooks/purity -- server component, each request is its own render
+      const days = Math.floor((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      return days <= 30;
+    })();
+
     return (
       <>
         <Topbar
@@ -38,6 +56,24 @@ export default async function DashboardPage() {
           right={<Link href="/requests/new" className="btn btn--primary btn--sm">+ New request</Link>}
         />
         <div className="page page--wide">
+          {cardExpiringSoon && (
+            <Link
+              href="/profile/billing"
+              style={{
+                display: "block",
+                padding: "12px 16px", marginBottom: 20,
+                border: "1px solid rgba(184,33,5,0.3)",
+                background: "rgba(184,33,5,0.06)",
+                borderRadius: "var(--sm-radius-sm)",
+                color: "var(--sm-status-error, #b82105)",
+                fontSize: 13.5, lineHeight: 1.5,
+                textDecoration: "none",
+              }}
+            >
+              <strong>Your card expires soon.</strong> Update it to keep upcoming bookings from failing →
+            </Link>
+          )}
+
           <div style={{ marginBottom: 28 }}>
             <div className="sm-eyebrow" style={{ marginBottom: 8 }}>
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
