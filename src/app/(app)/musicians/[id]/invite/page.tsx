@@ -48,8 +48,6 @@ export default async function InviteMusicianPage({ params }: { params: Promise<{
       />
       <InviteClient
         musicianProfileId={id}
-        churchProfileId={cp.id}
-        currentUserId={user.id}
         musicianName={musicianName}
         requests={requests ?? []}
       />

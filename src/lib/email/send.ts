@@ -20,6 +20,13 @@ export type EmailMessage = {
   text: string;
 };
 
+export type TemplateEmailMessage = {
+  to: string;
+  subject: string;
+  templateId: string;
+  variables: Record<string, string | number | boolean | null>;
+};
+
 /** Sends an email via Resend. Returns the message id on success.
  *  Throws on hard errors so the caller can decide whether to retry. */
 export async function sendEmail(msg: EmailMessage): Promise<string | null> {
@@ -30,6 +37,20 @@ export async function sendEmail(msg: EmailMessage): Promise<string | null> {
     html: msg.html,
     text: msg.text,
   });
+  if (error) throw new Error(error.message);
+  return data?.id ?? null;
+}
+
+export async function sendTemplateEmail(msg: TemplateEmailMessage): Promise<string | null> {
+  const { data, error } = await client().emails.send({
+    from: FROM,
+    to: msg.to,
+    subject: msg.subject,
+    template: {
+      id: msg.templateId,
+      variables: msg.variables,
+    },
+  } as Parameters<ReturnType<typeof client>["emails"]["send"]>[0]);
   if (error) throw new Error(error.message);
   return data?.id ?? null;
 }
