@@ -20,12 +20,50 @@ export type Database = {
           email: string;
           avatar_url: string | null;
           deleted_at: string | null;
+          is_admin: boolean;
+          verified: boolean;
+          suspended_at: string | null;
+          suspend_reason: string | null;
           created_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["profiles"]["Row"], "created_at" | "deleted_at"> & {
+        Insert: Omit<Database["public"]["Tables"]["profiles"]["Row"],
+          "created_at" | "deleted_at" | "is_admin" | "verified" | "suspended_at" | "suspend_reason"
+        > & {
           deleted_at?: string | null;
+          is_admin?: boolean;
+          verified?: boolean;
+          suspended_at?: string | null;
+          suspend_reason?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [];
+      };
+      admin_actions: {
+        Row: {
+          id: string;
+          actor_id: string;
+          actor_email: string;
+          action: string;
+          target_type: string | null;
+          target_id: string | null;
+          target_label: string | null;
+          level: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          actor_id: string;
+          actor_email: string;
+          action: string;
+          target_type?: string | null;
+          target_id?: string | null;
+          target_label?: string | null;
+          level?: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["admin_actions"]["Insert"]>;
         Relationships: [];
       };
       notification_preferences: {
