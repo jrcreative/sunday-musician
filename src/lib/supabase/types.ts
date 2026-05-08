@@ -19,10 +19,33 @@ export type Database = {
           display_name: string;
           email: string;
           avatar_url: string | null;
+          deleted_at: string | null;
           created_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["profiles"]["Row"], "created_at">;
+        Insert: Omit<Database["public"]["Tables"]["profiles"]["Row"], "created_at" | "deleted_at"> & {
+          deleted_at?: string | null;
+        };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [];
+      };
+      notification_preferences: {
+        Row: {
+          profile_id: string;
+          payment_emails: boolean;
+          activity_emails: boolean;
+          system_emails: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          profile_id: string;
+          payment_emails?: boolean;
+          activity_emails?: boolean;
+          system_emails?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notification_preferences"]["Insert"]>;
         Relationships: [];
       };
       musician_profiles: {
