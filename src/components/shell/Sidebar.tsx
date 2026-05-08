@@ -32,77 +32,65 @@ export function Sidebar({ profile, userId }: { profile: Profile | null; userId: 
   const nav = isChurch ? churchNav : musicianNav;
   const initials = profile?.display_name?.split(" ").map(w => w[0]).slice(0, 2).join("") ?? "?";
 
-  // Per-thread unread is server-side (last_read_at_* on threads). The badge
-  // here is a sum: count of threads where the latest message is from the other
-  // side and newer than my last_read_at.
+  // Unread badge — sum of unread_count_<role> across this user's threads.
+  // The counters are denormalized on threads and kept current by Postgres
+  // triggers, so reading them is one indexed query, no joins.
   const [unreadCount, setUnreadCount] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const threadDataRef = useRef<Map<string, { lastReadAt: string | null; archived: boolean }>>(new Map());
-  const profileSideRef = useRef<{ column: "church_profile_id" | "musician_profile_id"; profileId: string | null }>({
-    column: "church_profile_id", profileId: null,
-  });
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
 
-  async function recompute() {
-    const supabase = createClient();
-    const { column, profileId } = profileSideRef.current;
-    if (!profileId) return;
-
-    // Pull threads with my last_read_at + their latest message timestamp.
-    const { data } = await supabase
+  async function recomputeUnread(client: ReturnType<typeof createClient>, profileId: string) {
+    const column = isChurch ? "church_profile_id" : "musician_profile_id";
+    const sumColumn = isChurch ? "unread_count_church" : "unread_count_musician";
+    const { data } = await client
       .from("threads")
-      .select("id, archived_at, last_read_at_church, last_read_at_musician, messages(created_at, sender_profile_id)")
-      .eq(column, profileId) as unknown as { data: Array<{
-        id: string; archived_at: string | null;
-        last_read_at_church: string | null; last_read_at_musician: string | null;
-        messages: { created_at: string; sender_profile_id: string }[];
-      }> | null };
-
-    let count = 0;
-    threadDataRef.current.clear();
-    for (const t of data ?? []) {
-      const myLastRead = isChurch ? t.last_read_at_church : t.last_read_at_musician;
-      threadDataRef.current.set(t.id, { lastReadAt: myLastRead, archived: !!t.archived_at });
-      // Count threads with at least one message from the other side after my last_read_at.
-      const hasUnread = t.messages.some(m =>
-        m.sender_profile_id !== userId && (myLastRead == null || m.created_at > myLastRead)
-      );
-      if (hasUnread) count++;
-    }
-    setUnreadCount(count);
+      .select(sumColumn)
+      .eq(column, profileId) as unknown as { data: Array<Record<string, number>> | null };
+    const total = (data ?? []).reduce((acc, row) => acc + (row[sumColumn] ?? 0), 0);
+    setUnreadCount(total);
   }
 
-  // Initial fetch + realtime subscription. Recompute on /messages exits since
-  // visiting a thread updates last_read_at server-side.
   useEffect(() => {
     const supabase = createClient();
+    supabaseRef.current = supabase;
     let active = true;
+    let profileId: string | null = null;
 
     async function init() {
-      // Resolve our profile-side id once.
       const tbl = isChurch ? "church_profiles" : "musician_profiles";
       const { data } = await supabase.from(tbl).select("id").eq("profile_id", userId).maybeSingle();
-      profileSideRef.current = {
-        column: isChurch ? "church_profile_id" : "musician_profile_id",
-        profileId: (data as { id: string } | null)?.id ?? null,
-      };
-      if (!active) return;
-      await recompute();
+      profileId = (data as { id: string } | null)?.id ?? null;
+      if (!profileId || !active) return;
 
-      // Realtime — refresh count whenever a message lands in any thread we know about.
+      await recomputeUnread(supabase, profileId);
+
+      // Listen for thread-row updates that affect *this user's* unread total.
+      // Postgres triggers (a) bump unread_count_* on message insert and
+      // (b) reset to 0 on last_read_at_* update — both surface here as
+      // UPDATE events. We filter by the user's side at the realtime layer
+      // so we don't process every thread update in the database.
+      const filterCol = isChurch ? "church_profile_id" : "musician_profile_id";
       channelRef.current = supabase
-        .channel("sidebar-unread")
+        .channel(`sidebar-unread-${userId}`)
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "messages" },
-          (payload) => {
-            const msg = payload.new as { thread_id: string; sender_profile_id: string };
-            if (
-              threadDataRef.current.has(msg.thread_id) &&
-              msg.sender_profile_id !== userId
-            ) {
-              recompute();
-            }
-          }
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "threads",
+            filter: `${filterCol}=eq.${profileId}`,
+          },
+          () => { if (profileId) recomputeUnread(supabase, profileId); }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "threads",
+            filter: `${filterCol}=eq.${profileId}`,
+          },
+          () => { if (profileId) recomputeUnread(supabase, profileId); }
         )
         .subscribe();
     }
@@ -110,22 +98,13 @@ export function Sidebar({ profile, userId }: { profile: Profile | null; userId: 
     init();
     return () => {
       active = false;
-      if (channelRef.current) {
-        createClient().removeChannel(channelRef.current);
+      if (channelRef.current && supabaseRef.current) {
+        supabaseRef.current.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, isChurch]);
-
-  // When the user navigates away from a thread, the page render will have
-  // updated last_read_at server-side. Refresh.
-  useEffect(() => {
-    if (!pathname.startsWith("/messages/")) {
-      recompute();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
 
   async function signOut() {
     const supabase = createClient();

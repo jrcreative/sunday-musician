@@ -126,6 +126,12 @@ export type Database = {
           last_read_at_musician: string | null;
           archived_at: string | null;
           archive_reason: string | null;
+          last_message_at: string | null;
+          last_message_preview: string | null;
+          last_message_kind: MessageKind | null;
+          last_message_sender_id: string | null;
+          unread_count_church: number;
+          unread_count_musician: number;
           created_at: string;
           updated_at: string;
         };
@@ -138,6 +144,12 @@ export type Database = {
           last_read_at_musician?: string | null;
           archived_at?: string | null;
           archive_reason?: string | null;
+          last_message_at?: string | null;
+          last_message_preview?: string | null;
+          last_message_kind?: MessageKind | null;
+          last_message_sender_id?: string | null;
+          unread_count_church?: number;
+          unread_count_musician?: number;
           created_at?: string;
           updated_at?: string;
         };
