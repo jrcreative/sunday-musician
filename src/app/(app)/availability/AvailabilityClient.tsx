@@ -21,13 +21,6 @@ type Connection = {
   last_error: string | null;
 };
 
-const SOURCE_LABEL: Record<Block["source"], string> = {
-  manual: "Manual",
-  ical: "Calendar feed",
-  google: "Google Calendar",
-  pco: "Planning Center",
-};
-
 function timeAgo(iso: string | null): string {
   if (!iso) return "never";
   const ms = Date.now() - new Date(iso).getTime();
@@ -227,7 +220,7 @@ export function AvailabilityClient({
   return (
     <div className="page">
       <p style={{ fontSize: 14, color: "var(--sm-fg-3)", margin: "0 0 22px", maxWidth: 640, lineHeight: 1.55 }}>
-        Block dates you can't take bookings. Churches searching for a specific date will skip you on those days. You can also pause all bookings with the toggle below.
+        Block dates you can&apos;t take bookings. Churches searching for a specific date will skip you on those days. You can also pause all bookings with the toggle below.
       </p>
 
       {/* Master toggle */}
@@ -280,7 +273,7 @@ export function AvailabilityClient({
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>iCal feed URL</label>
             <input className="input" value={calUrl} onChange={e => setCalUrl(e.target.value)} placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" style={{ width: "100%", marginBottom: 6 }} />
             <div style={{ fontSize: 12, color: "var(--sm-fg-4)", marginBottom: 12, lineHeight: 1.55 }}>
-              Find the secret iCal URL in your calendar's settings — Google: Calendar settings → Integrate calendar → Secret address. Apple: iCloud → share calendar → Public. Outlook: Settings → Calendar → Shared calendars → Publish a calendar.
+              Find the secret iCal URL in your calendar&apos;s settings — Google: Calendar settings → Integrate calendar → Secret address. Apple: iCloud → share calendar → Public. Outlook: Settings → Calendar → Shared calendars → Publish a calendar.
             </div>
             {calError && (
               <div style={{ padding: 10, borderRadius: "var(--sm-radius-sm)", background: "rgba(184,33,5,0.08)", color: "var(--sm-status-danger, #b82105)", fontSize: 13, marginBottom: 10 }}>

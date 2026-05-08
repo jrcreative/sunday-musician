@@ -31,6 +31,8 @@ export default async function AvailabilityPage() {
     .eq("musician_profile_id", mp.id)
     .eq("kind", "ical");
 
+  // Server component: each request is its own render, so reading the clock is fine.
+  // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   await Promise.allSettled(
     (connectionsForSync ?? [])

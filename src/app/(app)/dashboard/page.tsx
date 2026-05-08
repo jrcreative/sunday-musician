@@ -214,7 +214,6 @@ export default async function DashboardPage() {
   }
 
   const totalEarned = bookings.reduce((s, b) => s + (b.fee ?? 0), 0);
-  const uniqueChurches = new Set(bookings.map(b => b.churchName)).size;
   const upcomingCount = bookings.filter(b => b.serviceDate && new Date(b.serviceDate + "T12:00:00") >= new Date()).length;
 
   const stats = [

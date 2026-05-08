@@ -90,7 +90,8 @@ export default async function RequestsPage() {
         };
 
       // Keep only the most recent accepted proposal per thread
-      const acceptedByThread = new Map<string, typeof acceptedMsgs extends Array<infer T> | null ? NonNullable<NonNullable<typeof acceptedMsgs>[number]> : never>();
+      type AcceptedMsg = NonNullable<typeof acceptedMsgs>[number];
+      const acceptedByThread = new Map<string, AcceptedMsg>();
       for (const msg of acceptedMsgs ?? []) {
         if (!acceptedByThread.has(msg.thread_id)) {
           acceptedByThread.set(msg.thread_id, msg);

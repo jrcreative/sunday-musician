@@ -113,7 +113,7 @@ export function ReviewClient({
 
       {!myReview && !serviceCompleted && (
         <div style={{ padding: 18, border: "1px dashed var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", color: "var(--sm-fg-3)", fontSize: 14, marginBottom: 20 }}>
-          You'll be able to review {counterpartyName} after the service date.
+          You&apos;ll be able to review {counterpartyName} after the service date.
         </div>
       )}
 
@@ -140,7 +140,7 @@ export function ReviewClient({
 
       {!released && myReview && !otherReview && (
         <div style={{ padding: 16, marginTop: 14, border: "1px dashed var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", color: "var(--sm-fg-3)", fontSize: 14 }}>
-          Waiting for {counterpartyName} to submit. We'll email you when their review is released — or when the window closes on {revealDate}.
+          Waiting for {counterpartyName} to submit. We&apos;ll email you when their review is released — or when the window closes on {revealDate}.
         </div>
       )}
     </>

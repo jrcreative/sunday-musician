@@ -1,7 +1,7 @@
 import type { Config } from "@netlify/functions";
 
-// Daily at 14:00 UTC (≈ morning in US time zones). The cron route is
-// idempotent so the exact time isn't critical — just consistent.
+// Daily at 13:00 UTC (early morning in US time zones). The capture route is
+// idempotent — it claims rows before processing.
 
 const handler = async () => {
   const siteUrl = process.env.URL;
@@ -14,7 +14,7 @@ const handler = async () => {
     );
   }
 
-  const res = await fetch(`${siteUrl}/api/cron/review-emails`, {
+  const res = await fetch(`${siteUrl}/api/cron/capture-payments`, {
     headers: { Authorization: `Bearer ${secret}` },
   });
   const body = await res.text();
@@ -27,5 +27,5 @@ const handler = async () => {
 export default handler;
 
 export const config: Config = {
-  schedule: "0 14 * * *",
+  schedule: "0 13 * * *",
 };

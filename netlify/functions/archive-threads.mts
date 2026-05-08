@@ -3,7 +3,7 @@ import type { Config } from "@netlify/functions";
 // Daily at 03:00 UTC — pings the archive-threads cron route to clean up
 // past-service and stale conversations.
 
-export default async () => {
+const handler = async () => {
   const siteUrl = process.env.URL;
   const secret = process.env.CRON_SECRET;
 
@@ -23,6 +23,8 @@ export default async () => {
     headers: { "content-type": "application/json" },
   });
 };
+
+export default handler;
 
 export const config: Config = {
   schedule: "0 3 * * *",

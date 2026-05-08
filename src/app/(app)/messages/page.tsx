@@ -218,7 +218,6 @@ function ThreadList({ threads, archivedSection }: { threads: ThreadRow[]; archiv
               )}
               {archivedSection && (
                 <span style={{ fontSize: 11, color: "var(--sm-fg-4)", textTransform: "uppercase", letterSpacing: ".05em" }}>
-                  {/* eslint-disable-next-line @typescript-eslint/no-unused-expressions */}
                   Archived
                 </span>
               )}

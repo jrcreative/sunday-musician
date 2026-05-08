@@ -71,10 +71,8 @@ type ExistingRequest = {
 };
 
 export function NewRequestForm({
-  prefilledMusician,
   existingRequest,
 }: {
-  prefilledMusician?: string;
   existingRequest?: ExistingRequest;
 }) {
   const router = useRouter();
