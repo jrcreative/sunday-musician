@@ -151,7 +151,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       request_id: requestRow.id,
       thread_id: thread.id,
       musician_profile_id: musician.id,
-      template_name: event.templateName,
+      template_name: event.suggestedTemplateName,
     },
   });
 

@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { EMAIL_EVENTS } from "@/lib/email/registry";
 import { AdminTopbar } from "../AdminTopbar";
 import { AdminTable, DateCell, KpiCard, StatusPill } from "../_components/AdminPrimitives";
+import { EmailTemplateCatalog, type EmailTemplateEvent } from "./EmailTemplateCatalog";
 
 function toneFor(status: string) {
   if (status === "sent") return "success";
@@ -22,6 +23,17 @@ export default async function AdminEmailsPage() {
   const sent = rows.filter(r => r.status === "sent").length;
   const failed = rows.filter(r => r.status === "failed").length;
   const skipped = rows.filter(r => r.status === "skipped").length;
+  const templateEvents: EmailTemplateEvent[] = Object.values(EMAIL_EVENTS).map(event => ({
+    key: event.key,
+    label: event.label,
+    description: event.description,
+    subject: event.subject,
+    category: event.category,
+    suggestedTemplateName: event.suggestedTemplateName,
+    templateEnv: event.templateEnv,
+    templateId: process.env[event.templateEnv]?.trim() || null,
+    tags: [...event.tags],
+  }));
 
   return (
     <>
@@ -35,19 +47,7 @@ export default async function AdminEmailsPage() {
         <KpiCard label="Events" value={Object.keys(EMAIL_EVENTS).length} context="registered in code" />
       </div>
 
-      <section className="chart-card" style={{ marginBottom: 18 }}>
-        <h3>Registered templates</h3>
-        <div className="sub">Create these in Resend, then set the matching env var when you want hosted templates instead of local HTML.</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
-          {Object.values(EMAIL_EVENTS).map(event => (
-            <div key={event.key} style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: 3, padding: 14 }}>
-              <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", marginBottom: 6 }}>{event.key}</div>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>{event.templateName}</div>
-              <div style={{ marginTop: 4, fontSize: 12.5, color: "var(--sm-fg-3)" }}>Env: {event.templateEnv}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <EmailTemplateCatalog events={templateEvents} />
 
       <AdminTable
         headers={["Status", "Event", "Recipient", "Subject", "Template", "Sent", "Error"]}

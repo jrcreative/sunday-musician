@@ -104,7 +104,7 @@ export async function POST(req: Request) {
     payload: {
       request_id: created.id,
       church_profile_id: churchProfile.id,
-      template_name: event.templateName,
+      template_name: event.suggestedTemplateName,
     },
   });
 

@@ -26,7 +26,12 @@ export default function SignupPage() {
       options: { data: { role, display_name: displayName } },
     });
     if (error) { setError(error.message); setLoading(false); }
-    else window.location.href = "/dashboard";
+    else {
+      if (role === "musician") {
+        await fetch("/api/email/musician-onboarding", { method: "POST" }).catch(() => null);
+      }
+      window.location.href = "/dashboard";
+    }
   }
 
   return (
