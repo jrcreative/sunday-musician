@@ -41,6 +41,15 @@ type Props = {
   displayName: string;
 };
 
+function clampCropOffset(x: number, y: number, width: number, height: number) {
+  const minX = VIEWPORT_PX - width;
+  const minY = VIEWPORT_PX - height;
+  return {
+    x: Math.min(0, Math.max(minX, x)),
+    y: Math.min(0, Math.max(minY, y)),
+  };
+}
+
 export function AvatarUploader({ profileId, currentUrl, currentPath, displayName }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -191,9 +200,14 @@ function CropperModal({
   // viewport. The user can only zoom *in* from there; zooming further out
   // would let empty space appear next to the image inside the crop frame.
   const fitScale = VIEWPORT_PX / Math.min(bitmap.width, bitmap.height);
+  const initialDisplayW = bitmap.width * fitScale;
+  const initialDisplayH = bitmap.height * fitScale;
 
   const [zoom, setZoom] = useState(1);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [offset, setOffset] = useState(() => ({
+    x: (VIEWPORT_PX - initialDisplayW) / 2,
+    y: (VIEWPORT_PX - initialDisplayH) / 2,
+  }));
   const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -206,20 +220,16 @@ function CropperModal({
   // always covers the viewport — the rightmost it can move is 0 (image left
   // edge at viewport left), leftmost is -(displayW - V).
   const clamp = useCallback((x: number, y: number) => {
-    const minX = VIEWPORT_PX - displayW;
-    const minY = VIEWPORT_PX - displayH;
-    return {
-      x: Math.min(0, Math.max(minX, x)),
-      y: Math.min(0, Math.max(minY, y)),
-    };
+    return clampCropOffset(x, y, displayW, displayH);
   }, [displayW, displayH]);
 
-  // Re-center on zoom change. Pivoting around the visible center would feel
-  // smoother but it's more math; for a 320px cropper the snap-to-center
-  // is fine and avoids cumulative drift bugs.
-  useEffect(() => {
-    setOffset(clamp((VIEWPORT_PX - displayW) / 2, (VIEWPORT_PX - displayH) / 2));
-  }, [zoom, displayW, displayH, clamp]);
+  function setCenteredZoom(nextZoom: number) {
+    const nextScale = fitScale * nextZoom;
+    const nextW = bitmap.width * nextScale;
+    const nextH = bitmap.height * nextScale;
+    setZoom(nextZoom);
+    setOffset(clampCropOffset((VIEWPORT_PX - nextW) / 2, (VIEWPORT_PX - nextH) / 2, nextW, nextH));
+  }
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     (e.target as Element).setPointerCapture(e.pointerId);
@@ -240,7 +250,7 @@ function CropperModal({
   function onWheel(e: React.WheelEvent<HTMLDivElement>) {
     e.preventDefault();
     const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom - e.deltaY * 0.002));
-    setZoom(next);
+    setCenteredZoom(next);
   }
 
   async function save() {
@@ -333,7 +343,7 @@ function CropperModal({
           max={ZOOM_MAX}
           step={0.01}
           value={zoom}
-          onChange={e => setZoom(Number(e.target.value))}
+          onChange={e => setCenteredZoom(Number(e.target.value))}
           style={{ width: "100%" }}
         />
 

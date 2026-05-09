@@ -5,9 +5,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CancelRequestButton } from "./CancelRequestButton";
 import { InvitePotentialMatchButton } from "./InvitePotentialMatchButton";
-import { musicianCompleteness } from "@/app/(app)/profile/completeness";
-import { matchingInstruments } from "@/lib/instruments";
-import { distanceMiles } from "@/lib/locations/distance";
+import { buildPotentialMatches, type PotentialMatch } from "@/lib/matches/potential";
 import {
   REQUEST_STATUS_CHIP,
   REQUEST_STATUS_LABEL,
@@ -25,10 +23,14 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     service_date: string; service_time: string | null; location: string | null;
     use_church_location: boolean; location_lat: number | null; location_lng: number | null;
     location_city: string | null; location_state: string | null; location_formatted_address: string | null;
+    location_verified_at: string | null;
     instruments_needed: string[]; rehearsals: string; tech_setup: string[];
     offered_fee: number | null; fee_type: string; setlist_url: string | null;
     notes: string | null; status: string; created_at: string;
-    church_profiles: { church_name: string; city: string; state: string; lat: number | null; lng: number | null } | null;
+    church_profiles: {
+      church_name: string; city: string; state: string; lat: number | null; lng: number | null;
+      address_verified_at: string | null;
+    } | null;
   };
   type ApplicationRow = {
     id: string; request_id: string; musician_profile_id: string; message: string | null; created_at: string;
@@ -38,38 +40,10 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
       profiles: { display_name: string; avatar_url: string | null } | null;
     } | null;
   };
-  type PotentialMatch = {
-    id: string;
-    profile_id: string;
-    city: string;
-    state: string;
-    lat: number | null;
-    lng: number | null;
-    instruments: string[];
-    primary_instrument: string;
-    experience_notes: string;
-    gear_notes: string;
-    is_volunteer: boolean;
-    fee_min: number;
-    fee_max: number;
-    bio: string;
-    denomination_tags: string[];
-    rating: number;
-    review_count: number;
-    travel_radius_miles: number;
-    verified: boolean;
-    display_name: string;
-    avatar_url: string | null;
-    completeness: number;
-    matchedInstruments: string[];
-    distance: number | null;
-    areaLabel: string;
-  };
-
   const [{ data: request }, { data: profile }] = await Promise.all([
     supabase
       .from("service_requests")
-      .select("*, church_profiles(church_name, city, state, lat, lng)")
+      .select("*, church_profiles(church_name, city, state, lat, lng, address_verified_at)")
       .eq("id", id)
       .single() as unknown as Promise<{ data: RequestRow | null; error: unknown }>,
     supabase.from("profiles").select("role").eq("id", user.id).single(),
@@ -107,11 +81,12 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         .gte("end_date", request.service_date) as unknown as Promise<{ data: { musician_profile_id: string; start_date: string; end_date: string }[] | null; error: unknown }>,
       supabase
         .from("musician_profiles")
-        .select("id, profile_id, city, state, lat, lng, instruments, primary_instrument, experience_notes, gear_notes, is_volunteer, fee_min, fee_max, bio, denomination_tags, rating, review_count, available, travel_radius_miles, profiles(display_name, avatar_url, verified)")
+        .select("id, profile_id, city, state, lat, lng, address_verified_at, instruments, primary_instrument, experience_notes, gear_notes, is_volunteer, fee_min, fee_max, bio, denomination_tags, rating, review_count, available, travel_radius_miles, profiles(display_name, avatar_url, verified)")
         .eq("available", true)
         .limit(150) as unknown as Promise<{
           data: Array<{
             id: string; profile_id: string; city: string; state: string; lat: number | null; lng: number | null;
+            address_verified_at: string | null;
             instruments: string[]; primary_instrument: string; experience_notes: string; gear_notes: string;
             is_volunteer: boolean; fee_min: number; fee_max: number; bio: string; denomination_tags: string[];
             rating: number; review_count: number; available: boolean; travel_radius_miles: number;
@@ -130,87 +105,20 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
       lat: request.use_church_location ? request.church_profiles?.lat ?? null : request.location_lat,
       lng: request.use_church_location ? request.church_profiles?.lng ?? null : request.location_lng,
     };
+    const serviceCoordsVerified = request.use_church_location
+      ? !!request.church_profiles?.address_verified_at
+      : !!request.location_verified_at;
     const serviceState = request.use_church_location ? request.church_profiles?.state : request.location_state;
 
-    potentialMatches = (musicians ?? [])
-      .map(m => {
-        const matched = matchingInstruments(
-          request.instruments_needed,
-          m.instruments ?? [],
-          m.primary_instrument
-        );
-        const distance = distanceMiles(serviceCoords, { lat: m.lat, lng: m.lng });
-        const withinTravelRadius = distance == null
-          ? m.state === serviceState
-          : distance <= (m.travel_radius_miles || 0);
-        const completeness = musicianCompleteness({
-          bio: m.bio,
-          city: m.city,
-          state: m.state,
-          primary_instrument: m.primary_instrument,
-          instruments: m.instruments ?? [],
-          fee_min: m.fee_min,
-          fee_max: m.fee_max,
-          is_volunteer: m.is_volunteer,
-          travel_radius_miles: m.travel_radius_miles,
-          denomination_tags: m.denomination_tags ?? [],
-          experience_notes: m.experience_notes,
-          gear_notes: m.gear_notes,
-        }).percent;
-
-        return {
-          ...m,
-          verified: !!m.profiles?.verified,
-          display_name: m.profiles?.display_name ?? "Musician",
-          avatar_url: m.profiles?.avatar_url ?? null,
-          completeness,
-          matchedInstruments: matched,
-          distance,
-          areaLabel: distance == null
-            ? `${m.city}, ${m.state}`
-            : `${Math.round(distance)} mi away`,
-          isPotentialMatch: !contactedMusicianIds.has(m.id) &&
-            !unavailableMusicianIds.has(m.id) &&
-            matched.length > 0 &&
-            withinTravelRadius,
-        };
-      })
-      .filter(m => m.isPotentialMatch)
-      .map(m => ({
-        id: m.id,
-        profile_id: m.profile_id,
-        city: m.city,
-        state: m.state,
-        lat: m.lat,
-        lng: m.lng,
-        instruments: m.instruments,
-        primary_instrument: m.primary_instrument,
-        experience_notes: m.experience_notes,
-        gear_notes: m.gear_notes,
-        is_volunteer: m.is_volunteer,
-        fee_min: m.fee_min,
-        fee_max: m.fee_max,
-        bio: m.bio,
-        denomination_tags: m.denomination_tags,
-        rating: m.rating,
-        review_count: m.review_count,
-        travel_radius_miles: m.travel_radius_miles,
-        verified: m.verified,
-        display_name: m.display_name,
-        avatar_url: m.avatar_url,
-        completeness: m.completeness,
-        matchedInstruments: m.matchedInstruments,
-        distance: m.distance,
-        areaLabel: m.areaLabel,
-      }))
-      .sort((a, b) =>
-        Number(b.verified) - Number(a.verified) ||
-        Number(b.rating) - Number(a.rating) ||
-        b.completeness - a.completeness ||
-        b.review_count - a.review_count ||
-        a.display_name.localeCompare(b.display_name)
-      )
-      .slice(0, 8);
+    potentialMatches = buildPotentialMatches({
+      musicians: musicians ?? [],
+      instrumentsNeeded: request.instruments_needed,
+      serviceCoords,
+      serviceCoordsVerified,
+      serviceState,
+      contactedMusicianIds,
+      unavailableMusicianIds,
+    });
   }
 
   // Musician-side: check if they have a thread for this request

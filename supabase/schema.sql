@@ -73,6 +73,17 @@ create policy "Musicians can update own profile" on musician_profiles for update
   using (profile_id = auth.uid());
 create policy "Musicians can insert own profile" on musician_profiles for insert
   with check (profile_id = auth.uid());
+alter table musician_profiles
+  add constraint musician_profiles_lat_lng_valid
+    check (
+      (lat is null and lng is null)
+      or (lat between -90 and 90 and lng between -180 and 180)
+    ),
+  add constraint musician_profiles_verified_address_complete
+    check (
+      address_verified_at is null
+      or (lat is not null and lng is not null and formatted_address is not null)
+    );
 
 -- Church profiles
 create table church_profiles (
@@ -99,6 +110,17 @@ create policy "Churches can update own profile" on church_profiles for update
   using (profile_id = auth.uid());
 create policy "Churches can insert own profile" on church_profiles for insert
   with check (profile_id = auth.uid());
+alter table church_profiles
+  add constraint church_profiles_lat_lng_valid
+    check (
+      (lat is null and lng is null)
+      or (lat between -90 and 90 and lng between -180 and 180)
+    ),
+  add constraint church_profiles_verified_address_complete
+    check (
+      address_verified_at is null
+      or (lat is not null and lng is not null and formatted_address is not null)
+    );
 
 -- Service requests
 create table service_requests (
@@ -142,6 +164,25 @@ create policy "Churches can update own requests" on service_requests for update
       select id from church_profiles where profile_id = auth.uid()
     )
   );
+alter table service_requests
+  add constraint service_requests_location_lat_lng_valid
+    check (
+      (location_lat is null and location_lng is null)
+      or (location_lat between -90 and 90 and location_lng between -180 and 180)
+    ),
+  add constraint service_requests_location_mode_consistent
+    check (
+      use_church_location
+      or (
+        location_address is not null
+        and location_city is not null
+        and location_state is not null
+        and location_lat is not null
+        and location_lng is not null
+        and location_formatted_address is not null
+        and location_verified_at is not null
+      )
+    );
 
 -- Applications (musician expresses interest)
 create table applications (
@@ -254,6 +295,9 @@ $$;
 create trigger trg_update_musician_rating
 after insert or update or delete on reviews
 for each row execute function update_musician_rating();
+
+create index if not exists musician_profiles_available_state_idx
+  on musician_profiles (available, state);
 
 -- Auto-create profile on signup
 create or replace function handle_new_user()
