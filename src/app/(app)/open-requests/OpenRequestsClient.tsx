@@ -3,12 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { OpenRequest, MusicianMeta } from "./page";
-
-const INSTRUMENTS = [
-  "Piano / Keys","Acoustic Guitar","Electric Guitar","Bass Guitar","Drums / Percussion",
-  "Violin","Viola","Cello","Trumpet","Trombone","Saxophone","Flute","Clarinet",
-  "Harp","Organ","Vocals – Lead","Vocals – Harmony","Cajon","Ukulele","Banjo",
-];
+import { INSTRUMENT_OPTIONS, instrumentsOverlap, uniqueInstruments } from "@/lib/instruments";
 
 export function OpenRequestsClient({
   requests,
@@ -21,13 +16,13 @@ export function OpenRequestsClient({
   const [dateFilter, setDateFilter] = useState("");
   const [areaOnly, setAreaOnly] = useState(musicianMeta.state !== "");
 
-  const myInstruments = new Set(musicianMeta.instruments);
+  const myInstrumentList = uniqueInstruments(musicianMeta.instruments);
+  const myInstruments = new Set(myInstrumentList);
 
   const filtered = useMemo(() => {
     return requests.filter(r => {
       if (instrFilter.length > 0) {
-        const overlap = instrFilter.some(i => r.instruments_needed.includes(i));
-        if (!overlap) return false;
+        if (!instrumentsOverlap(instrFilter, r.instruments_needed)) return false;
       }
       if (dateFilter) {
         if (r.service_date !== dateFilter) return false;
@@ -42,11 +37,11 @@ export function OpenRequestsClient({
   // Separate matched (overlaps musician's own instruments) from others
   const matched = filtered.filter(r =>
     r.instruments_needed.length === 0 ||
-    r.instruments_needed.some(i => myInstruments.has(i))
+    instrumentsOverlap(r.instruments_needed, myInstrumentList)
   );
   const others = filtered.filter(r =>
     r.instruments_needed.length > 0 &&
-    !r.instruments_needed.some(i => myInstruments.has(i))
+    !instrumentsOverlap(r.instruments_needed, myInstrumentList)
   );
 
   function toggleInstr(i: string) {
@@ -105,7 +100,7 @@ export function OpenRequestsClient({
         <div>
           <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>Instrument</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {(myInstruments.size > 0 ? [...myInstruments] : INSTRUMENTS).map(i => (
+            {(myInstrumentList.length > 0 ? myInstrumentList : INSTRUMENT_OPTIONS).map(i => (
               <label key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: instrFilter.includes(i) ? "var(--sm-fg-1)" : "var(--sm-fg-2)", cursor: "pointer", fontWeight: instrFilter.includes(i) ? 600 : 400 }}>
                 <input
                   type="checkbox"

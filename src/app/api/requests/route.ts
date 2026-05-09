@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTransactionalEmail } from "@/lib/email/delivery";
 import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
 import { requestCreatedChurchEmail } from "@/lib/email/templates/requests";
+import { uniqueInstruments } from "@/lib/instruments";
 
 type RequestPayload = {
   title?: string;
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
     service_date: body.service_date,
     service_time: body.service_time || null,
     location: body.location ?? null,
-    instruments_needed: body.instruments_needed ?? [],
+    instruments_needed: uniqueInstruments(body.instruments_needed ?? []),
     rehearsals: body.rehearsals ?? "None",
     setlist_url: body.setlist_url || null,
     tech_setup: body.tech_setup ?? [],
