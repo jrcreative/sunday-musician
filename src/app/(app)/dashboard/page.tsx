@@ -30,8 +30,9 @@ export default async function DashboardPage() {
       ? await supabase.from("service_requests").select("*").eq("church_profile_id", churchProfile.id).order("service_date").limit(5)
       : { data: [] };
 
-    const openCount = requests?.filter(r => r.status === "open").length ?? 0;
-    const confirmedCount = requests?.filter(r => r.status === "filled").length ?? 0;
+    const today = new Date().toISOString().slice(0, 10);
+    const openCount = requests?.filter(r => r.status === "open" && r.service_date >= today).length ?? 0;
+    const filledCount = requests?.filter(r => r.status === "filled").length ?? 0;
 
     // Card-on-file expiry warning. We surface this on the dashboard (not
     // just /profile/billing) because a missed expiry would silently fail
@@ -93,7 +94,7 @@ export default async function DashboardPage() {
               <div className="sm-row-3" style={{ marginBottom: 32 }}>
                 {[
                   { label: "Open requests", val: openCount, sub: "awaiting reply" },
-                  { label: "Confirmed", val: confirmedCount, sub: "this month" },
+                  { label: "Filled", val: filledCount, sub: "this month" },
                   { label: "Total requests", val: requests?.length ?? 0, sub: "all time" },
                 ].map(s => (
                   <div key={s.label} style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22 }}>
@@ -110,7 +111,10 @@ export default async function DashboardPage() {
 
               {requests && requests.length > 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {requests.filter(r => r.status !== "filled").slice(0, 3).map(r => (
+                  {requests
+                    .filter(r => r.status === "open" && r.service_date >= today)
+                    .slice(0, 3)
+                    .map(r => (
                     <Link key={r.id} href={`/requests/${r.id}`} style={{ textDecoration: "none" }}>
                       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 22, alignItems: "center", padding: "22px 24px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
                         <div style={{ textAlign: "center", paddingRight: 22, borderRight: "1px solid var(--sm-border-subtle)", minWidth: 78 }}>
@@ -127,9 +131,7 @@ export default async function DashboardPage() {
                             {r.service_type}{r.offered_fee != null ? ` · $${r.offered_fee} offered` : ""}
                           </div>
                         </div>
-                        <span className={`chip ${r.status === "open" ? "chip--warn" : r.status === "in_progress" ? "chip--accent" : "chip--success"}`}>
-                          {r.status === "open" ? "Open" : r.status === "in_progress" ? "Negotiating" : "Confirmed"}
-                        </span>
+                        <span className="chip chip--warn">Open</span>
                       </div>
                     </Link>
                   ))}

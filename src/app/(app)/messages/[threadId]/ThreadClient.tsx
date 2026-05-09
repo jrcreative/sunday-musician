@@ -100,13 +100,17 @@ export function ThreadClient({
   // Churches must lead with a proposal — text composer locked until they send one.
   const churchMustProposeFirst = isChurchSide && !hasAnyProposal;
   const composerLocked = isArchived || churchMustProposeFirst;
-  const archiveLabel = archiveReason === "request_closed"
-    ? "Request was closed"
-    : archiveReason === "past_service"
-      ? "Service date has passed"
-      : archiveReason === "stale"
-        ? "Inactive for 21 days"
-        : "Archived";
+  const archiveLabel = archiveReason === "request_filled"
+    ? "Request was filled by another musician"
+    : archiveReason === "request_cancelled"
+      ? "The church cancelled this request"
+      : archiveReason === "request_closed"
+        ? "Request was closed"
+        : archiveReason === "past_service"
+          ? "Service date has passed"
+          : archiveReason === "stale"
+            ? "Inactive for 21 days"
+            : "Archived";
 
   // Sync sidebar fee to latest proposal fee when it changes. Using the
   // "store previous prop" pattern so the reset happens during render, not in
