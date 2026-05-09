@@ -3,13 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
-
-const INSTRUMENTS = [
-  "Acoustic Guitar", "Electric Guitar", "Bass Guitar", "Piano / Keys", "Organ",
-  "Drums", "Cajon / Hand Percussion", "Violin", "Viola", "Cello",
-  "Trumpet", "Trombone", "Saxophone", "Flute", "Clarinet",
-  "Lead Vocals", "Background Vocals", "Other",
-];
+import { INSTRUMENT_OPTIONS, instrumentsOverlap } from "@/lib/instruments";
 
 const DISTANCE_OPTIONS = [
   { value: 10,   label: "Within 10 miles" },
@@ -81,10 +75,7 @@ export function FindMusiciansClient({
         if (!nameMatch && !instrMatch) return false;
       }
       if (selectedInstruments.length > 0) {
-        const hasInstrument = selectedInstruments.some(sel =>
-          m.instruments.some(mi => mi.toLowerCase().includes(sel.toLowerCase()))
-        );
-        if (!hasInstrument) return false;
+        if (!instrumentsOverlap(selectedInstruments, m.instruments)) return false;
       }
       if (dateNeeded) {
         const ranges = blocksByMusician.get(m.id) ?? [];
@@ -144,7 +135,7 @@ export function FindMusiciansClient({
           {/* Instrument */}
           <FilterSection label="Instrument">
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-              {INSTRUMENTS.map(i => {
+              {INSTRUMENT_OPTIONS.map(i => {
                 const active = selectedInstruments.includes(i);
                 return (
                   <button key={i} type="button" onClick={() => toggleInstrument(i)} style={{

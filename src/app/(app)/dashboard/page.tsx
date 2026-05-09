@@ -12,6 +12,7 @@ import {
   bookingDisplayStatus,
   requestDisplayStatus,
 } from "@/lib/requests/status";
+import { instrumentsOverlap, matchingInstruments, uniqueInstruments } from "@/lib/instruments";
 
 function greeting() {
   const h = new Date().getHours();
@@ -201,7 +202,7 @@ export default async function DashboardPage() {
 
   // Open requests matching musician's instruments
   const today = new Date().toISOString().split("T")[0];
-  const myInstruments: string[] = mp?.instruments ?? [];
+  const myInstruments = uniqueInstruments(mp?.instruments ?? []);
 
   type OpenRequestRow = {
     id: string; title: string; service_type: string; service_date: string;
@@ -222,7 +223,7 @@ export default async function DashboardPage() {
     .filter(r =>
       myInstruments.length === 0 ||
       r.instruments_needed.length === 0 ||
-      r.instruments_needed.some(i => myInstruments.includes(i))
+      instrumentsOverlap(r.instruments_needed, myInstruments)
     )
     .slice(0, 5);
 
@@ -345,7 +346,7 @@ export default async function DashboardPage() {
         >
           {openRequests.map(r => {
             const d = new Date(r.service_date + "T12:00:00");
-            const matchedInstrs = r.instruments_needed.filter(i => myInstruments.includes(i));
+            const matchedInstrs = matchingInstruments(r.instruments_needed, myInstruments);
             return (
               <Link key={r.id} href={`/requests/${r.id}`} style={{ textDecoration: "none" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 18, alignItems: "center", padding: "16px 20px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", marginBottom: 8 }}>

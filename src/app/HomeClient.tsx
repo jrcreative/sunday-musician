@@ -2,13 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Avatar } from "@/components/Avatar";
-
-const INSTRUMENTS = [
-  "Acoustic Guitar", "Electric Guitar", "Bass Guitar", "Piano / Keys", "Organ",
-  "Drums", "Cajon / Hand Percussion", "Violin", "Viola", "Cello",
-  "Trumpet", "Trombone", "Saxophone", "Flute", "Clarinet",
-  "Lead Vocals", "Background Vocals", "Other",
-];
+import { INSTRUMENT_OPTIONS, instrumentsOverlap } from "@/lib/instruments";
 
 type Musician = {
   id: string;
@@ -43,9 +37,7 @@ export function HomeClient({ musicians }: { musicians: Musician[] }) {
         ) return false;
       }
       if (selectedInstruments.length > 0) {
-        if (!selectedInstruments.some(sel =>
-          m.instruments.some(mi => mi.toLowerCase().includes(sel.toLowerCase()))
-        )) return false;
+        if (!instrumentsOverlap(selectedInstruments, m.instruments)) return false;
       }
       if (availableOnly && !m.available) return false;
       return true;
@@ -94,7 +86,7 @@ export function HomeClient({ musicians }: { musicians: Musician[] }) {
             Instrument
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-            {INSTRUMENTS.map(i => {
+            {INSTRUMENT_OPTIONS.map(i => {
               const active = selectedInstruments.includes(i);
               return (
                 <button key={i} type="button" onClick={() => toggleInstrument(i)} style={{
