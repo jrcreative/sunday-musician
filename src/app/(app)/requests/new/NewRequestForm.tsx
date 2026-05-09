@@ -3,6 +3,7 @@
 import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
 
 const SERVICE_TYPES = [
   "Sunday morning",
@@ -13,19 +14,6 @@ const SERVICE_TYPES = [
   "Wedding",
   "Conference / retreat",
   "Christmas / Easter",
-];
-
-const INSTRUMENTS = [
-  "Worship leader",
-  "Acoustic guitar",
-  "Electric guitar",
-  "Bass",
-  "Drums",
-  "Piano/Keys",
-  "Vocals",
-  "Violin",
-  "Cello",
-  "Saxophone",
 ];
 
 const TECH_SETUP = [
@@ -88,7 +76,7 @@ export function NewRequestForm({
         serviceType: existingRequest.service_type,
         date: existingRequest.service_date,
         time: existingRequest.service_time ?? "10:00",
-        instruments: existingRequest.instruments_needed,
+        instruments: uniqueInstruments(existingRequest.instruments_needed),
         rehearsals: existingRequest.rehearsals,
         setlistUrl: existingRequest.setlist_url ?? "",
         techSetup: existingRequest.tech_setup,
@@ -133,7 +121,7 @@ export function NewRequestForm({
         service_date: data.date,
         service_time: data.time || null,
         location: null,
-        instruments_needed: data.instruments,
+        instruments_needed: uniqueInstruments(data.instruments),
         rehearsals: data.rehearsals,
         setlist_url: data.setlistUrl || null,
         tech_setup: data.techSetup,
@@ -241,7 +229,7 @@ export function NewRequestForm({
           <p style={{ fontSize: 16, color: "var(--sm-fg-3)", margin: "0 0 28px" }}>Pick everything you need filled. You can ask one musician to cover multiple roles.</p>
           <label className="label">Instruments / roles needed</label>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: 24 }}>
-            {INSTRUMENTS.map(i => (
+            {INSTRUMENT_OPTIONS.map(i => (
               <button
                 key={i}
                 type="button"

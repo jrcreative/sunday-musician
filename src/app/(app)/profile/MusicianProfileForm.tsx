@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
+import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
 import { AvatarUploader } from "./AvatarUploader";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
@@ -10,12 +11,6 @@ type MusicianProfile = Database["public"]["Tables"]["musician_profiles"]["Row"];
 type InstrumentEntry = { instrument: string; skill: string };
 type VideoEntry = { url: string; title: string; description: string };
 
-const INSTRUMENTS = [
-  "Acoustic Guitar", "Electric Guitar", "Bass Guitar", "Piano / Keys", "Organ",
-  "Drums", "Cajon / Hand Percussion", "Violin", "Viola", "Cello",
-  "Trumpet", "Trombone", "French Horn", "Saxophone", "Flute", "Clarinet",
-  "Lead Vocals", "Background Vocals", "Other",
-];
 const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced", "Professional"];
 const TRAVEL_OPTIONS = [
   { value: 10, label: "Within 10 miles" },
@@ -71,7 +66,7 @@ export function MusicianProfileForm({
   const [instruments, setInstruments] = useState<InstrumentEntry[]>(() => {
     const detail = mp?.instruments_detail as InstrumentEntry[] | null;
     if (detail && Array.isArray(detail) && detail.length > 0) return detail;
-    if (mp?.instruments?.length) return mp.instruments.map(i => ({ instrument: i, skill: "Intermediate" }));
+    if (mp?.instruments?.length) return uniqueInstruments(mp.instruments).map(i => ({ instrument: i, skill: "Intermediate" }));
     return [];
   });
   const [experienceNotes, setExperienceNotes] = useState(mp?.experience_notes ?? "");
@@ -122,7 +117,7 @@ export function MusicianProfileForm({
     setError(null);
     setSaved(false);
     const supabase = createClient();
-    const instrumentsArr = instruments.map(e => e.instrument).filter(Boolean);
+    const instrumentsArr = uniqueInstruments(instruments.map(e => e.instrument));
     const profileVideos = videos
       .map(video => ({
         url: video.url.trim(),
@@ -135,7 +130,7 @@ export function MusicianProfileForm({
       supabase.from("musician_profiles").update({
         bio,
         available,
-        instruments_detail: instruments,
+        instruments_detail: instruments.filter(e => e.instrument),
         instruments: instrumentsArr,
         primary_instrument: instrumentsArr[0] ?? "",
         experience_notes: experienceNotes,
@@ -191,7 +186,7 @@ export function MusicianProfileForm({
             <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <select className="select" value={entry.instrument} onChange={e => updateInstrument(i, "instrument", e.target.value)} style={{ flex: 1 }}>
                 <option value="">Select instrument…</option>
-                {INSTRUMENTS.map(inst => <option key={inst}>{inst}</option>)}
+                {INSTRUMENT_OPTIONS.map(inst => <option key={inst}>{inst}</option>)}
               </select>
               <select className="select" value={entry.skill} onChange={e => updateInstrument(i, "skill", e.target.value)} style={{ width: 150 }}>
                 {SKILL_LEVELS.map(s => <option key={s}>{s}</option>)}
