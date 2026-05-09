@@ -31,6 +31,21 @@ export const EMAIL_EVENTS = {
       { name: "THREAD_URL", description: "Absolute link to the invitation message thread." },
     ],
   },
+  musicianOnboarding: {
+    key: "musician.onboarding",
+    label: "Musician onboarding",
+    description: "Sent to a musician when they first create their account.",
+    subject: "Welcome to Sunday Musician, {{MUSICIAN_NAME}}",
+    category: "system",
+    suggestedTemplateName: "musician-onboarding",
+    templateEnv: "RESEND_TEMPLATE_MUSICIAN_ONBOARDING",
+    tags: [
+      { name: "MUSICIAN_NAME", description: "The musician display name." },
+      { name: "PROFILE_URL", description: "Absolute link to the musician profile editor." },
+      { name: "DASHBOARD_URL", description: "Absolute link to the musician dashboard." },
+      { name: "PAYOUTS_URL", description: "Absolute link to connect Stripe for payouts." },
+    ],
+  },
 } as const;
 
 export function configuredTemplateId(event: { templateEnv: string }) {
