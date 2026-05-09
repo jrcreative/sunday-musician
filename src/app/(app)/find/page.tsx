@@ -12,19 +12,31 @@ export default async function FindPage() {
     .from("profiles").select("role").eq("id", user.id).single();
   const isChurch = profile?.role === "church";
 
-  let viewerLocation: { city: string; state: string; zip: string | null } | null = null;
+  let viewerLocation: {
+    address: string | null;
+    city: string;
+    state: string;
+    zip: string | null;
+    lat: number | null;
+    lng: number | null;
+    formatted_address: string | null;
+    address_verified_at: string | null;
+  } | null = null;
 
   if (isChurch) {
     const { data: cp } = await supabase
-      .from("church_profiles").select("city, state, zip").eq("profile_id", user.id).single();
+      .from("church_profiles")
+      .select("address, city, state, zip, lat, lng, formatted_address, address_verified_at")
+      .eq("profile_id", user.id)
+      .single();
     viewerLocation = cp;
   } else {
     const { data: mp } = await supabase
       .from("musician_profiles")
-      .select("city, state")
+      .select("address, city, state, zip, lat, lng, formatted_address, address_verified_at")
       .eq("profile_id", user.id)
-      .maybeSingle() as unknown as { data: { city: string; state: string } | null };
-    if (mp) viewerLocation = { city: mp.city, state: mp.state, zip: null };
+      .maybeSingle();
+    if (mp) viewerLocation = mp;
   }
 
   const { data: musicians } = await supabase

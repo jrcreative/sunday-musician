@@ -12,6 +12,15 @@ type RequestPayload = {
   service_date?: string;
   service_time?: string | null;
   location?: string | null;
+  use_church_location?: boolean;
+  location_address?: string | null;
+  location_city?: string | null;
+  location_state?: string | null;
+  location_zip?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  location_formatted_address?: string | null;
+  location_verified_at?: string | null;
   instruments_needed?: string[];
   rehearsals?: string;
   setlist_url?: string | null;
@@ -56,6 +65,15 @@ export async function POST(req: Request) {
     service_date: body.service_date,
     service_time: body.service_time || null,
     location: body.location ?? null,
+    use_church_location: body.use_church_location ?? true,
+    location_address: body.use_church_location === false ? body.location_address ?? null : null,
+    location_city: body.use_church_location === false ? body.location_city ?? null : null,
+    location_state: body.use_church_location === false ? body.location_state ?? null : null,
+    location_zip: body.use_church_location === false ? body.location_zip ?? null : null,
+    location_lat: body.use_church_location === false ? body.location_lat ?? null : null,
+    location_lng: body.use_church_location === false ? body.location_lng ?? null : null,
+    location_formatted_address: body.use_church_location === false ? body.location_formatted_address ?? null : null,
+    location_verified_at: body.use_church_location === false ? body.location_verified_at ?? null : null,
     instruments_needed: uniqueInstruments(body.instruments_needed ?? []),
     rehearsals: body.rehearsals ?? "None",
     setlist_url: body.setlist_url || null,

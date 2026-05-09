@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { INSTRUMENT_OPTIONS, instrumentsOverlap } from "@/lib/instruments";
+import { distanceMiles } from "@/lib/locations/distance";
 
 const DISTANCE_OPTIONS = [
   { value: 10,   label: "Within 10 miles" },
@@ -18,6 +19,8 @@ type Musician = {
   profile_id: string;
   city: string;
   state: string;
+  lat: number | null;
+  lng: number | null;
   instruments: string[];
   primary_instrument: string;
   is_volunteer: boolean;
@@ -30,6 +33,24 @@ type Musician = {
   available: boolean;
   profiles: { display_name: string; avatar_url: string | null } | null;
 };
+type ViewerLocation = {
+  address: string | null;
+  city: string;
+  state: string;
+  zip: string | null;
+  lat: number | null;
+  lng: number | null;
+  formatted_address: string | null;
+  address_verified_at: string | null;
+};
+type VerifiedAddress = {
+  formattedAddress: string;
+  lat: number;
+  lng: number;
+  city: string;
+  state: string;
+  zip: string;
+};
 
 export function FindMusiciansClient({
   musicians,
@@ -38,7 +59,7 @@ export function FindMusiciansClient({
   blocks,
 }: {
   musicians: Musician[];
-  viewerLocation: { city: string; state: string; zip: string | null } | null;
+  viewerLocation: ViewerLocation | null;
   isChurch: boolean;
   blocks: { musician_profile_id: string; start_date: string; end_date: string }[];
 }) {
@@ -46,11 +67,26 @@ export function FindMusiciansClient({
   const [dateNeeded, setDateNeeded] = useState("");
   const [maxDistance, setMaxDistance] = useState(9999);
   const [query, setQuery] = useState("");
+  const [useCustomOrigin, setUseCustomOrigin] = useState(false);
+  const [originAddress, setOriginAddress] = useState("");
+  const [originCity, setOriginCity] = useState("");
+  const [originState, setOriginState] = useState("");
+  const [originZip, setOriginZip] = useState("");
+  const [customOrigin, setCustomOrigin] = useState<VerifiedAddress | null>(null);
+  const [verifyingOrigin, setVerifyingOrigin] = useState(false);
+  const [originError, setOriginError] = useState<string | null>(null);
+
+  const activeOrigin = useCustomOrigin && customOrigin
+    ? { lat: customOrigin.lat, lng: customOrigin.lng, city: customOrigin.city, state: customOrigin.state, label: customOrigin.formattedAddress }
+    : viewerLocation
+      ? { lat: viewerLocation.lat, lng: viewerLocation.lng, city: viewerLocation.city, state: viewerLocation.state, label: viewerLocation.formatted_address ?? [viewerLocation.city, viewerLocation.state].filter(Boolean).join(", ") }
+      : null;
 
   const activeFilterCount = [
     selectedInstruments.length > 0,
     dateNeeded !== "",
     maxDistance !== 9999,
+    useCustomOrigin && !!customOrigin,
   ].filter(Boolean).length;
 
   // Map musicianId → list of blocked ranges, for fast date checks.
@@ -82,12 +118,25 @@ export function FindMusiciansClient({
         if (ranges.some(r => dateNeeded >= r.start_date && dateNeeded <= r.end_date)) return false;
       }
       if (maxDistance !== 9999) {
-        const radius = m.travel_radius_miles ?? 0;
-        if (radius < maxDistance && radius !== 9999) return false;
+        const distance = activeOrigin ? distanceMiles(activeOrigin, { lat: m.lat, lng: m.lng }) : null;
+        if (distance == null) {
+          const radius = m.travel_radius_miles ?? 0;
+          if (radius < maxDistance && radius !== 9999) return false;
+        } else if (distance > maxDistance) {
+          return false;
+        }
+      }
+      if (isChurch && activeOrigin) {
+        const distance = distanceMiles(activeOrigin, { lat: m.lat, lng: m.lng });
+        if (distance == null) {
+          if (m.state.toLowerCase() !== activeOrigin.state.toLowerCase()) return false;
+        } else if (distance > (m.travel_radius_miles || 0)) {
+          return false;
+        }
       }
       return true;
     });
-  }, [musicians, query, selectedInstruments, dateNeeded, maxDistance, blocksByMusician]);
+  }, [musicians, query, selectedInstruments, dateNeeded, maxDistance, blocksByMusician, isChurch, activeOrigin]);
 
   function toggleInstrument(i: string) {
     setSelectedInstruments(prev =>
@@ -100,6 +149,42 @@ export function FindMusiciansClient({
     setDateNeeded("");
     setMaxDistance(9999);
     setQuery("");
+    setUseCustomOrigin(false);
+    setCustomOrigin(null);
+    setOriginError(null);
+  }
+
+  function clearCustomOriginVerification() {
+    setCustomOrigin(null);
+    setOriginError(null);
+  }
+
+  async function verifyCustomOrigin() {
+    setVerifyingOrigin(true);
+    setOriginError(null);
+    try {
+      const res = await fetch("/api/locations/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: originAddress, city: originCity, state: originState, zip: originZip }),
+      });
+      const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddress> & { error?: string };
+      if (!res.ok || typeof payload.lat !== "number" || typeof payload.lng !== "number" || !payload.formattedAddress) {
+        throw new Error(payload.error ?? "Could not verify address");
+      }
+      setCustomOrigin({
+        formattedAddress: payload.formattedAddress,
+        lat: payload.lat,
+        lng: payload.lng,
+        city: payload.city ?? originCity,
+        state: payload.state ?? originState,
+        zip: payload.zip ?? originZip,
+      });
+    } catch (e) {
+      setOriginError(e instanceof Error ? e.message : "Could not verify address");
+    } finally {
+      setVerifyingOrigin(false);
+    }
   }
 
   const locationLabel = isChurch ? "Your church" : "Your location";
@@ -128,8 +213,32 @@ export function FindMusiciansClient({
 
           {viewerLocation && (viewerLocation.city || viewerLocation.state) && (
             <div style={{ marginBottom: 16, padding: "8px 10px", background: "var(--sm-bg-2)", borderRadius: "var(--sm-radius-sm)", fontSize: 12.5, color: "var(--sm-fg-3)" }}>
-              📍 {locationLabel}: {[viewerLocation.city, viewerLocation.state].filter(Boolean).join(", ")}
+              {locationLabel}: {activeOrigin?.label ?? [viewerLocation.city, viewerLocation.state].filter(Boolean).join(", ")}
             </div>
+          )}
+
+          {isChurch && (
+            <FilterSection label="Search location">
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, cursor: "pointer", color: "var(--sm-fg-2)" }}>
+                <input type="checkbox" checked={useCustomOrigin} onChange={e => { setUseCustomOrigin(e.target.checked); setOriginError(null); }} />
+                Search from another service location
+              </label>
+              {useCustomOrigin && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                  <input className="input" placeholder="Street address" value={originAddress} onChange={e => { setOriginAddress(e.target.value); clearCustomOriginVerification(); }} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 68px", gap: 8 }}>
+                    <input className="input" placeholder="City" value={originCity} onChange={e => { setOriginCity(e.target.value); clearCustomOriginVerification(); }} />
+                    <input className="input" placeholder="ST" value={originState} onChange={e => { setOriginState(e.target.value.toUpperCase()); clearCustomOriginVerification(); }} maxLength={2} />
+                  </div>
+                  <input className="input" placeholder="ZIP" value={originZip} onChange={e => { setOriginZip(e.target.value); clearCustomOriginVerification(); }} />
+                  <button type="button" className="btn btn--secondary btn--sm" onClick={verifyCustomOrigin} disabled={verifyingOrigin || !originAddress || !originCity || !originState}>
+                    {verifyingOrigin ? "Verifying..." : "Verify location"}
+                  </button>
+                  {customOrigin && <span style={{ fontSize: 12.5, color: "var(--sm-status-success)" }}>{customOrigin.formattedAddress}</span>}
+                  {originError && <span style={{ fontSize: 12.5, color: "var(--sm-status-error)" }}>{originError}</span>}
+                </div>
+              )}
+            </FilterSection>
           )}
 
           {/* Instrument */}
@@ -168,7 +277,7 @@ export function FindMusiciansClient({
           </FilterSection>
 
           {/* Distance */}
-          <FilterSection label={`Distance from ${isChurch ? "your church" : "you"}`} noBorder>
+          <FilterSection label={`Distance from ${isChurch ? "service location" : "you"}`} noBorder>
             <select className="select" value={maxDistance} onChange={e => setMaxDistance(Number(e.target.value))}>
               {DISTANCE_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -176,7 +285,7 @@ export function FindMusiciansClient({
             </select>
             {maxDistance !== 9999 && (
               <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "var(--sm-fg-4)", lineHeight: 1.4 }}>
-                Shows musicians willing to travel at least {maxDistance} miles
+                Shows musicians within {maxDistance} miles of the search location
               </p>
             )}
           </FilterSection>

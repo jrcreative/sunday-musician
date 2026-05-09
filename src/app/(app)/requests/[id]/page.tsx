@@ -7,27 +7,12 @@ import { CancelRequestButton } from "./CancelRequestButton";
 import { InvitePotentialMatchButton } from "./InvitePotentialMatchButton";
 import { musicianCompleteness } from "@/app/(app)/profile/completeness";
 import { matchingInstruments } from "@/lib/instruments";
+import { distanceMiles } from "@/lib/locations/distance";
 import {
   REQUEST_STATUS_CHIP,
   REQUEST_STATUS_LABEL,
   requestDisplayStatus,
 } from "@/lib/requests/status";
-
-function distanceMiles(
-  from: { lat: number | null; lng: number | null },
-  to: { lat: number | null; lng: number | null }
-) {
-  if (from.lat == null || from.lng == null || to.lat == null || to.lng == null) return null;
-  const earthRadiusMiles = 3958.8;
-  const toRad = (degrees: number) => degrees * Math.PI / 180;
-  const dLat = toRad(to.lat - from.lat);
-  const dLng = toRad(to.lng - from.lng);
-  const lat1 = toRad(from.lat);
-  const lat2 = toRad(to.lat);
-  const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -38,6 +23,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   type RequestRow = {
     id: string; church_profile_id: string; title: string; service_type: string;
     service_date: string; service_time: string | null; location: string | null;
+    use_church_location: boolean; location_lat: number | null; location_lng: number | null;
+    location_city: string | null; location_state: string | null; location_formatted_address: string | null;
     instruments_needed: string[]; rehearsals: string; tech_setup: string[];
     offered_fee: number | null; fee_type: string; setlist_url: string | null;
     notes: string | null; status: string; created_at: string;
@@ -93,7 +80,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const isMusician = profile?.role === "musician";
   const display = requestDisplayStatus(request.status, request.service_date);
   const d = new Date(request.service_date + "T12:00:00");
-  const churchLocation = [request.church_profiles?.city, request.church_profiles?.state].filter(Boolean).join(", ");
+  const serviceLocation = request.use_church_location
+    ? [request.church_profiles?.city, request.church_profiles?.state].filter(Boolean).join(", ")
+    : request.location_formatted_address ?? [request.location_city, request.location_state].filter(Boolean).join(", ");
 
   // Church-side: fetch applications
   let applications: ApplicationRow[] | null = null;
@@ -137,10 +126,11 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
       ...(threads ?? []).map(thread => thread.musician_profile_id),
     ]);
     const unavailableMusicianIds = new Set((blocks ?? []).map(block => block.musician_profile_id));
-    const churchCoords = {
-      lat: request.church_profiles?.lat ?? null,
-      lng: request.church_profiles?.lng ?? null,
+    const serviceCoords = {
+      lat: request.use_church_location ? request.church_profiles?.lat ?? null : request.location_lat,
+      lng: request.use_church_location ? request.church_profiles?.lng ?? null : request.location_lng,
     };
+    const serviceState = request.use_church_location ? request.church_profiles?.state : request.location_state;
 
     potentialMatches = (musicians ?? [])
       .map(m => {
@@ -149,9 +139,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           m.instruments ?? [],
           m.primary_instrument
         );
-        const distance = distanceMiles(churchCoords, { lat: m.lat, lng: m.lng });
+        const distance = distanceMiles(serviceCoords, { lat: m.lat, lng: m.lng });
         const withinTravelRadius = distance == null
-          ? m.state === request.church_profiles?.state
+          ? m.state === serviceState
           : distance <= (m.travel_radius_miles || 0);
         const completeness = musicianCompleteness({
           bio: m.bio,
@@ -268,7 +258,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                   <span>·</span>
                   <span>{d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
                   {request.service_time && <><span>·</span><span>{request.service_time}</span></>}
-                  {churchLocation && <><span>·</span><span>{churchLocation}</span></>}
+                  {serviceLocation && <><span>·</span><span>{serviceLocation}</span></>}
                 </div>
               </div>
               {!isMusician && display === "open" && (

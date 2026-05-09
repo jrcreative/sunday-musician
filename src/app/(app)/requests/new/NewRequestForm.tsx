@@ -34,6 +34,14 @@ type FormData = {
   serviceType: string;
   date: string;
   time: string;
+  useChurchLocation: boolean;
+  locationAddress: string;
+  locationCity: string;
+  locationState: string;
+  locationZip: string;
+  locationFormattedAddress: string;
+  locationLat: number | null;
+  locationLng: number | null;
   instruments: string[];
   rehearsals: string;
   setlistUrl: string;
@@ -49,6 +57,15 @@ type ExistingRequest = {
   service_type: string;
   service_date: string;
   service_time: string | null;
+  use_church_location?: boolean;
+  location_address?: string | null;
+  location_city?: string | null;
+  location_state?: string | null;
+  location_zip?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  location_formatted_address?: string | null;
+  location_verified_at?: string | null;
   instruments_needed: string[];
   rehearsals: string;
   setlist_url: string | null;
@@ -58,15 +75,38 @@ type ExistingRequest = {
   notes: string | null;
 };
 
+type ChurchLocation = {
+  address: string | null;
+  city: string;
+  state: string;
+  zip: string | null;
+  lat: number | null;
+  lng: number | null;
+  formatted_address: string | null;
+  address_verified_at: string | null;
+} | null;
+
+type VerifiedAddress = {
+  formattedAddress: string;
+  lat: number;
+  lng: number;
+  city: string;
+  state: string;
+  zip: string;
+};
+
 export function NewRequestForm({
   existingRequest,
+  churchLocation,
 }: {
   existingRequest?: ExistingRequest;
+  churchLocation?: ChurchLocation;
 }) {
   const router = useRouter();
   const isEditing = !!existingRequest;
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [verifyingLocation, setVerifyingLocation] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [data, setData] = useState<FormData>(() => {
@@ -76,6 +116,14 @@ export function NewRequestForm({
         serviceType: existingRequest.service_type,
         date: existingRequest.service_date,
         time: existingRequest.service_time ?? "10:00",
+        useChurchLocation: existingRequest.use_church_location ?? true,
+        locationAddress: existingRequest.location_address ?? "",
+        locationCity: existingRequest.location_city ?? "",
+        locationState: existingRequest.location_state ?? "",
+        locationZip: existingRequest.location_zip ?? "",
+        locationFormattedAddress: existingRequest.location_formatted_address ?? "",
+        locationLat: existingRequest.location_lat ?? null,
+        locationLng: existingRequest.location_lng ?? null,
         instruments: uniqueInstruments(existingRequest.instruments_needed),
         rehearsals: existingRequest.rehearsals,
         setlistUrl: existingRequest.setlist_url ?? "",
@@ -90,6 +138,14 @@ export function NewRequestForm({
       serviceType: "Sunday morning",
       date: "",
       time: "10:00",
+      useChurchLocation: true,
+      locationAddress: "",
+      locationCity: "",
+      locationState: "",
+      locationZip: "",
+      locationFormattedAddress: "",
+      locationLat: null,
+      locationLng: null,
       instruments: [],
       rehearsals: "None — show up Sunday morning",
       setlistUrl: "",
@@ -111,16 +167,71 @@ export function NewRequestForm({
     }));
   }
 
+  function clearRequestLocationVerification() {
+    setData(d => ({
+      ...d,
+      locationFormattedAddress: "",
+      locationLat: null,
+      locationLng: null,
+    }));
+  }
+
+  async function verifyRequestLocation() {
+    setVerifyingLocation(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/locations/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address: data.locationAddress,
+          city: data.locationCity,
+          state: data.locationState,
+          zip: data.locationZip,
+        }),
+      });
+      const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddress> & { error?: string };
+      if (!res.ok || typeof payload.lat !== "number" || typeof payload.lng !== "number" || !payload.formattedAddress) {
+        throw new Error(payload.error ?? "Could not verify location");
+      }
+      setData(d => ({
+        ...d,
+        locationFormattedAddress: payload.formattedAddress ?? "",
+        locationLat: payload.lat ?? null,
+        locationLng: payload.lng ?? null,
+        locationCity: payload.city ?? d.locationCity,
+        locationState: payload.state ?? d.locationState,
+        locationZip: payload.zip ?? d.locationZip,
+      }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not verify location");
+    } finally {
+      setVerifyingLocation(false);
+    }
+  }
+
   async function handleSubmit() {
     setSubmitting(true);
     setError(null);
     try {
+      if (!data.useChurchLocation && (data.locationLat == null || data.locationLng == null)) {
+        throw new Error("Verify the alternate service location before posting.");
+      }
       const fields = {
         title: data.title || "Untitled request",
         service_type: data.serviceType,
         service_date: data.date,
         service_time: data.time || null,
-        location: null,
+        location: data.useChurchLocation ? null : (data.locationFormattedAddress || data.locationAddress || null),
+        use_church_location: data.useChurchLocation,
+        location_address: data.useChurchLocation ? null : data.locationAddress || null,
+        location_city: data.useChurchLocation ? null : data.locationCity || null,
+        location_state: data.useChurchLocation ? null : data.locationState || null,
+        location_zip: data.useChurchLocation ? null : data.locationZip || null,
+        location_lat: data.useChurchLocation ? null : data.locationLat,
+        location_lng: data.useChurchLocation ? null : data.locationLng,
+        location_formatted_address: data.useChurchLocation ? null : data.locationFormattedAddress || null,
+        location_verified_at: !data.useChurchLocation && data.locationLat != null && data.locationLng != null ? new Date().toISOString() : null,
         instruments_needed: uniqueInstruments(data.instruments),
         rehearsals: data.rehearsals,
         setlist_url: data.setlistUrl || null,
@@ -217,6 +328,54 @@ export function NewRequestForm({
             <div>
               <label className="label">Service start time</label>
               <input type="time" className="input" value={data.time} onChange={e => set("time", e.target.value)} />
+            </div>
+            <div style={{ gridColumn: "1 / -1", paddingTop: 10 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14.5 }}>
+                <input
+                  type="checkbox"
+                  checked={data.useChurchLocation}
+                  onChange={e => set("useChurchLocation", e.target.checked)}
+                />
+                Use my church address for matching
+              </label>
+              {data.useChurchLocation ? (
+                <p style={{ margin: "8px 0 0", fontSize: 13, color: churchLocation?.address_verified_at ? "var(--sm-status-success)" : "var(--sm-fg-4)" }}>
+                  {churchLocation?.address_verified_at
+                    ? `Matches will use ${churchLocation.formatted_address ?? [churchLocation.address, churchLocation.city, churchLocation.state, churchLocation.zip].filter(Boolean).join(", ")}.`
+                    : "Verify your church address in your profile for accurate distance matching."}
+                </p>
+              ) : (
+                <div style={{ marginTop: 14, padding: 16, border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
+                  <div className="sm-row-2" style={{ gap: "12px 16px" }}>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label className="label">Service street address</label>
+                      <input className="input" value={data.locationAddress} onChange={e => { set("locationAddress", e.target.value); clearRequestLocationVerification(); }} placeholder="123 Venue St" />
+                    </div>
+                    <div>
+                      <label className="label">City</label>
+                      <input className="input" value={data.locationCity} onChange={e => { set("locationCity", e.target.value); clearRequestLocationVerification(); }} />
+                    </div>
+                    <div>
+                      <label className="label">State</label>
+                      <input className="input" value={data.locationState} onChange={e => { set("locationState", e.target.value.toUpperCase()); clearRequestLocationVerification(); }} maxLength={2} />
+                    </div>
+                    <div>
+                      <label className="label">ZIP code</label>
+                      <input className="input" value={data.locationZip} onChange={e => { set("locationZip", e.target.value); clearRequestLocationVerification(); }} />
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <button type="button" className="btn btn--secondary btn--sm" onClick={verifyRequestLocation} disabled={verifyingLocation || !data.locationAddress || !data.locationCity || !data.locationState}>
+                      {verifyingLocation ? "Verifying..." : "Verify service location"}
+                    </button>
+                    {data.locationFormattedAddress ? (
+                      <span style={{ fontSize: 13, color: "var(--sm-status-success)" }}>Verified: {data.locationFormattedAddress}</span>
+                    ) : (
+                      <span style={{ fontSize: 13, color: "var(--sm-fg-4)" }}>Required for accurate alternate-location matching.</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -395,6 +554,7 @@ export function NewRequestForm({
                 ["Title", data.title || <em style={{ color: "var(--sm-fg-4)" }}>untitled</em>],
                 ["Type", data.serviceType],
                 ["Date & time", data.date ? `${data.date} at ${data.time}` : <em style={{ color: "var(--sm-fg-4)" }}>not set</em>],
+                ["Location", data.useChurchLocation ? "Church address" : (data.locationFormattedAddress || <em style={{ color: "var(--sm-fg-4)" }}>alternate location not verified</em>)],
               ],
             },
             {
