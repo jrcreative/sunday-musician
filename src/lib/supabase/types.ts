@@ -21,6 +21,7 @@ export type Database = {
           display_name: string;
           email: string;
           avatar_url: string | null;
+          avatar_path: string | null;
           deleted_at: string | null;
           is_admin: boolean;
           verified: boolean;

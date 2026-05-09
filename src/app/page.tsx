@@ -16,7 +16,7 @@ export default async function HomePage() {
     supabase.from("service_requests").select("*", { count: "exact", head: true }).eq("status", "filled"),
     supabase
       .from("musician_profiles")
-      .select("id, city, state, instruments, primary_instrument, is_volunteer, fee_min, fee_max, travel_radius_miles, bio, rating, review_count, available, profiles(display_name)")
+      .select("id, city, state, instruments, primary_instrument, is_volunteer, fee_min, fee_max, travel_radius_miles, bio, rating, review_count, available, profiles(display_name, avatar_url)")
       .order("rating", { ascending: false })
       .limit(100),
   ]);

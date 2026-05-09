@@ -1,10 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/shell/Topbar";
+import { Avatar } from "@/components/Avatar";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-
-const AV_COLORS = ["#f5d8b8","#d8e4f5","#d8f5dd","#f5d8d8","#ebd8f5","#f5ecd8"];
-const AV_TEXT   = ["#8a5a05","#1159af","#13612e","#b82105","#5b1faf","#8a5a05"];
 
 type VideoEntry = { url: string; title: string; description: string };
 
@@ -65,6 +63,7 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
   type ReviewRow = {
     id: string; rating: number; body: string; submitted_at: string;
     church_name: string | null;
+    church_avatar: string | null;
   };
 
   const [{ data: musician }, { data: profile }] = await Promise.all([
@@ -82,17 +81,23 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
   // have been released. Two-step query to keep filter syntax simple.
   const { data: releasedPeriods } = await supabase
     .from("review_periods")
-    .select("id, bookings!inner(church_profile_id, musician_profile_id, church_profiles(church_name))")
+    .select("id, bookings!inner(church_profile_id, musician_profile_id, church_profiles(church_name, profiles(avatar_url)))")
     .eq("bookings.musician_profile_id", id)
     .not("released_at", "is", null) as unknown as { data: Array<{
       id: string;
-      bookings: { church_profile_id: string; church_profiles: { church_name: string } | null } | null;
+      bookings: {
+        church_profile_id: string;
+        church_profiles: { church_name: string; profiles: { avatar_url: string | null } | null } | null;
+      } | null;
     }> | null };
 
   const periodIds = (releasedPeriods ?? []).map(p => p.id);
-  const churchByPeriod = new Map<string, string | null>();
+  const churchByPeriod = new Map<string, { name: string | null; avatar: string | null }>();
   for (const p of releasedPeriods ?? []) {
-    churchByPeriod.set(p.id, p.bookings?.church_profiles?.church_name ?? null);
+    churchByPeriod.set(p.id, {
+      name: p.bookings?.church_profiles?.church_name ?? null,
+      avatar: p.bookings?.church_profiles?.profiles?.avatar_url ?? null,
+    });
   }
 
   const { data: rawReviews } = periodIds.length > 0
@@ -105,19 +110,22 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
         .limit(5)
     : { data: [] as { id: string; period_id: string; rating: number; body: string; submitted_at: string }[] };
 
-  const reviews: ReviewRow[] = (rawReviews ?? []).map(r => ({
-    id: r.id,
-    rating: r.rating,
-    body: r.body,
-    submitted_at: r.submitted_at,
-    church_name: churchByPeriod.get(r.period_id) ?? null,
-  }));
+  const reviews: ReviewRow[] = (rawReviews ?? []).map(r => {
+    const ch = churchByPeriod.get(r.period_id);
+    return {
+      id: r.id,
+      rating: r.rating,
+      body: r.body,
+      submitted_at: r.submitted_at,
+      church_name: ch?.name ?? null,
+      church_avatar: ch?.avatar ?? null,
+    };
+  });
 
   const isChurch = profile?.role === "church";
   const isOwnProfile = musician.profile_id === user.id;
 
   const name = musician.profiles?.display_name ?? "Musician";
-  const initials = name.split(" ").map((w: string) => w[0]).slice(0, 2).join("");
   const idx = musician.id.charCodeAt(0) % 6;
   const videoEmbeds = profileVideosFromRow(musician.profile_videos, musician.youtube_links ?? [])
     .map(video => ({ ...video, embedUrl: youtubeEmbedUrl(video.url) }))
@@ -145,9 +153,7 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
           <div>
             {/* Header */}
             <div style={{ display: "flex", gap: 22, alignItems: "flex-start", paddingBottom: 28, borderBottom: "1px solid var(--sm-border-subtle)", marginBottom: 28 }}>
-              <div style={{ width: 80, height: 80, borderRadius: "var(--sm-radius-sm)", background: AV_COLORS[idx], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 24, color: AV_TEXT[idx], flexShrink: 0 }}>
-                {initials}
-              </div>
+              <Avatar src={musician.profiles?.avatar_url} name={name} size={80} colorIndex={idx} fontSize={24} />
               <div style={{ flex: 1 }}>
                 <h2 style={{ fontSize: 32, fontWeight: 700, margin: "0 0 6px", letterSpacing: "-0.01em" }}>{name}</h2>
                 <div style={{ display: "flex", gap: 16, flexWrap: "wrap", color: "var(--sm-fg-3)", fontSize: 15, marginBottom: 12 }}>
@@ -254,9 +260,7 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
               {reviews && reviews.length > 0 ? reviews.map((r, i) => (
                 <div key={r.id} style={{ borderTop: "1px solid var(--sm-border-subtle)", padding: "18px 0" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: "var(--sm-radius-sm)", background: AV_COLORS[i % 6], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 12, color: AV_TEXT[i % 6] }}>
-                      {r.church_name?.[0] ?? "C"}
-                    </div>
+                    <Avatar src={r.church_avatar} name={r.church_name ?? "Church"} size={32} colorIndex={i} fontSize={12} />
                     <div>
                       <div style={{ fontWeight: 600, color: "var(--sm-fg-1)", fontSize: 14 }}>{r.church_name}</div>
                       <div style={{ color: "var(--sm-fg-4)", fontSize: 12.5 }}>

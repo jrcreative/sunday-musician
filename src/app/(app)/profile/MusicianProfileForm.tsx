@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
+import { AvatarUploader } from "./AvatarUploader";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type MusicianProfile = Database["public"]["Tables"]["musician_profiles"]["Row"];
@@ -161,6 +162,15 @@ export function MusicianProfileForm({
     <form onSubmit={handleSave} className="page page--narrow">
 
       <Section title="About you">
+        <div className="field">
+          <label className="label">Profile photo</label>
+          <AvatarUploader
+            profileId={profile.id}
+            currentUrl={profile.avatar_url}
+            currentPath={profile.avatar_path}
+            displayName={profile.display_name}
+          />
+        </div>
         <div className="field">
           <label className="label" htmlFor="displayName">Display name</label>
           <input id="displayName" className="input" value={displayName} onChange={e => setDisplayName(e.target.value)} required />

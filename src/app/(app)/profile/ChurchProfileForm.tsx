@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
+import { AvatarUploader } from "./AvatarUploader";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ChurchProfile = Database["public"]["Tables"]["church_profiles"]["Row"];
@@ -89,6 +90,15 @@ export function ChurchProfileForm({
     <form onSubmit={handleSave} className="page page--narrow">
 
       <Section title="About your church">
+        <div className="field">
+          <label className="label">Church photo</label>
+          <AvatarUploader
+            profileId={profile.id}
+            currentUrl={profile.avatar_url}
+            currentPath={profile.avatar_path}
+            displayName={profile.display_name}
+          />
+        </div>
         <div className="sm-row-2">
           <div className="field">
             <label className="label" htmlFor="churchName">Church name</label>
