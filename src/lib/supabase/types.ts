@@ -151,6 +151,8 @@ export type Database = {
           available: boolean;
           address: string | null;
           zip: string | null;
+          formatted_address: string | null;
+          address_verified_at: string | null;
           travel_radius_miles: number;
           youtube_links: string[];
           created_at: string;
@@ -174,6 +176,8 @@ export type Database = {
           production_level: string | null;
           address: string | null;
           zip: string | null;
+          formatted_address: string | null;
+          address_verified_at: string | null;
           contact_name: string | null;
           denomination: string | null;
           musical_approach: string | null;
@@ -195,6 +199,15 @@ export type Database = {
           service_date: string;
           service_time: string | null;
           location: string | null;
+          use_church_location: boolean;
+          location_address: string | null;
+          location_city: string | null;
+          location_state: string | null;
+          location_zip: string | null;
+          location_lat: number | null;
+          location_lng: number | null;
+          location_formatted_address: string | null;
+          location_verified_at: string | null;
           instruments_needed: string[];
           rehearsals: string;
           tech_setup: string[];

@@ -11,7 +11,7 @@ export default async function EditRequestPage({ params }: { params: Promise<{ id
 
   const { data: request } = await supabase
     .from("service_requests")
-    .select("id, title, service_type, service_date, service_time, instruments_needed, rehearsals, setlist_url, tech_setup, offered_fee, fee_type, notes, church_profile_id")
+    .select("id, title, service_type, service_date, service_time, use_church_location, location_address, location_city, location_state, location_zip, location_lat, location_lng, location_formatted_address, location_verified_at, instruments_needed, rehearsals, setlist_url, tech_setup, offered_fee, fee_type, notes, church_profile_id")
     .eq("id", id)
     .single();
 
@@ -19,7 +19,10 @@ export default async function EditRequestPage({ params }: { params: Promise<{ id
 
   // Verify ownership
   const { data: cp } = await supabase
-    .from("church_profiles").select("id").eq("profile_id", user.id).maybeSingle();
+    .from("church_profiles")
+    .select("id, address, city, state, zip, lat, lng, formatted_address, address_verified_at")
+    .eq("profile_id", user.id)
+    .maybeSingle();
   if (!cp || cp.id !== request.church_profile_id) notFound();
 
   return (
@@ -35,6 +38,15 @@ export default async function EditRequestPage({ params }: { params: Promise<{ id
           service_type: request.service_type,
           service_date: request.service_date,
           service_time: request.service_time,
+          use_church_location: request.use_church_location,
+          location_address: request.location_address,
+          location_city: request.location_city,
+          location_state: request.location_state,
+          location_zip: request.location_zip,
+          location_lat: request.location_lat,
+          location_lng: request.location_lng,
+          location_formatted_address: request.location_formatted_address,
+          location_verified_at: request.location_verified_at,
           instruments_needed: request.instruments_needed ?? [],
           rehearsals: request.rehearsals,
           setlist_url: request.setlist_url,
@@ -43,6 +55,7 @@ export default async function EditRequestPage({ params }: { params: Promise<{ id
           fee_type: request.fee_type,
           notes: request.notes,
         }}
+        churchLocation={cp}
       />
     </>
   );

@@ -7,6 +7,14 @@ import { AvatarUploader } from "./AvatarUploader";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ChurchProfile = Database["public"]["Tables"]["church_profiles"]["Row"];
+type VerifiedAddress = {
+  formattedAddress: string;
+  lat: number;
+  lng: number;
+  city: string;
+  state: string;
+  zip: string;
+};
 
 const MUSICAL_APPROACHES = [
   "Vocals Only",
@@ -51,9 +59,53 @@ export function ChurchProfileForm({
   const [productionLevel, setProductionLevel] = useState(cp?.production_level ?? "");
   const [worshipTheology, setWorshipTheology] = useState(cp?.worship_theology ?? "");
   const [additionalValues, setAdditionalValues] = useState(cp?.additional_worship_values ?? "");
+  const [verifiedAddress, setVerifiedAddress] = useState<VerifiedAddress | null>(() => {
+    if (!cp?.address_verified_at || cp.lat == null || cp.lng == null) return null;
+    return {
+      formattedAddress: cp.formatted_address ?? [cp.address, cp.city, cp.state, cp.zip].filter(Boolean).join(", "),
+      lat: cp.lat,
+      lng: cp.lng,
+      city: cp.city,
+      state: cp.state,
+      zip: cp.zip ?? "",
+    };
+  });
+  const [verifyingAddress, setVerifyingAddress] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function clearAddressVerification() {
+    setVerifiedAddress(null);
+  }
+
+  async function verifyAddress() {
+    setVerifyingAddress(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/locations/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, city, state: stateVal, zip }),
+      });
+      const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddress> & { error?: string };
+      if (!res.ok || typeof payload.lat !== "number" || typeof payload.lng !== "number" || !payload.formattedAddress) {
+        throw new Error(payload.error ?? "Could not verify address");
+      }
+      setVerifiedAddress({
+        formattedAddress: payload.formattedAddress,
+        lat: payload.lat,
+        lng: payload.lng,
+        city: payload.city ?? city,
+        state: payload.state ?? stateVal,
+        zip: payload.zip ?? zip,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not verify address");
+    } finally {
+      setVerifyingAddress(false);
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -71,6 +123,10 @@ export function ChurchProfileForm({
         city,
         state: stateVal,
         zip: zip || null,
+        lat: verifiedAddress?.lat ?? null,
+        lng: verifiedAddress?.lng ?? null,
+        formatted_address: verifiedAddress?.formattedAddress ?? null,
+        address_verified_at: verifiedAddress ? new Date().toISOString() : null,
         capacity: capacity === "" ? null : Number(capacity),
         service_count: serviceCount === "" ? null : Number(serviceCount),
         musical_style: musicalStyle || null,
@@ -119,20 +175,30 @@ export function ChurchProfileForm({
         <div className="sm-row-2">
           <div className="field" style={{ gridColumn: "1 / -1" }}>
             <label className="label" htmlFor="address">Street address</label>
-            <input id="address" type="text" className="input" value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Church St" />
+            <input id="address" type="text" className="input" value={address} onChange={e => { setAddress(e.target.value); clearAddressVerification(); }} placeholder="123 Church St" />
           </div>
           <div className="field">
             <label className="label" htmlFor="city">City</label>
-            <input id="city" type="text" className="input" value={city} onChange={e => setCity(e.target.value)} required />
+            <input id="city" type="text" className="input" value={city} onChange={e => { setCity(e.target.value); clearAddressVerification(); }} required />
           </div>
           <div className="field">
             <label className="label" htmlFor="state">State</label>
-            <input id="state" type="text" className="input" value={stateVal} onChange={e => setStateVal(e.target.value)} placeholder="TX" maxLength={2} required />
+            <input id="state" type="text" className="input" value={stateVal} onChange={e => { setStateVal(e.target.value.toUpperCase()); clearAddressVerification(); }} placeholder="TX" maxLength={2} required />
           </div>
           <div className="field">
             <label className="label" htmlFor="zip">ZIP code</label>
-            <input id="zip" type="text" className="input" value={zip} onChange={e => setZip(e.target.value)} placeholder="78701" />
+            <input id="zip" type="text" className="input" value={zip} onChange={e => { setZip(e.target.value); clearAddressVerification(); }} placeholder="78701" />
           </div>
+        </div>
+        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <button type="button" className="btn btn--secondary btn--sm" onClick={verifyAddress} disabled={verifyingAddress || !address || !city || !stateVal}>
+            {verifyingAddress ? "Verifying..." : "Verify address"}
+          </button>
+          {verifiedAddress ? (
+            <span style={{ fontSize: 13, color: "var(--sm-status-success)" }}>Verified: {verifiedAddress.formattedAddress}</span>
+          ) : (
+            <span style={{ fontSize: 13, color: "var(--sm-fg-4)" }}>Verification enables accurate musician distance matching.</span>
+          )}
         </div>
       </Section>
 

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { OpenRequest, MusicianMeta } from "./page";
 import { INSTRUMENT_OPTIONS, instrumentsOverlap, uniqueInstruments } from "@/lib/instruments";
+import { distanceMiles } from "@/lib/locations/distance";
 
 export function OpenRequestsClient({
   requests,
@@ -28,11 +29,19 @@ export function OpenRequestsClient({
         if (r.service_date !== dateFilter) return false;
       }
       if (areaOnly && musicianMeta.state) {
-        if (r.church_state.toLowerCase() !== musicianMeta.state.toLowerCase()) return false;
+        const distance = distanceMiles(
+          { lat: musicianMeta.lat, lng: musicianMeta.lng },
+          { lat: r.service_lat, lng: r.service_lng }
+        );
+        if (distance == null) {
+          if (r.service_state.toLowerCase() !== musicianMeta.state.toLowerCase()) return false;
+        } else if (distance > (musicianMeta.travel_radius_miles || 0)) {
+          return false;
+        }
       }
       return true;
     });
-  }, [requests, instrFilter, dateFilter, areaOnly, musicianMeta.state]);
+  }, [requests, instrFilter, dateFilter, areaOnly, musicianMeta]);
 
   // Separate matched (overlaps musician's own instruments) from others
   const matched = filtered.filter(r =>
@@ -73,7 +82,7 @@ export function OpenRequestsClient({
             <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>Area</div>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "var(--sm-fg-1)", cursor: "pointer" }}>
               <input type="checkbox" checked={areaOnly} onChange={e => setAreaOnly(e.target.checked)} style={{ accentColor: "var(--sm-accent)" }} />
-              My state ({musicianMeta.state})
+              Within my travel radius
             </label>
           </div>
         )}
@@ -166,7 +175,7 @@ function Section({ label, requests, myInstruments, accent }: {
 
 function RequestCard({ r, myInstruments }: { r: OpenRequest; myInstruments: Set<string> }) {
   const d = new Date(r.service_date + "T12:00:00");
-  const location = [r.church_city, r.church_state].filter(Boolean).join(", ");
+  const location = r.service_location_label || [r.church_city, r.church_state].filter(Boolean).join(", ");
 
   return (
     <div style={{
