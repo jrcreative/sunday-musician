@@ -49,6 +49,12 @@ export default async function RequestsPage() {
   }
 
   // ── Musician: confirmed bookings ──
+  // Read straight from the bookings table — that's the row that actually
+  // tracks cancellation. The previous version derived bookings from
+  // messages.proposal_status='accepted', which never gets reset on cancel,
+  // so cancelled bookings still showed as "Upcoming". Going through the
+  // real table also gives us the booking id (for cancel actions) and the
+  // canonical fee/feeType captured at acceptance time.
   const { data: mp } = await supabase
     .from("musician_profiles")
     .select("id")
@@ -58,70 +64,42 @@ export default async function RequestsPage() {
   let bookings: Booking[] = [];
 
   if (mp) {
-    // Fetch all threads for this musician with church + request info
-    const { data: threads } = await supabase
-      .from("threads")
-      .select("id, church_profile_id, request_id, church_profiles(church_name, city, state), service_requests(title, service_date, service_type, fee_type)")
-      .eq("musician_profile_id", mp.id) as unknown as {
-        data: Array<{
-          id: string;
-          church_profile_id: string;
-          request_id: string | null;
-          church_profiles: { church_name: string; city: string; state: string } | null;
-          service_requests: { title: string; service_date: string; service_type: string; fee_type: string } | null;
-        }> | null;
-      };
+    type BookingRow = {
+      id: string;
+      thread_id: string;
+      service_date: string | null;
+      fee: number | null;
+      fee_type: string | null;
+      accepted_at: string;
+      cancelled_at: string | null;
+      church_profiles: { church_name: string; city: string; state: string } | null;
+      service_requests: { title: string; service_type: string } | null;
+    };
 
-    if (threads && threads.length > 0) {
-      const threadIds = threads.map(t => t.id);
+    const { data: rows } = await supabase
+      .from("bookings")
+      .select(`
+        id, thread_id, service_date, fee, fee_type, accepted_at, cancelled_at,
+        church_profiles ( church_name, city, state ),
+        service_requests ( title, service_type )
+      `)
+      .eq("musician_profile_id", mp.id)
+      .order("service_date", { ascending: false, nullsFirst: false }) as unknown as { data: BookingRow[] | null };
 
-      // Find accepted proposals across all threads
-      const { data: acceptedMsgs } = await supabase
-        .from("messages")
-        .select("thread_id, proposal, created_at")
-        .in("thread_id", threadIds)
-        .eq("proposal_status", "accepted")
-        .order("created_at", { ascending: false }) as unknown as {
-          data: Array<{
-            thread_id: string;
-            proposal: { fee: number | null; feeType: string; date: string | null; notes: string } | null;
-            created_at: string;
-          }> | null;
-        };
-
-      // Keep only the most recent accepted proposal per thread
-      type AcceptedMsg = NonNullable<typeof acceptedMsgs>[number];
-      const acceptedByThread = new Map<string, AcceptedMsg>();
-      for (const msg of acceptedMsgs ?? []) {
-        if (!acceptedByThread.has(msg.thread_id)) {
-          acceptedByThread.set(msg.thread_id, msg);
-        }
-      }
-
-      bookings = threads
-        .filter(t => acceptedByThread.has(t.id))
-        .map(t => {
-          const proposal = acceptedByThread.get(t.id)!.proposal;
-          const acceptedAt = acceptedByThread.get(t.id)!.created_at;
-          return {
-            threadId: t.id,
-            churchName: t.church_profiles?.church_name ?? "Church",
-            churchCity: t.church_profiles?.city ?? "",
-            churchState: t.church_profiles?.state ?? "",
-            title: t.service_requests?.title ?? "Service",
-            serviceDate: t.service_requests?.service_date ?? null,
-            serviceType: t.service_requests?.service_type ?? "",
-            fee: proposal?.fee ?? null,
-            feeType: proposal?.feeType ?? t.service_requests?.fee_type ?? "per service",
-            acceptedAt,
-          };
-        })
-        .sort((a, b) => {
-          const da = a.serviceDate ?? a.acceptedAt;
-          const db = b.serviceDate ?? b.acceptedAt;
-          return db.localeCompare(da);
-        });
-    }
+    bookings = (rows ?? []).map(r => ({
+      bookingId: r.id,
+      threadId: r.thread_id,
+      churchName: r.church_profiles?.church_name ?? "Church",
+      churchCity: r.church_profiles?.city ?? "",
+      churchState: r.church_profiles?.state ?? "",
+      title: r.service_requests?.title ?? "Service",
+      serviceDate: r.service_date,
+      serviceType: r.service_requests?.service_type ?? "",
+      fee: r.fee,
+      feeType: r.fee_type ?? "per service",
+      acceptedAt: r.accepted_at,
+      cancelledAt: r.cancelled_at,
+    }));
   }
 
   return (

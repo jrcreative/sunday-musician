@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import {
+  REQUEST_STATUS_CHIP,
+  REQUEST_STATUS_LABEL,
+  type RequestStatusRaw,
+  requestDisplayStatus,
+} from "@/lib/requests/status";
 
 type Request = {
   id: string;
@@ -12,46 +18,15 @@ type Request = {
   location: string | null;
   offered_fee: number | null;
   fee_type: string;
-  status: "open" | "in_progress" | "filled" | "cancelled";
+  status: RequestStatusRaw;
   instruments_needed: string[];
   created_at: string;
 };
 
-// Display status: "Open" while a request is live, "Filled" after a musician
-// accepts, "Cancelled" if the church withdrew, "Expired" if the date passed
-// without a booking. Expired is computed (not stored) — a stale 'open' row.
-type DisplayStatus = "open" | "filled" | "cancelled" | "expired";
-
-const STATUS_LABEL: Record<DisplayStatus, string> = {
-  open: "Open",
-  filled: "Filled",
-  cancelled: "Cancelled",
-  expired: "Expired",
-};
-
-const STATUS_CHIP: Record<DisplayStatus, string> = {
-  open: "chip chip--warn",
-  filled: "chip chip--success",
-  cancelled: "chip",
-  expired: "chip",
-};
-
-const todayIso = () => new Date().toISOString().slice(0, 10);
-
-function displayStatus(r: Request, today: string): DisplayStatus {
-  if (r.status === "filled") return "filled";
-  if (r.status === "cancelled") return "cancelled";
-  // 'open' or legacy 'in_progress' that never auto-flipped — treat both as
-  // active until the date passes, then call them expired.
-  if (r.service_date < today) return "expired";
-  return "open";
-}
-
 export function RequestsClient({ requests, isChurch }: { requests: Request[]; isChurch: boolean }) {
   const [tab, setTab] = useState<"all" | "open" | "closed">("all");
-  const today = todayIso();
 
-  const decorated = requests.map(r => ({ ...r, _display: displayStatus(r, today) }));
+  const decorated = requests.map(r => ({ ...r, _display: requestDisplayStatus(r.status, r.service_date) }));
 
   const filtered = decorated.filter(r => {
     if (tab === "all") return true;
@@ -144,7 +119,7 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
 
                       {/* Status */}
                       <div style={{ textAlign: "right" }}>
-                        <span className={STATUS_CHIP[r._display]}>{STATUS_LABEL[r._display]}</span>
+                        <span className={REQUEST_STATUS_CHIP[r._display]}>{REQUEST_STATUS_LABEL[r._display]}</span>
                       </div>
                     </div>
                   </Link>

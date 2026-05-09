@@ -4,6 +4,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ProfileCompleteness } from "../profile/ProfileCompleteness";
 import { musicianCompleteness } from "../profile/completeness";
+import {
+  BOOKING_STATUS_CHIP,
+  BOOKING_STATUS_LABEL,
+  REQUEST_STATUS_CHIP,
+  REQUEST_STATUS_LABEL,
+  bookingDisplayStatus,
+  requestDisplayStatus,
+} from "@/lib/requests/status";
 
 function greeting() {
   const h = new Date().getHours();
@@ -31,8 +39,12 @@ export default async function DashboardPage() {
       : { data: [] };
 
     const today = new Date().toISOString().slice(0, 10);
-    const openCount = requests?.filter(r => r.status === "open" && r.service_date >= today).length ?? 0;
-    const filledCount = requests?.filter(r => r.status === "filled").length ?? 0;
+    const decoratedRequests = (requests ?? []).map(r => ({
+      ...r,
+      _display: requestDisplayStatus(r.status, r.service_date, today),
+    }));
+    const openCount = decoratedRequests.filter(r => r._display === "open").length;
+    const filledCount = decoratedRequests.filter(r => r._display === "filled").length;
 
     // Card-on-file expiry warning. We surface this on the dashboard (not
     // just /profile/billing) because a missed expiry would silently fail
@@ -95,7 +107,7 @@ export default async function DashboardPage() {
                 {[
                   { label: "Open requests", val: openCount, sub: "awaiting reply" },
                   { label: "Filled", val: filledCount, sub: "this month" },
-                  { label: "Total requests", val: requests?.length ?? 0, sub: "all time" },
+                  { label: "Total requests", val: decoratedRequests.length, sub: "all time" },
                 ].map(s => (
                   <div key={s.label} style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22 }}>
                     <div style={{ fontSize: 12.5, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 600 }}>{s.label}</div>
@@ -109,10 +121,10 @@ export default async function DashboardPage() {
                 Active requests
               </div>
 
-              {requests && requests.length > 0 ? (
+              {decoratedRequests.length > 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {requests
-                    .filter(r => r.status === "open" && r.service_date >= today)
+                  {decoratedRequests
+                    .filter(r => r._display === "open")
                     .slice(0, 3)
                     .map(r => (
                     <Link key={r.id} href={`/requests/${r.id}`} style={{ textDecoration: "none" }}>
@@ -131,7 +143,7 @@ export default async function DashboardPage() {
                             {r.service_type}{r.offered_fee != null ? ` · $${r.offered_fee} offered` : ""}
                           </div>
                         </div>
-                        <span className="chip chip--warn">Open</span>
+                        <span className={REQUEST_STATUS_CHIP[r._display]}>{REQUEST_STATUS_LABEL[r._display]}</span>
                       </div>
                     </Link>
                   ))}
@@ -214,65 +226,65 @@ export default async function DashboardPage() {
     )
     .slice(0, 5);
 
-  // Confirmed bookings
-  type ThreadRow = {
-    id: string;
-    church_profile_id: string;
-    church_profiles: { church_name: string; city: string; state: string } | null;
-    service_requests: { title: string; service_date: string; service_type: string; fee_type: string } | null;
+  // Bookings — read from the bookings table so cancelled rows are tracked
+  // properly. Stats reflect live (non-cancelled) bookings only; the visible
+  // list shows cancelled too so the musician sees what changed.
+  type DashboardBooking = {
+    bookingId: string;
+    threadId: string;
+    churchName: string;
+    title: string;
+    serviceDate: string | null;
+    fee: number | null;
+    feeType: string;
+    acceptedAt: string;
+    cancelledAt: string | null;
   };
-  type AcceptedMsg = {
+  type BookingRow = {
+    id: string;
     thread_id: string;
-    proposal: { fee: number | null; feeType: string } | null;
-    created_at: string;
+    service_date: string | null;
+    fee: number | null;
+    fee_type: string | null;
+    accepted_at: string;
+    cancelled_at: string | null;
+    church_profiles: { church_name: string } | null;
+    service_requests: { title: string } | null;
   };
 
-  let bookings: {
-    threadId: string; churchName: string; title: string;
-    serviceDate: string | null; fee: number | null; feeType: string; acceptedAt: string;
-  }[] = [];
+  let bookings: DashboardBooking[] = [];
 
   if (mp) {
-    const { data: threads } = await supabase
-      .from("threads")
-      .select("id, church_profile_id, church_profiles(church_name, city, state), service_requests(title, service_date, service_type, fee_type)")
-      .eq("musician_profile_id", mp.id) as unknown as { data: ThreadRow[] | null };
+    const { data: rows } = await supabase
+      .from("bookings")
+      .select(`
+        id, thread_id, service_date, fee, fee_type, accepted_at, cancelled_at,
+        church_profiles ( church_name ),
+        service_requests ( title )
+      `)
+      .eq("musician_profile_id", mp.id)
+      .order("service_date", { ascending: false, nullsFirst: false }) as unknown as { data: BookingRow[] | null };
 
-    if (threads?.length) {
-      const { data: accepted } = await supabase
-        .from("messages")
-        .select("thread_id, proposal, created_at")
-        .in("thread_id", threads.map(t => t.id))
-        .eq("proposal_status", "accepted")
-        .order("created_at", { ascending: false }) as unknown as { data: AcceptedMsg[] | null };
-
-      const byThread = new Map<string, AcceptedMsg>();
-      for (const m of accepted ?? []) {
-        if (!byThread.has(m.thread_id)) byThread.set(m.thread_id, m);
-      }
-
-      bookings = threads
-        .filter(t => byThread.has(t.id))
-        .map(t => ({
-          threadId: t.id,
-          churchName: t.church_profiles?.church_name ?? "Church",
-          title: t.service_requests?.title ?? "Service",
-          serviceDate: t.service_requests?.service_date ?? null,
-          fee: byThread.get(t.id)!.proposal?.fee ?? null,
-          feeType: byThread.get(t.id)!.proposal?.feeType ?? t.service_requests?.fee_type ?? "per service",
-          acceptedAt: byThread.get(t.id)!.created_at,
-        }))
-        .sort((a, b) => (b.serviceDate ?? b.acceptedAt).localeCompare(a.serviceDate ?? a.acceptedAt))
-        .slice(0, 4);
-    }
+    bookings = (rows ?? []).map(r => ({
+      bookingId: r.id,
+      threadId: r.thread_id,
+      churchName: r.church_profiles?.church_name ?? "Church",
+      title: r.service_requests?.title ?? "Service",
+      serviceDate: r.service_date,
+      fee: r.fee,
+      feeType: r.fee_type ?? "per service",
+      acceptedAt: r.accepted_at,
+      cancelledAt: r.cancelled_at,
+    })).slice(0, 4);
   }
 
-  const totalEarned = bookings.reduce((s, b) => s + (b.fee ?? 0), 0);
-  const upcomingCount = bookings.filter(b => b.serviceDate && new Date(b.serviceDate + "T12:00:00") >= new Date()).length;
+  const liveBookings = bookings.filter(b => !b.cancelledAt);
+  const totalEarned = liveBookings.reduce((s, b) => s + (b.fee ?? 0), 0);
+  const upcomingCount = liveBookings.filter(b => b.serviceDate && new Date(b.serviceDate + "T12:00:00") >= new Date()).length;
   const profileCompleteness = musicianCompleteness(mp);
 
   const stats = [
-    { label: "Confirmed bookings", value: bookings.length.toString(), sub: "all time" },
+    { label: "Confirmed bookings", value: liveBookings.length.toString(), sub: "all time" },
     { label: "Total earned", value: totalEarned > 0 ? `$${totalEarned.toLocaleString()}` : "—", sub: "from agreements" },
     { label: "Upcoming", value: upcomingCount.toString(), sub: upcomingCount === 1 ? "service booked" : "services booked" },
   ];
@@ -374,14 +386,15 @@ export default async function DashboardPage() {
         >
           {bookings.map(b => {
             const d = b.serviceDate ? new Date(b.serviceDate + "T12:00:00") : null;
-            const isPast = d ? d < new Date() : false;
+            const status = bookingDisplayStatus(b.serviceDate, b.cancelledAt);
+            const dim = status !== "upcoming";
             return (
-              <Link key={b.threadId} href={`/messages/${b.threadId}`} style={{ textDecoration: "none" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 18, alignItems: "center", padding: "16px 20px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", marginBottom: 8, opacity: isPast ? 0.7 : 1 }}>
+              <Link key={b.bookingId} href={`/messages/${b.threadId}`} style={{ textDecoration: "none" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 18, alignItems: "center", padding: "16px 20px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", marginBottom: 8, opacity: dim ? 0.7 : 1 }}>
                   <div style={{ textAlign: "center", paddingRight: 18, borderRight: "1px solid var(--sm-border-subtle)" }}>
                     {d ? (
                       <>
-                        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: isPast ? "var(--sm-fg-4)" : "var(--sm-accent)", fontWeight: 700 }}>
+                        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: dim ? "var(--sm-fg-4)" : "var(--sm-accent)", fontWeight: 700 }}>
                           {d.toLocaleDateString("en-US", { month: "short" })}
                         </div>
                         <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, color: "var(--sm-fg-1)", marginTop: 1 }}>{d.getDate()}</div>
@@ -392,7 +405,7 @@ export default async function DashboardPage() {
                     )}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 14.5, color: "var(--sm-fg-1)", marginBottom: 2 }}>{b.title}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14.5, color: "var(--sm-fg-1)", marginBottom: 2, textDecoration: status === "cancelled" ? "line-through" : "none" }}>{b.title}</div>
                     <div style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>{b.churchName}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
@@ -401,8 +414,8 @@ export default async function DashboardPage() {
                     ) : (
                       <div style={{ fontSize: 12.5, color: "var(--sm-fg-4)" }}>Volunteer</div>
                     )}
-                    <span className={isPast ? "chip" : "chip chip--success"} style={{ fontSize: 11, marginTop: 4, display: "inline-block" }}>
-                      {isPast ? "Done" : "Upcoming"}
+                    <span className={BOOKING_STATUS_CHIP[status]} style={{ fontSize: 11, marginTop: 4, display: "inline-block" }}>
+                      {BOOKING_STATUS_LABEL[status]}
                     </span>
                   </div>
                 </div>
