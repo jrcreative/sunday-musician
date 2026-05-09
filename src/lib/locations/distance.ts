@@ -4,7 +4,24 @@ export type Coordinates = {
 };
 
 export function distanceMiles(from: Coordinates, to: Coordinates) {
-  if (from.lat == null || from.lng == null || to.lat == null || to.lng == null) return null;
+  if (
+    from.lat == null ||
+    from.lng == null ||
+    to.lat == null ||
+    to.lng == null ||
+    !Number.isFinite(from.lat) ||
+    !Number.isFinite(from.lng) ||
+    !Number.isFinite(to.lat) ||
+    !Number.isFinite(to.lng) ||
+    from.lat < -90 ||
+    from.lat > 90 ||
+    to.lat < -90 ||
+    to.lat > 90 ||
+    from.lng < -180 ||
+    from.lng > 180 ||
+    to.lng < -180 ||
+    to.lng > 180
+  ) return null;
   const earthRadiusMiles = 3958.8;
   const toRad = (degrees: number) => degrees * Math.PI / 180;
   const dLat = toRad(to.lat - from.lat);

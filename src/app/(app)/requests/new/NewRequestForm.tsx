@@ -2,7 +2,6 @@
 
 import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
 
 const SERVICE_TYPES = [
@@ -228,10 +227,6 @@ export function NewRequestForm({
         location_city: data.useChurchLocation ? null : data.locationCity || null,
         location_state: data.useChurchLocation ? null : data.locationState || null,
         location_zip: data.useChurchLocation ? null : data.locationZip || null,
-        location_lat: data.useChurchLocation ? null : data.locationLat,
-        location_lng: data.useChurchLocation ? null : data.locationLng,
-        location_formatted_address: data.useChurchLocation ? null : data.locationFormattedAddress || null,
-        location_verified_at: !data.useChurchLocation && data.locationLat != null && data.locationLng != null ? new Date().toISOString() : null,
         instruments_needed: uniqueInstruments(data.instruments),
         rehearsals: data.rehearsals,
         setlist_url: data.setlistUrl || null,
@@ -242,15 +237,13 @@ export function NewRequestForm({
       };
 
       if (isEditing && existingRequest) {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Not authenticated");
-
-        const { error: updateErr } = await supabase
-          .from("service_requests")
-          .update(fields)
-          .eq("id", existingRequest.id);
-        if (updateErr) throw updateErr;
+        const res = await fetch(`/api/requests/${existingRequest.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fields),
+        });
+        const payload = await res.json().catch(() => ({})) as { error?: string };
+        if (!res.ok) throw new Error(payload.error ?? "Could not update request");
         router.push(`/requests/${existingRequest.id}`);
       } else {
         const res = await fetch("/api/requests", {

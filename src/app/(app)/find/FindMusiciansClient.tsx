@@ -76,11 +76,25 @@ export function FindMusiciansClient({
   const [verifyingOrigin, setVerifyingOrigin] = useState(false);
   const [originError, setOriginError] = useState<string | null>(null);
 
-  const activeOrigin = useCustomOrigin && customOrigin
-    ? { lat: customOrigin.lat, lng: customOrigin.lng, city: customOrigin.city, state: customOrigin.state, label: customOrigin.formattedAddress }
-    : viewerLocation
-      ? { lat: viewerLocation.lat, lng: viewerLocation.lng, city: viewerLocation.city, state: viewerLocation.state, label: viewerLocation.formatted_address ?? [viewerLocation.city, viewerLocation.state].filter(Boolean).join(", ") }
-      : null;
+  const activeOrigin = useMemo(() => {
+    if (useCustomOrigin && customOrigin) {
+      return {
+        lat: customOrigin.lat,
+        lng: customOrigin.lng,
+        city: customOrigin.city,
+        state: customOrigin.state,
+        label: customOrigin.formattedAddress,
+      };
+    }
+    if (!viewerLocation) return null;
+    return {
+      lat: viewerLocation.lat,
+      lng: viewerLocation.lng,
+      city: viewerLocation.city,
+      state: viewerLocation.state,
+      label: viewerLocation.formatted_address ?? [viewerLocation.city, viewerLocation.state].filter(Boolean).join(", "),
+    };
+  }, [customOrigin, useCustomOrigin, viewerLocation]);
 
   const activeFilterCount = [
     selectedInstruments.length > 0,
