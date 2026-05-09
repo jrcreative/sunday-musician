@@ -1,10 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/shell/Topbar";
+import { Avatar } from "@/components/Avatar";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-
-const AV_COLORS = ["#f5d8b8","#d8e4f5","#d8f5dd","#f5d8d8","#ebd8f5","#f5ecd8"];
-const AV_TEXT   = ["#8a5a05","#1159af","#13612e","#b82105","#5b1faf","#8a5a05"];
 
 export default async function MessagesPage({
   searchParams,
@@ -64,8 +62,8 @@ export default async function MessagesPage({
       last_message_at, last_message_preview, last_message_kind,
       unread_count_church, unread_count_musician,
       service_requests ( title, service_date ),
-      church_profiles ( church_name ),
-      musician_profiles ( profiles ( display_name ) )
+      church_profiles ( church_name, profiles ( avatar_url ) ),
+      musician_profiles ( profiles ( display_name, avatar_url ) )
     `)
     .eq(filterCol, myProfileId)
     .order("last_message_at", { ascending: false, nullsFirst: false })
@@ -81,14 +79,17 @@ export default async function MessagesPage({
       unread_count_church: number;
       unread_count_musician: number;
       service_requests: { title: string; service_date: string } | null;
-      church_profiles: { church_name: string } | null;
-      musician_profiles: { profiles: { display_name: string } | null } | null;
+      church_profiles: { church_name: string; profiles: { avatar_url: string | null } | null } | null;
+      musician_profiles: { profiles: { display_name: string; avatar_url: string | null } | null } | null;
     }> | null };
 
   const threads = (rawThreads ?? []).map(t => {
     const otherName = isChurch
       ? (t.musician_profiles?.profiles?.display_name ?? "Musician")
       : (t.church_profiles?.church_name ?? "Church");
+    const otherAvatar = isChurch
+      ? (t.musician_profiles?.profiles?.avatar_url ?? null)
+      : (t.church_profiles?.profiles?.avatar_url ?? null);
     const preview = t.last_message_kind === "proposal"
       ? "Sent a proposal"
       : (t.last_message_preview ?? "");
@@ -100,6 +101,7 @@ export default async function MessagesPage({
       archiveReason: t.archive_reason,
       updatedAt: t.last_message_at ?? t.updated_at,
       otherName,
+      otherAvatar,
       preview,
       unread: isChurch ? t.unread_count_church : t.unread_count_musician,
     };
@@ -165,6 +167,7 @@ type ThreadRow = {
   archiveReason: string | null;
   updatedAt: string;
   otherName: string;
+  otherAvatar: string | null;
   preview: string;
   unread: number;
 };
@@ -173,8 +176,6 @@ function ThreadList({ threads, archivedSection }: { threads: ThreadRow[]; archiv
   return (
     <div style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", overflow: "hidden", background: "var(--sm-bg-1)" }}>
       {threads.map((thread, i) => {
-        const idx = i % 6;
-        const initials = thread.otherName.split(" ").map(w => w[0]).slice(0, 2).join("");
         const dateLabel = thread.serviceDate
           ? new Date(thread.serviceDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
           : "";
@@ -194,9 +195,7 @@ function ThreadList({ threads, archivedSection }: { threads: ThreadRow[]; archiv
               transition: "background var(--sm-dur-base) var(--sm-ease)",
             }}
           >
-            <div style={{ width: 44, height: 44, borderRadius: "var(--sm-radius-sm)", background: AV_COLORS[idx], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 15, color: AV_TEXT[idx], flexShrink: 0 }}>
-              {initials}
-            </div>
+            <Avatar src={thread.otherAvatar} name={thread.otherName} size={44} colorIndex={i} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
                 <span style={{ fontWeight: 600, fontSize: 15, color: "var(--sm-fg-1)" }}>{thread.otherName}</span>

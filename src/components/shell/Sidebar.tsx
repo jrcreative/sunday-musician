@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { Avatar } from "@/components/Avatar";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -30,7 +31,6 @@ export function Sidebar({ profile, userId }: { profile: Profile | null; userId: 
   const pathname = usePathname();
   const isChurch = profile?.role !== "musician";
   const nav = isChurch ? churchNav : musicianNav;
-  const initials = profile?.display_name?.split(" ").map(w => w[0]).slice(0, 2).join("") ?? "?";
 
   // Unread badge — sum of unread_count_<role> across this user's threads.
   // The counters are denormalized on threads and kept current by Postgres
@@ -175,9 +175,7 @@ export function Sidebar({ profile, userId }: { profile: Profile | null; userId: 
 
       {/* Bottom: avatar + profile + sign out */}
       <div style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid var(--sm-border-subtle)", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 32, height: 32, borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-3)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 13, color: "var(--sm-fg-2)", flexShrink: 0 }}>
-          {initials}
-        </div>
+        <Avatar src={profile?.avatar_url} name={profile?.display_name ?? ""} size={32} fontSize={13} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--sm-fg-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {profile?.display_name}

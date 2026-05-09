@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Avatar } from "@/components/Avatar";
 
 const INSTRUMENTS = [
   "Acoustic Guitar", "Electric Guitar", "Bass Guitar", "Piano / Keys", "Organ",
@@ -8,9 +9,6 @@ const INSTRUMENTS = [
   "Trumpet", "Trombone", "Saxophone", "Flute", "Clarinet",
   "Lead Vocals", "Background Vocals", "Other",
 ];
-
-const AV_COLORS = ["#f5d8b8","#d8e4f5","#d8f5dd","#f5d8d8","#ebd8f5","#f5ecd8"];
-const AV_TEXT   = ["#8a5a05","#1159af","#13612e","#b82105","#5b1faf","#8a5a05"];
 
 type Musician = {
   id: string;
@@ -26,12 +24,8 @@ type Musician = {
   rating: number;
   review_count: number;
   available: boolean;
-  profiles: { display_name: string } | null;
+  profiles: { display_name: string; avatar_url: string | null } | null;
 };
-
-function initials(name: string) {
-  return name.split(" ").map(w => w[0]).slice(0, 2).join("");
-}
 
 export function HomeClient({ musicians }: { musicians: Musician[] }) {
   const [selectedInstruments, setSelectedInstruments] = useState<string[]>([]);
@@ -167,9 +161,7 @@ export function HomeClient({ musicians }: { musicians: Musician[] }) {
                     }}
                   >
                     <div style={{ display: "flex", gap: 13, alignItems: "flex-start" }}>
-                      <div style={{ width: 52, height: 52, borderRadius: "var(--sm-radius-sm)", background: AV_COLORS[idx], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 17, color: AV_TEXT[idx], flexShrink: 0 }}>
-                        {initials(name)}
-                      </div>
+                      <Avatar src={m.profiles?.avatar_url} name={name} size={52} colorIndex={idx} fontSize={17} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 16, fontWeight: 600, color: "var(--sm-fg-1)" }}>{name}</div>
                         <div style={{ fontSize: 13, color: "var(--sm-fg-3)", marginTop: 2 }}>{m.city}, {m.state}</div>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Avatar } from "@/components/Avatar";
 
 const INSTRUMENTS = [
   "Acoustic Guitar", "Electric Guitar", "Bass Guitar", "Piano / Keys", "Organ",
@@ -17,9 +18,6 @@ const DISTANCE_OPTIONS = [
   { value: 100,  label: "Within 100 miles" },
   { value: 9999, label: "Any distance" },
 ];
-
-const AV_COLORS = ["#f5d8b8","#d8e4f5","#d8f5dd","#f5d8d8","#ebd8f5","#f5ecd8"];
-const AV_TEXT   = ["#8a5a05","#1159af","#13612e","#b82105","#5b1faf","#8a5a05"];
 
 type Musician = {
   id: string;
@@ -38,10 +36,6 @@ type Musician = {
   available: boolean;
   profiles: { display_name: string; avatar_url: string | null } | null;
 };
-
-function initials(name: string) {
-  return name.split(" ").map(w => w[0]).slice(0, 2).join("");
-}
 
 export function FindMusiciansClient({
   musicians,
@@ -251,9 +245,7 @@ export function FindMusiciansClient({
                       gap: 12, cursor: "pointer", height: "100%",
                     }}>
                       <div style={{ display: "flex", gap: 13, alignItems: "flex-start" }}>
-                        <div style={{ width: 52, height: 52, borderRadius: "var(--sm-radius-sm)", background: AV_COLORS[idx], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 17, color: AV_TEXT[idx], flexShrink: 0 }}>
-                          {initials(name)}
-                        </div>
+                        <Avatar src={m.profiles?.avatar_url} name={name} size={52} colorIndex={idx} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 16, fontWeight: 600, color: "var(--sm-fg-1)" }}>{name}</div>
                           <div style={{ fontSize: 13, color: "var(--sm-fg-3)", marginTop: 2 }}>{m.city}, {m.state}</div>

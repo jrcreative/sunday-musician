@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/shell/Topbar";
+import { Avatar } from "@/components/Avatar";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CancelRequestButton } from "./CancelRequestButton";
@@ -8,9 +9,6 @@ import {
   REQUEST_STATUS_LABEL,
   requestDisplayStatus,
 } from "@/lib/requests/status";
-
-const AV_COLORS = ["#f5d8b8","#d8e4f5","#d8f5dd","#f5d8d8","#ebd8f5","#f5ecd8"];
-const AV_TEXT   = ["#8a5a05","#1159af","#13612e","#b82105","#5b1faf","#8a5a05"];
 
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,7 +29,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     musician_profiles: {
       id: string; profile_id: string; primary_instrument: string; city: string; state: string;
       fee_min: number; fee_max: number;
-      profiles: { display_name: string } | null;
+      profiles: { display_name: string; avatar_url: string | null } | null;
     } | null;
   };
 
@@ -56,7 +54,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   if (!isMusician) {
     const { data } = await supabase
       .from("applications")
-      .select("*, musician_profiles(*, profiles(display_name))")
+      .select("*, musician_profiles(*, profiles(display_name, avatar_url))")
       .eq("request_id", id)
       .order("created_at", { ascending: false }) as unknown as { data: ApplicationRow[] | null; error: unknown };
     applications = data;
@@ -179,14 +177,11 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 {applications && applications.length > 0 ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {applications.map((app, i) => {
-                      const mp = app.musician_profiles as { id: string; profiles: { display_name: string } | null; primary_instrument: string; city: string; state: string; fee_min: number; fee_max: number };
+                      const mp = app.musician_profiles as { id: string; profiles: { display_name: string; avatar_url: string | null } | null; primary_instrument: string; city: string; state: string; fee_min: number; fee_max: number };
                       const name = mp?.profiles?.display_name ?? "Musician";
-                      const idx = i % 6;
                       return (
                         <div key={app.id} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "16px 18px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
-                          <div style={{ width: 44, height: 44, borderRadius: "var(--sm-radius-sm)", background: AV_COLORS[idx], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 15, color: AV_TEXT[idx], flexShrink: 0 }}>
-                            {name.split(" ").map((w: string) => w[0]).slice(0, 2).join("")}
-                          </div>
+                          <Avatar src={mp?.profiles?.avatar_url} name={name} size={44} colorIndex={i} />
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 600, fontSize: 15, color: "var(--sm-fg-1)", marginBottom: 2 }}>{name}</div>
                             <div style={{ fontSize: 13, color: "var(--sm-fg-3)" }}>{mp?.primary_instrument} · {mp?.city}, {mp?.state}</div>
