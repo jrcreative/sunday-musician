@@ -2,22 +2,15 @@ import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/shell/Topbar";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { CancelRequestButton } from "./CancelRequestButton";
+import {
+  REQUEST_STATUS_CHIP,
+  REQUEST_STATUS_LABEL,
+  requestDisplayStatus,
+} from "@/lib/requests/status";
 
 const AV_COLORS = ["#f5d8b8","#d8e4f5","#d8f5dd","#f5d8d8","#ebd8f5","#f5ecd8"];
 const AV_TEXT   = ["#8a5a05","#1159af","#13612e","#b82105","#5b1faf","#8a5a05"];
-
-const STATUS_LABEL: Record<string, string> = {
-  open: "Open",
-  in_progress: "Negotiating",
-  filled: "Confirmed",
-  cancelled: "Cancelled",
-};
-const STATUS_CHIP: Record<string, string> = {
-  open: "chip chip--warn",
-  in_progress: "chip chip--accent",
-  filled: "chip chip--success",
-  cancelled: "chip",
-};
 
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -54,6 +47,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   if (!request) notFound();
 
   const isMusician = profile?.role === "musician";
+  const display = requestDisplayStatus(request.status, request.service_date);
   const d = new Date(request.service_date + "T12:00:00");
   const churchLocation = [request.church_profiles?.city, request.church_profiles?.state].filter(Boolean).join(", ");
 
@@ -103,7 +97,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
                   <h2 style={{ fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>{request.title}</h2>
-                  <span className={STATUS_CHIP[request.status]}>{STATUS_LABEL[request.status]}</span>
+                  <span className={REQUEST_STATUS_CHIP[display]}>{REQUEST_STATUS_LABEL[display]}</span>
                 </div>
                 <div style={{ fontSize: 14, color: "var(--sm-fg-3)", display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                   {isMusician && request.church_profiles && (
@@ -116,8 +110,11 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                   {churchLocation && <><span>·</span><span>{churchLocation}</span></>}
                 </div>
               </div>
-              {!isMusician && request.status === "open" && (
-                <Link href={`/requests/${request.id}/edit`} className="btn btn--ghost btn--sm">Edit request</Link>
+              {!isMusician && display === "open" && (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Link href={`/requests/${request.id}/edit`} className="btn btn--ghost btn--sm">Edit request</Link>
+                  <CancelRequestButton requestId={request.id} requestTitle={request.title} />
+                </div>
               )}
             </div>
 
@@ -257,7 +254,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               )}
               <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Status</dt>
               <dd style={{ margin: isMusician ? 0 : "0 0 16px" }}>
-                <span className={STATUS_CHIP[request.status]}>{STATUS_LABEL[request.status]}</span>
+                <span className={REQUEST_STATUS_CHIP[display]}>{REQUEST_STATUS_LABEL[display]}</span>
               </dd>
               {!isMusician && (
                 <>

@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import {
+  REQUEST_STATUS_CHIP,
+  REQUEST_STATUS_LABEL,
+  type RequestStatusRaw,
+  requestDisplayStatus,
+} from "@/lib/requests/status";
 
 type Request = {
   id: string;
@@ -12,38 +18,26 @@ type Request = {
   location: string | null;
   offered_fee: number | null;
   fee_type: string;
-  status: "open" | "in_progress" | "filled" | "cancelled";
+  status: RequestStatusRaw;
   instruments_needed: string[];
   created_at: string;
 };
 
-const STATUS_LABEL: Record<Request["status"], string> = {
-  open: "Open",
-  in_progress: "Negotiating",
-  filled: "Confirmed",
-  cancelled: "Cancelled",
-};
-
-const STATUS_CHIP: Record<Request["status"], string> = {
-  open: "chip chip--warn",
-  in_progress: "chip chip--accent",
-  filled: "chip chip--success",
-  cancelled: "chip",
-};
-
 export function RequestsClient({ requests, isChurch }: { requests: Request[]; isChurch: boolean }) {
-  const [tab, setTab] = useState<"all" | "open" | "in_progress" | "filled">("all");
+  const [tab, setTab] = useState<"all" | "open" | "closed">("all");
 
-  const filtered = requests.filter(r => {
-    if (tab === "all") return r.status !== "cancelled";
-    return r.status === tab;
+  const decorated = requests.map(r => ({ ...r, _display: requestDisplayStatus(r.status, r.service_date) }));
+
+  const filtered = decorated.filter(r => {
+    if (tab === "all") return true;
+    if (tab === "open") return r._display === "open";
+    return r._display !== "open"; // closed = filled | cancelled | expired
   });
 
   const counts = {
-    all: requests.filter(r => r.status !== "cancelled").length,
-    open: requests.filter(r => r.status === "open").length,
-    in_progress: requests.filter(r => r.status === "in_progress").length,
-    filled: requests.filter(r => r.status === "filled").length,
+    all: decorated.length,
+    open: decorated.filter(r => r._display === "open").length,
+    closed: decorated.filter(r => r._display !== "open").length,
   };
 
   return (
@@ -59,14 +53,14 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
       ) : (
         <>
           <div className="tabs">
-            {(["all", "open", "in_progress", "filled"] as const).map(t => (
+            {(["all", "open", "closed"] as const).map(t => (
               <button
                 key={t}
                 className="tab"
                 aria-current={tab === t ? "page" : undefined}
                 onClick={() => setTab(t)}
               >
-                {t === "all" ? "All" : t === "in_progress" ? "Negotiating" : STATUS_LABEL[t]}
+                {t === "all" ? "All" : t === "open" ? "Open" : "Closed"}
                 <span className="count">{counts[t]}</span>
               </button>
             ))}
@@ -74,7 +68,7 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
 
           {filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--sm-fg-3)" }}>
-              No {tab === "in_progress" ? "negotiating" : tab} requests.
+              No {tab} requests.
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -93,6 +87,7 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
                       background: "var(--sm-bg-1)",
                       transition: "border-color var(--sm-dur-base) var(--sm-ease)",
                       cursor: "pointer",
+                      opacity: r._display === "open" ? 1 : 0.78,
                     }}>
                       {/* Date block */}
                       <div style={{ textAlign: "center", paddingRight: 22, borderRight: "1px solid var(--sm-border-subtle)", minWidth: 72 }}>
@@ -124,7 +119,7 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
 
                       {/* Status */}
                       <div style={{ textAlign: "right" }}>
-                        <span className={STATUS_CHIP[r.status]}>{STATUS_LABEL[r.status]}</span>
+                        <span className={REQUEST_STATUS_CHIP[r._display]}>{REQUEST_STATUS_LABEL[r._display]}</span>
                       </div>
                     </div>
                   </Link>

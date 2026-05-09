@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import {
+  BOOKING_STATUS_CHIP,
+  BOOKING_STATUS_LABEL,
+  bookingDisplayStatus,
+} from "@/lib/requests/status";
 
 export type Booking = {
+  bookingId: string;
   threadId: string;
   churchName: string;
   churchCity: string;
@@ -13,14 +19,18 @@ export type Booking = {
   fee: number | null;
   feeType: string;
   acceptedAt: string;
+  cancelledAt: string | null;
 };
 
 export function BookingsClient({ bookings }: { bookings: Booking[] }) {
-  const totalEarned = bookings.reduce((sum, b) => sum + (b.fee ?? 0), 0);
-  const uniqueChurches = new Set(bookings.map(b => b.churchName)).size;
+  // Stats only count bookings that actually held — cancelled rows
+  // shouldn't pad "Total earned" or the unique-church count.
+  const live = bookings.filter(b => !b.cancelledAt);
+  const totalEarned = live.reduce((sum, b) => sum + (b.fee ?? 0), 0);
+  const uniqueChurches = new Set(live.map(b => b.churchName)).size;
 
   const stats = [
-    { label: "Confirmed bookings", value: bookings.length.toString(), sub: "all time" },
+    { label: "Confirmed bookings", value: live.length.toString(), sub: "all time" },
     {
       label: "Total earned",
       value: totalEarned > 0 ? `$${totalEarned.toLocaleString()}` : "—",
@@ -68,16 +78,17 @@ export function BookingsClient({ bookings }: { bookings: Booking[] }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--sm-fg-3)", marginBottom: 10 }}>
-            Confirmed bookings
+            Bookings
           </div>
           {bookings.map(b => {
             const d = b.serviceDate ? new Date(b.serviceDate + "T12:00:00") : null;
             const location = [b.churchCity, b.churchState].filter(Boolean).join(", ");
-            const isPast = d ? d < new Date() : false;
+            const status = bookingDisplayStatus(b.serviceDate, b.cancelledAt);
+            const dim = status !== "upcoming";
 
             return (
               <Link
-                key={b.threadId}
+                key={b.bookingId}
                 href={`/messages/${b.threadId}`}
                 style={{ textDecoration: "none" }}
               >
@@ -88,13 +99,13 @@ export function BookingsClient({ bookings }: { bookings: Booking[] }) {
                   borderRadius: "var(--sm-radius-sm)",
                   background: "var(--sm-bg-1)",
                   marginBottom: 10,
-                  opacity: isPast ? 0.75 : 1,
+                  opacity: dim ? 0.7 : 1,
                 }}>
                   {/* Date block */}
                   <div style={{ textAlign: "center", paddingRight: 20, borderRight: "1px solid var(--sm-border-subtle)" }}>
                     {d ? (
                       <>
-                        <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".08em", color: isPast ? "var(--sm-fg-4)" : "var(--sm-accent)", fontWeight: 700 }}>
+                        <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".08em", color: dim ? "var(--sm-fg-4)" : "var(--sm-accent)", fontWeight: 700 }}>
                           {d.toLocaleDateString("en-US", { month: "short" })}
                         </div>
                         <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1, color: "var(--sm-fg-1)", marginTop: 2 }}>
@@ -111,7 +122,7 @@ export function BookingsClient({ bookings }: { bookings: Booking[] }) {
 
                   {/* Info */}
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 15, color: "var(--sm-fg-1)", marginBottom: 3 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, color: "var(--sm-fg-1)", marginBottom: 3, textDecoration: status === "cancelled" ? "line-through" : "none" }}>
                       {b.title}
                     </div>
                     <div style={{ fontSize: 13, color: "var(--sm-fg-3)", display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -134,8 +145,8 @@ export function BookingsClient({ bookings }: { bookings: Booking[] }) {
                       <div style={{ fontSize: 13, color: "var(--sm-fg-4)" }}>Volunteer</div>
                     )}
                     <div style={{ marginTop: 5 }}>
-                      <span className={isPast ? "chip" : "chip chip--success"}>
-                        {isPast ? "Completed" : "Upcoming"}
+                      <span className={BOOKING_STATUS_CHIP[status]}>
+                        {BOOKING_STATUS_LABEL[status]}
                       </span>
                     </div>
                   </div>

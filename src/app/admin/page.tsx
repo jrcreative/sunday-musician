@@ -76,6 +76,8 @@ export default async function AdminDashboardPage() {
     failedPaymentsRes,
     suspendedRes,
     flaggedRequestsRes,
+    unfilledRecentRes,
+    unfilledPriorRes,
   ] = await Promise.all([
     fetchDailyPaymentRollups(admin, isoDay(start30)),
     fetchDailyPaymentRollups(admin, isoDay(start60), isoDay(start30)),
@@ -101,6 +103,21 @@ export default async function AdminDashboardPage() {
     // Placeholder for "needs review" until moderation lands — count
     // failed payments + suspended users as the "ops attention" tally.
     admin.from("payments").select("id", { count: "exact", head: true }).eq("status", "failed"),
+    // Unfilled = requests whose service_date passed in the window but never
+    // reached 'filled' (still open, or cancelled by the church). High counts
+    // mean the platform isn't matching well — track explicitly so we notice
+    // before churn shows up. Distinguish church cancellations so we can
+    // spot abuse (a church repeatedly posting then withdrawing).
+    admin.from("service_requests")
+      .select("service_date, status")
+      .gte("service_date", isoDay(start30))
+      .lt("service_date", isoDay(now))
+      .in("status", ["open", "in_progress", "cancelled"]),
+    admin.from("service_requests")
+      .select("service_date, status")
+      .gte("service_date", isoDay(start60))
+      .lt("service_date", isoDay(start30))
+      .in("status", ["open", "in_progress", "cancelled"]),
   ]);
 
   const grossRecent = dailyRecent.reduce((s, p) => s + p.gross_cents, 0);
@@ -117,6 +134,12 @@ export default async function AdminDashboardPage() {
 
   const filledRecent = (bookingsRecentRes.data ?? []).length;
   const filledPrior = (bookingsPriorRes.data ?? []).length;
+
+  const unfilledRows = unfilledRecentRes.data ?? [];
+  const unfilledRecent = unfilledRows.length;
+  const unfilledPrior = (unfilledPriorRes.data ?? []).length;
+  const churchCancelledRecent = unfilledRows.filter(r => r.status === "cancelled").length;
+  const expiredRecent = unfilledRecent - churchCancelledRecent;
 
   const days = dayBuckets(start30, now);
   const dailyByDay = new Map(dailyRecent.map(d => [d.day, d]));
@@ -156,6 +179,17 @@ export default async function AdminDashboardPage() {
       delta: pctDelta(filledRecent, filledPrior),
       ctx: filledRecent === 0 ? "no bookings yet" : `${filledRecent} accepted proposals`,
       spark: filledSeries.map(d => d.count),
+    },
+    {
+      label: "Unfilled requests (30d)",
+      val: unfilledRecent.toString(),
+      // Down is good here — the dir is inverted relative to revenue KPIs, so
+      // a drop in unfilled is a positive signal.
+      delta: pctDelta(unfilledRecent, unfilledPrior),
+      ctx: unfilledRecent === 0
+        ? "every request matched"
+        : `${expiredRecent} expired · ${churchCancelledRecent} cancelled by church`,
+      spark: [],
     },
     {
       label: "Active churches (30d)",
