@@ -3,8 +3,9 @@ export const EMAIL_EVENTS = {
     key: "request.created.church_confirmation",
     label: "Request posted confirmation",
     description: "Sent to a church after they create a service request.",
+    subject: "Request posted: {{REQUEST_TITLE}}",
     category: "activity",
-    templateName: "request-created-church-confirmation",
+    suggestedTemplateName: "request-created-church-confirmation",
     templateEnv: "RESEND_TEMPLATE_REQUEST_CREATED_CHURCH_CONFIRMATION",
     tags: [
       { name: "CHURCH_NAME", description: "The church profile name." },
@@ -17,8 +18,9 @@ export const EMAIL_EVENTS = {
     key: "request.invite.musician",
     label: "Musician invitation",
     description: "Sent to a musician when a church invites them to an open request.",
+    subject: "{{CHURCH_NAME}} invited you to {{REQUEST_TITLE}}",
     category: "activity",
-    templateName: "request-invite-musician",
+    suggestedTemplateName: "request-invite-musician",
     templateEnv: "RESEND_TEMPLATE_REQUEST_INVITE_MUSICIAN",
     tags: [
       { name: "MUSICIAN_NAME", description: "The musician display name." },

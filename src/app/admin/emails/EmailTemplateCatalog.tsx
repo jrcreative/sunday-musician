@@ -6,8 +6,9 @@ export type EmailTemplateEvent = {
   key: string;
   label: string;
   description: string;
+  subject: string;
   category: string;
-  templateName: string;
+  suggestedTemplateName: string;
   templateEnv: string;
   templateId: string | null;
   tags: Array<{ name: string; description: string }>;
@@ -94,7 +95,8 @@ function TemplateDrawer({
           <div className="section-h">Resend mapping</div>
           <dl className="dl-grid">
             <dt>Category</dt><dd>{event.category}</dd>
-            <dt>Template name</dt><dd>{event.templateName}</dd>
+            <dt>Subject</dt><dd>{event.subject}</dd>
+            <dt>Suggested label</dt><dd>{event.suggestedTemplateName}</dd>
             <dt>Env var</dt><dd style={{ wordBreak: "break-word" }}>{event.templateEnv}</dd>
             <dt>Template ID</dt>
             <dd style={{ wordBreak: "break-word" }}>
