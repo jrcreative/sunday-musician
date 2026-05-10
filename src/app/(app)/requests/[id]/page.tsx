@@ -11,6 +11,8 @@ import {
   REQUEST_STATUS_LABEL,
   requestDisplayStatus,
 } from "@/lib/requests/status";
+import { scoreRequestQuality } from "@/lib/requests/quality";
+import { RequestQualityCard } from "../RequestQualityCard";
 
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -57,6 +59,22 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const serviceLocation = request.use_church_location
     ? [request.church_profiles?.city, request.church_profiles?.state].filter(Boolean).join(", ")
     : request.location_formatted_address ?? [request.location_city, request.location_state].filter(Boolean).join(", ");
+  const qualityScore = scoreRequestQuality({
+    title: request.title,
+    serviceType: request.service_type,
+    serviceDate: request.service_date,
+    serviceTime: request.service_time,
+    useChurchLocation: request.use_church_location,
+    churchLocationVerified: !!request.church_profiles?.address_verified_at,
+    locationVerified: !!request.location_verified_at,
+    instrumentsNeeded: request.instruments_needed,
+    rehearsals: request.rehearsals,
+    setlistUrl: request.setlist_url,
+    techSetup: request.tech_setup,
+    offeredFee: request.offered_fee,
+    feeType: request.fee_type,
+    notes: request.notes,
+  });
 
   // Church-side: fetch applications
   let applications: ApplicationRow[] | null = null;
@@ -219,6 +237,12 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               <div style={{ marginBottom: 32, padding: "18px 20px", background: "var(--sm-bg-2)", borderRadius: "var(--sm-radius-sm)", borderLeft: "3px solid var(--sm-border-strong)" }}>
                 <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 8px" }}>Notes</h3>
                 <p style={{ margin: 0, fontSize: 14.5, color: "var(--sm-fg-2)", lineHeight: 1.6 }}>{request.notes}</p>
+              </div>
+            )}
+
+            {!isMusician && (
+              <div style={{ marginBottom: 32 }}>
+                <RequestQualityCard score={qualityScore} />
               </div>
             )}
 
