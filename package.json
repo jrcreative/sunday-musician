@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:request-quality": "tsc --target ES2022 --module commonjs --moduleResolution node --types node --esModuleInterop --skipLibCheck --rootDir src/lib/requests --outDir /private/tmp/sunday-request-quality-tests src/lib/requests/quality.ts src/lib/requests/quality.test.ts && node --test /private/tmp/sunday-request-quality-tests/quality.test.js"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.3.0",

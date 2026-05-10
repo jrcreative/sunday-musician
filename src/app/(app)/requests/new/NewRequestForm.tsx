@@ -3,6 +3,8 @@
 import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
+import { scoreRequestQuality } from "@/lib/requests/quality";
+import { RequestQualityCard } from "../RequestQualityCard";
 
 const SERVICE_TYPES = [
   "Sunday morning",
@@ -165,6 +167,23 @@ export function NewRequestForm({
       [k]: d[k].includes(v) ? d[k].filter((x: string) => x !== v) : [...d[k], v],
     }));
   }
+
+  const qualityScore = scoreRequestQuality({
+    title: data.title,
+    serviceType: data.serviceType,
+    serviceDate: data.date,
+    serviceTime: data.time,
+    useChurchLocation: data.useChurchLocation,
+    churchLocationVerified: !!churchLocation?.address_verified_at,
+    locationVerified: !!data.locationLat && !!data.locationLng && !!data.locationFormattedAddress,
+    instrumentsNeeded: data.instruments,
+    rehearsals: data.rehearsals,
+    setlistUrl: data.setlistUrl,
+    techSetup: data.techSetup,
+    offeredFee: data.fee,
+    feeType: data.feeType,
+    notes: data.notes,
+  });
 
   function clearRequestLocationVerification() {
     setData(d => ({
@@ -538,6 +557,10 @@ export function NewRequestForm({
         <div>
           <h2 style={{ fontSize: 28, fontWeight: 700, margin: "0 0 6px", letterSpacing: "-0.01em" }}>Looks good?</h2>
           <p style={{ fontSize: 16, color: "var(--sm-fg-3)", margin: "0 0 28px" }}>You can edit any section before posting. Once you post, musicians who match will see this in their feed.</p>
+
+          <div style={{ marginBottom: 18 }}>
+            <RequestQualityCard score={qualityScore} />
+          </div>
 
           {[
             {
