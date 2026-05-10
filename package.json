@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:quality": "node --test tests/quality/*.test.mjs",
+    "predeploy": "npm run lint && npm run test:quality && npm run build"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.3.0",
