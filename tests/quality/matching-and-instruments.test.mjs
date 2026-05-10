@@ -24,17 +24,27 @@ test("instrument options have one source of truth", () => {
 test("potential match logic is centralized and keeps ranking priorities explicit", () => {
   const page = read("src/app/(app)/requests/[id]/page.tsx");
   const helper = read("src/lib/matches/potential.ts");
+  const readiness = read("src/lib/matches/readiness.ts");
 
   assert.match(page, /buildPotentialMatches/, "request detail page should use the shared matching helper");
-  assert.doesNotMatch(page, /\.sort\(\(a, b\).*verified/s, "ranking should not drift back into the page component");
+  assert.match(page, /scoreServiceReadiness/, "applicants should show the same readiness score as potential matches");
 
+  const readinessRank = helper.indexOf("b.readiness.percent - a.readiness.percent");
   const verifiedRank = helper.indexOf("Number(b.verified) - Number(a.verified)");
   const ratingRank = helper.indexOf("Number(b.rating) - Number(a.rating)");
   const completenessRank = helper.indexOf("b.completeness - a.completeness");
 
+  assert.ok(readinessRank >= 0, "service readiness must rank first");
   assert.ok(verifiedRank >= 0, "verified musicians must rank first");
+  assert.ok(verifiedRank > readinessRank, "verification must rank after service readiness");
   assert.ok(ratingRank > verifiedRank, "rating must rank after verification");
   assert.ok(completenessRank > ratingRank, "profile completeness must rank after rating");
+  assert.match(readiness, /availabilityPoints/, "readiness should account for availability");
+  assert.match(readiness, /instrumentPoints/, "readiness should account for instrument fit");
+  assert.match(readiness, /distancePoints/, "readiness should account for distance");
+  assert.match(readiness, /styleScore/, "readiness should account for service style");
+  assert.match(readiness, /reliabilityPoints/, "readiness should account for reliability");
+  assert.match(readiness, /profilePaymentPoints/, "readiness should account for profile and payment readiness");
 });
 
 test("potential matching uses verified coordinates before radius checks", () => {
@@ -45,5 +55,5 @@ test("potential matching uses verified coordinates before radius checks", () => 
   assert.match(helper, /address_verified_at/, "musician coordinates need verified address data");
   assert.match(helper, /validCoordinates/, "matching should reject malformed coordinates");
   assert.match(requestPage, /location_verified_at/, "request page must select request location verification metadata");
-  assert.match(requestPage, /church_profiles\(church_name, city, state, lat, lng, address_verified_at\)/, "church location verification metadata must be selected");
+  assert.match(requestPage, /church_profiles\(church_name, city, state, lat, lng, address_verified_at, musical_style\)/, "church location verification metadata must be selected");
 });
