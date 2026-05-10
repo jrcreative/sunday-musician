@@ -8,6 +8,7 @@ export type ReviewerRole = "musician" | "church";
 export type PaymentStatus = "scheduled" | "capturing" | "captured" | "failed" | "cancelled";
 export type EmailDeliveryStatus = "sending" | "sent" | "failed" | "skipped";
 export type EmailDeliveryCategory = "critical" | "payment" | "activity" | "system";
+export type DisputeStatus = "open" | "under_review" | "resolved" | "closed";
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
@@ -326,6 +327,10 @@ export type Database = {
           cancelled_at: string | null;
           cancelled_by: string | null;
           cancel_reason: string | null;
+          cancel_category: string | null;
+          cancellation_policy_label: string | null;
+          cancellation_policy: Json;
+          dispute_review_required: boolean;
           created_at: string;
         };
         Insert: {
@@ -341,9 +346,45 @@ export type Database = {
           cancelled_at?: string | null;
           cancelled_by?: string | null;
           cancel_reason?: string | null;
+          cancel_category?: string | null;
+          cancellation_policy_label?: string | null;
+          cancellation_policy?: Json;
+          dispute_review_required?: boolean;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["bookings"]["Insert"]>;
+        Relationships: [];
+      };
+      booking_disputes: {
+        Row: {
+          id: string;
+          booking_id: string;
+          opened_by_profile_id: string;
+          opened_by_role: ReviewerRole;
+          category: string;
+          reason: string | null;
+          status: DisputeStatus;
+          admin_notes: string | null;
+          resolution: string | null;
+          created_at: string;
+          updated_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          booking_id: string;
+          opened_by_profile_id: string;
+          opened_by_role: ReviewerRole;
+          category?: string;
+          reason?: string | null;
+          status?: DisputeStatus;
+          admin_notes?: string | null;
+          resolution?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["booking_disputes"]["Insert"]>;
         Relationships: [];
       };
       stripe_accounts: {

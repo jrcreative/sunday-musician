@@ -22,6 +22,8 @@ type Row = {
     | "no_payment"; // accepted booking with no payments row (legacy)
   amount: number | null;       // dollars: musician_amount on payouts side, charge_total on billing side
   capturedAt: string | null;
+  cancellationPolicyLabel: string | null;
+  disputeReviewRequired: boolean;
 };
 
 function statusBadge(s: Row["status"]): { label: string; className: string } {
@@ -58,7 +60,7 @@ export default async function BookingsHistoryPage({
 
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("id, thread_id, service_date, church_profile_id, musician_profile_id, cancelled_at")
+    .select("id, thread_id, service_date, church_profile_id, musician_profile_id, cancelled_at, cancellation_policy_label, dispute_review_required")
     .eq(isMusician ? "musician_profile_id" : "church_profile_id", sideId)
     .order("service_date", { ascending: false });
 
@@ -106,6 +108,8 @@ export default async function BookingsHistoryPage({
       status,
       amount: p ? Math.round((isMusician ? p.musician_amount : p.charge_total) / 100) : null,
       capturedAt: p?.captured_at ?? null,
+      cancellationPolicyLabel: b.cancellation_policy_label,
+      disputeReviewRequired: b.dispute_review_required === true,
     };
   });
 
@@ -186,6 +190,8 @@ export default async function BookingsHistoryPage({
                     </div>
                     <div style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>
                       {d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                      {r.cancellationPolicyLabel ? ` · ${r.cancellationPolicyLabel}` : ""}
+                      {r.disputeReviewRequired ? " · Admin review" : ""}
                     </div>
                   </div>
                   <div style={{ fontSize: 14, color: "var(--sm-fg-1)", fontWeight: 600 }}>
