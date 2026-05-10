@@ -2,6 +2,9 @@
   "name": "sunday-musician",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.19.0"
+  },
   "scripts": {
     "dev": "next dev",
     "prebuild": "npm run lint && npm run test:quality",

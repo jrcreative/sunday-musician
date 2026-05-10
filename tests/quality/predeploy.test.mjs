@@ -24,7 +24,11 @@ test("Netlify deploys through the predeploy quality gate", () => {
 
 test("Netlify pins a Node version compatible with Next and Supabase", () => {
   const config = read("netlify.toml");
+  const nvmrc = read(".nvmrc").trim();
+  const pkg = JSON.parse(read("package.json"));
 
   assert.match(config, /\[build\.environment\]/, "Netlify should declare build environment settings");
   assert.match(config, /NODE_VERSION\s*=\s*"20\.19\.0"/, "Netlify must use a Node version compatible with the dependency tree");
+  assert.equal(nvmrc, "20.19.0", ".nvmrc should pin the same Node version for install-time selection");
+  assert.equal(pkg.engines?.node, "20.19.0", "package engines should document the deploy Node version");
 });
