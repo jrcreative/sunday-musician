@@ -174,7 +174,7 @@ export function Sidebar({ profile, userId }: { profile: Profile | null; userId: 
       )}
 
       {/* Bottom: avatar + profile + sign out */}
-      <div style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid var(--sm-border-subtle)", display: "flex", alignItems: "center", gap: 10 }}>
+      <div className="sm-sidebar-profile">
         <Avatar src={profile?.avatar_url} name={profile?.display_name ?? ""} size={32} fontSize={13} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--sm-fg-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

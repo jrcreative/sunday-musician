@@ -11,15 +11,9 @@ interface TopbarProps {
 
 export function Topbar({ title, crumbs, right }: TopbarProps) {
   return (
-    <header className="sm-topbar" style={{
-      display: "flex", alignItems: "center", gap: 12,
-      padding: "10px 16px",
-      borderBottom: "1px solid var(--sm-border-subtle)",
-      background: "var(--sm-bg-1)",
-      position: "sticky", top: 0, zIndex: 10,
-    }}>
+    <header className="sm-topbar">
       <MobileMenuButton />
-      <div style={{ minWidth: 0, flex: 1 }}>
+      <div className="sm-topbar-title">
         {crumbs && crumbs.length > 0 && (
           <div className="sm-only-desktop" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--sm-fg-3)", marginBottom: 2 }}>
             {crumbs.map((c, i) => (
@@ -30,9 +24,9 @@ export function Topbar({ title, crumbs, right }: TopbarProps) {
             ))}
           </div>
         )}
-        <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0, letterSpacing: "-0.005em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</h1>
+        <h1>{title}</h1>
       </div>
-      {right && <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>{right}</div>}
+      {right && <div className="sm-topbar-right">{right}</div>}
     </header>
   );
 }

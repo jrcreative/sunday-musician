@@ -346,7 +346,7 @@ export function FindMusiciansClient({
               <button className="btn btn--secondary" onClick={clearAll}>Clear filters</button>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 290px), 1fr))", gap: 18 }}>
               {filtered.map(m => {
                 const name = m.profiles?.display_name ?? "Musician";
                 const idx = m.id.charCodeAt(0) % 6;

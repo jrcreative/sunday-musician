@@ -64,7 +64,7 @@ export function AppShell({
         onClick={() => setOpen(false)}
         aria-hidden="true"
       />
-      <main className="main" style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+      <main className="main sm-main">
         {children}
       </main>
     </div>
