@@ -2,12 +2,17 @@
   "name": "sunday-musician",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.19.0"
+  },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run lint && npm run test:quality",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:request-quality": "tsc --target ES2022 --module commonjs --moduleResolution node --types node --esModuleInterop --skipLibCheck --rootDir src/lib/requests --outDir /private/tmp/sunday-request-quality-tests src/lib/requests/quality.ts src/lib/requests/quality.test.ts && node --test /private/tmp/sunday-request-quality-tests/quality.test.js"
+    "test:quality": "node --test tests/quality/*.test.mjs",
+    "predeploy": "npm run build"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.3.0",

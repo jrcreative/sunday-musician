@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/shell/Topbar";
 import { notFound } from "next/navigation";
 import { ThreadClient } from "./ThreadClient";
+import type { CancellationPolicy } from "@/lib/disputes/policy";
 
 export type RequestInfo = {
   id: string;
@@ -45,9 +46,13 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
 
   const { data: booking } = await supabase
     .from("bookings")
-    .select("id, cancelled_at, service_date")
+    .select("id, cancelled_at, service_date, cancellation_policy, cancellation_policy_label, dispute_review_required")
     .eq("thread_id", threadId)
     .maybeSingle();
+  const storedPolicy = booking?.cancellation_policy;
+  const bookingPolicy = storedPolicy && typeof storedPolicy === "object" && !Array.isArray(storedPolicy) && Object.keys(storedPolicy).length > 0
+    ? storedPolicy as unknown as CancellationPolicy
+    : null;
 
   let requestInfo: RequestInfo | null = null;
   if (thread.request_id) {
@@ -89,6 +94,9 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
         archiveReason={thread.archive_reason}
         bookingId={booking?.id ?? null}
         bookingCancelledAt={booking?.cancelled_at ?? null}
+        bookingCancellationPolicy={bookingPolicy}
+        bookingCancellationPolicyLabel={booking?.cancellation_policy_label ?? null}
+        bookingDisputeReviewRequired={booking?.dispute_review_required === true}
         initialMessages={(messages ?? []) as unknown as Parameters<typeof ThreadClient>[0]["initialMessages"]}
       />
     </>

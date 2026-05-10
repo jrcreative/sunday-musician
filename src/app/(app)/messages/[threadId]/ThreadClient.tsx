@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { cancellationPolicyFor, cancellationPolicyLine, type CancellationPolicy } from "@/lib/disputes/policy";
 import type { RequestInfo } from "./page";
 
 type ProposalData = {
@@ -32,6 +33,9 @@ export function ThreadClient({
   archiveReason,
   bookingId,
   bookingCancelledAt,
+  bookingCancellationPolicy,
+  bookingCancellationPolicyLabel,
+  bookingDisputeReviewRequired,
   initialMessages,
 }: {
   threadId: string;
@@ -43,6 +47,9 @@ export function ThreadClient({
   archiveReason: string | null;
   bookingId: string | null;
   bookingCancelledAt: string | null;
+  bookingCancellationPolicy: CancellationPolicy | null;
+  bookingCancellationPolicyLabel: string | null;
+  bookingDisputeReviewRequired: boolean;
   initialMessages: Message[];
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages as Message[]);
@@ -52,19 +59,43 @@ export function ThreadClient({
   const [accepting, setAccepting] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [cancelledAt, setCancelledAt] = useState<string | null>(bookingCancelledAt);
+  const [cancelPolicy, setCancelPolicy] = useState<CancellationPolicy | null>(bookingCancellationPolicy);
+  const [cancelPolicyLabel, setCancelPolicyLabel] = useState<string | null>(bookingCancellationPolicyLabel);
+  const [disputeReviewRequired, setDisputeReviewRequired] = useState(bookingDisputeReviewRequired);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelCategory, setCancelCategory] = useState("schedule_conflict");
+  const [cancelReason, setCancelReason] = useState("");
+  const [requestAdminReview, setRequestAdminReview] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
-  async function cancelBooking() {
+  const previewPolicy = useMemo(() => {
+    if (!requestInfo) return null;
+    return cancellationPolicyFor({
+      cancelledBy: isChurchSide ? "church" : "musician",
+      serviceDate: requestInfo.service_date,
+    });
+  }, [isChurchSide, requestInfo]);
+
+  const visiblePolicy = cancelPolicy ?? previewPolicy;
+  const visiblePolicyLine = visiblePolicy
+    ? cancellationPolicyLine(visiblePolicy)
+    : cancelPolicyLabel;
+
+  async function confirmCancelBooking() {
     if (!bookingId || cancelling) return;
-    if (!confirm("Cancel this booking? The card on file will not be charged.")) return;
     setCancelling(true);
     setCancelError(null);
     try {
       const res = await fetch("/api/bookings/cancel", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ bookingId }),
+        body: JSON.stringify({
+          bookingId,
+          category: cancelCategory,
+          reason: cancelReason.trim() || null,
+          requestAdminReview,
+        }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -72,6 +103,10 @@ export function ThreadClient({
         return;
       }
       setCancelledAt(new Date().toISOString());
+      setCancelPolicy(json.policy ?? null);
+      setCancelPolicyLabel(json.policy?.label ?? null);
+      setDisputeReviewRequired(json.disputeReviewRequired === true);
+      setCancelModalOpen(false);
     } finally {
       setCancelling(false);
     }
@@ -434,11 +469,11 @@ export function ThreadClient({
             {bookingId && !cancelledAt && (
               <>
                 <p style={{ fontSize: 12, color: "var(--sm-fg-4)", lineHeight: 1.4, margin: "8px 0 0" }}>
-                  Card on file will be charged on the service date.
+                  Card on file will be charged on the service date. {visiblePolicyLine}
                 </p>
                 <button
                   className="btn btn--sm"
-                  onClick={cancelBooking}
+                  onClick={() => setCancelModalOpen(true)}
                   disabled={cancelling}
                   style={{ marginTop: 8, alignSelf: "flex-start" }}
                 >
@@ -448,7 +483,8 @@ export function ThreadClient({
             )}
             {cancelledAt && (
               <div style={{ marginTop: 8, fontSize: 12.5, color: "var(--sm-fg-3)", padding: "8px 10px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-2)" }}>
-                Booking cancelled. No charge will be made.
+                Booking cancelled. No charge will be made. {visiblePolicyLine}
+                {disputeReviewRequired && <div style={{ marginTop: 4, color: "var(--sm-fg-2)", fontWeight: 600 }}>Admin review is open.</div>}
               </div>
             )}
             {cancelError && (
@@ -491,11 +527,11 @@ export function ThreadClient({
                 {bookingId && !cancelledAt && (
                   <>
                     <p style={{ fontSize: 12, color: "var(--sm-fg-4)", lineHeight: 1.4, margin: "10px 0 0" }}>
-                      Payment will run on the service date. Cancelling stops the charge.
+                      Payment will run on the service date. {visiblePolicyLine}
                     </p>
                     <button
                       className="btn btn--sm"
-                      onClick={cancelBooking}
+                      onClick={() => setCancelModalOpen(true)}
                       disabled={cancelling}
                       style={{ marginTop: 8, alignSelf: "flex-start" }}
                     >
@@ -505,7 +541,8 @@ export function ThreadClient({
                 )}
                 {cancelledAt && (
                   <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--sm-fg-3)", padding: "8px 10px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-2)" }}>
-                    Booking cancelled. The card will not be charged.
+                    Booking cancelled. The card will not be charged. {visiblePolicyLine}
+                    {disputeReviewRequired && <div style={{ marginTop: 4, color: "var(--sm-fg-2)", fontWeight: 600 }}>Admin review is open.</div>}
                   </div>
                 )}
                 {cancelError && (
@@ -523,6 +560,95 @@ export function ThreadClient({
           </p>
         )}
       </aside>
+
+      {cancelModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-booking-title"
+          onClick={() => !cancelling && setCancelModalOpen(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 100, padding: 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "var(--sm-bg-1)",
+              border: "1px solid var(--sm-border-subtle)",
+              borderRadius: "var(--sm-radius-sm)",
+              padding: 24,
+              maxWidth: 480,
+              width: "100%",
+              boxShadow: "0 12px 32px rgba(0,0,0,0.18)",
+            }}
+          >
+            <h3 id="cancel-booking-title" style={{ fontSize: 17, fontWeight: 700, margin: "0 0 8px" }}>
+              Cancel this booking?
+            </h3>
+            <p style={{ fontSize: 13.5, color: "var(--sm-fg-2)", margin: "0 0 14px", lineHeight: 1.5 }}>
+              {visiblePolicyLine} The payment will not be captured automatically after cancellation.
+            </p>
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label className="label" htmlFor="cancelCategory">Reason category</label>
+              <select
+                id="cancelCategory"
+                className="select"
+                value={cancelCategory}
+                onChange={e => setCancelCategory(e.target.value)}
+              >
+                <option value="schedule_conflict">Schedule conflict</option>
+                <option value="illness_or_emergency">Illness or emergency</option>
+                <option value="details_changed">Service details changed</option>
+                <option value="payment_or_terms">Payment or terms concern</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label className="label" htmlFor="cancelReason">Note for support</label>
+              <textarea
+                id="cancelReason"
+                className="textarea"
+                rows={3}
+                maxLength={500}
+                value={cancelReason}
+                onChange={e => setCancelReason(e.target.value)}
+                placeholder="Optional context for the other party and admin review."
+              />
+            </div>
+            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "var(--sm-fg-2)", lineHeight: 1.45, marginBottom: 16 }}>
+              <input
+                type="checkbox"
+                checked={requestAdminReview}
+                onChange={e => setRequestAdminReview(e.target.checked)}
+                style={{ marginTop: 2 }}
+              />
+              Request admin review if this cancellation is contested.
+            </label>
+            {cancelError && (
+              <div style={{ marginBottom: 16, fontSize: 13, color: "var(--sm-status-error, #c53030)", padding: "8px 12px", border: "1px solid rgba(197,48,48,0.25)", borderRadius: "var(--sm-radius-sm)", background: "rgba(197,48,48,0.06)" }}>
+                {cancelError}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setCancelModalOpen(false)} disabled={cancelling}>
+                Keep booking
+              </button>
+              <button
+                type="button"
+                className="btn btn--sm"
+                onClick={confirmCancelBooking}
+                disabled={cancelling}
+                style={{ background: "var(--sm-status-error, #b82105)", color: "white", borderColor: "transparent" }}
+              >
+                {cancelling ? "Cancelling..." : "Cancel booking"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

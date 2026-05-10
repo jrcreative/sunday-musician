@@ -1,0 +1,49 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const read = path => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+
+test("instrument options have one source of truth", () => {
+  const source = read("src/lib/instruments.ts");
+  const exportedLists = source.match(/export const INSTRUMENT_OPTIONS/g) ?? [];
+
+  assert.equal(exportedLists.length, 1, "there should be exactly one exported instrument option list");
+  assert.match(source, /as const/, "instrument options should preserve literal option types");
+
+  for (const path of [
+    "src/app/(app)/requests/new/NewRequestForm.tsx",
+    "src/app/(app)/profile/MusicianProfileForm.tsx",
+    "src/app/(app)/find/FindMusiciansClient.tsx",
+    "src/app/(app)/open-requests/OpenRequestsClient.tsx",
+  ]) {
+    assert.match(read(path), /INSTRUMENT_OPTIONS/, `${path} should consume the central instrument list`);
+  }
+});
+
+test("potential match logic is centralized and keeps ranking priorities explicit", () => {
+  const page = read("src/app/(app)/requests/[id]/page.tsx");
+  const helper = read("src/lib/matches/potential.ts");
+
+  assert.match(page, /buildPotentialMatches/, "request detail page should use the shared matching helper");
+  assert.doesNotMatch(page, /\.sort\(\(a, b\).*verified/s, "ranking should not drift back into the page component");
+
+  const verifiedRank = helper.indexOf("Number(b.verified) - Number(a.verified)");
+  const ratingRank = helper.indexOf("Number(b.rating) - Number(a.rating)");
+  const completenessRank = helper.indexOf("b.completeness - a.completeness");
+
+  assert.ok(verifiedRank >= 0, "verified musicians must rank first");
+  assert.ok(ratingRank > verifiedRank, "rating must rank after verification");
+  assert.ok(completenessRank > ratingRank, "profile completeness must rank after rating");
+});
+
+test("potential matching uses verified coordinates before radius checks", () => {
+  const helper = read("src/lib/matches/potential.ts");
+  const requestPage = read("src/app/(app)/requests/[id]/page.tsx");
+
+  assert.match(helper, /serviceCoordsVerified/, "service coordinates need an explicit verification flag");
+  assert.match(helper, /address_verified_at/, "musician coordinates need verified address data");
+  assert.match(helper, /validCoordinates/, "matching should reject malformed coordinates");
+  assert.match(requestPage, /location_verified_at/, "request page must select request location verification metadata");
+  assert.match(requestPage, /church_profiles\(church_name, city, state, lat, lng, address_verified_at\)/, "church location verification metadata must be selected");
+});

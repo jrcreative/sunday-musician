@@ -1,7 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { hasSupabaseBrowserConfig } from "@/lib/supabase/env";
 
 export async function proxy(request: NextRequest) {
+  if (!hasSupabaseBrowserConfig()) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(

@@ -240,6 +240,8 @@ export default async function DashboardPage() {
     feeType: string;
     acceptedAt: string;
     cancelledAt: string | null;
+    cancellationPolicyLabel: string | null;
+    disputeReviewRequired: boolean;
   };
   type BookingRow = {
     id: string;
@@ -249,6 +251,8 @@ export default async function DashboardPage() {
     fee_type: string | null;
     accepted_at: string;
     cancelled_at: string | null;
+    cancellation_policy_label: string | null;
+    dispute_review_required: boolean | null;
     church_profiles: { church_name: string } | null;
     service_requests: { title: string } | null;
   };
@@ -259,7 +263,7 @@ export default async function DashboardPage() {
     const { data: rows } = await supabase
       .from("bookings")
       .select(`
-        id, thread_id, service_date, fee, fee_type, accepted_at, cancelled_at,
+        id, thread_id, service_date, fee, fee_type, accepted_at, cancelled_at, cancellation_policy_label, dispute_review_required,
         church_profiles ( church_name ),
         service_requests ( title )
       `)
@@ -276,6 +280,8 @@ export default async function DashboardPage() {
       feeType: r.fee_type ?? "per service",
       acceptedAt: r.accepted_at,
       cancelledAt: r.cancelled_at,
+      cancellationPolicyLabel: r.cancellation_policy_label,
+      disputeReviewRequired: r.dispute_review_required === true,
     })).slice(0, 4);
   }
 
@@ -407,7 +413,11 @@ export default async function DashboardPage() {
                   </div>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14.5, color: "var(--sm-fg-1)", marginBottom: 2, textDecoration: status === "cancelled" ? "line-through" : "none" }}>{b.title}</div>
-                    <div style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>{b.churchName}</div>
+                    <div style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>
+                      {b.churchName}
+                      {b.cancelledAt && b.cancellationPolicyLabel ? ` · ${b.cancellationPolicyLabel}` : ""}
+                      {b.disputeReviewRequired ? " · Admin review" : ""}
+                    </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     {b.fee != null ? (
