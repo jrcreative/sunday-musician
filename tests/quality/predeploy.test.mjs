@@ -18,3 +18,10 @@ test("Netlify deploys through the predeploy quality gate", () => {
 
   assert.match(config, /command\s*=\s*"npm run predeploy"/, "Netlify build command must use the quality gate");
 });
+
+test("Netlify pins a Node version compatible with Next and Supabase", () => {
+  const config = read("netlify.toml");
+
+  assert.match(config, /\[build\.environment\]/, "Netlify should declare build environment settings");
+  assert.match(config, /NODE_VERSION\s*=\s*"22\.2\.0"/, "Netlify must use the same Node version as local verification");
+});

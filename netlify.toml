@@ -2,6 +2,9 @@
   command = "npm run predeploy"
   publish = ".next"
 
+[build.environment]
+  NODE_VERSION = "22.2.0"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
