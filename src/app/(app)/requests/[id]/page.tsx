@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CancelRequestButton } from "./CancelRequestButton";
 import { InvitePotentialMatchButton } from "./InvitePotentialMatchButton";
 import { buildPotentialMatches, type PotentialMatch } from "@/lib/matches/potential";
+import { scoreServiceReadiness } from "@/lib/matches/readiness";
 import {
   REQUEST_STATUS_CHIP,
   REQUEST_STATUS_LABEL,
@@ -31,21 +32,23 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     notes: string | null; status: string; created_at: string;
     church_profiles: {
       church_name: string; city: string; state: string; lat: number | null; lng: number | null;
-      address_verified_at: string | null;
+      address_verified_at: string | null; musical_style: string | null;
     } | null;
   };
   type ApplicationRow = {
     id: string; request_id: string; musician_profile_id: string; message: string | null; created_at: string;
     musician_profiles: {
       id: string; profile_id: string; primary_instrument: string; city: string; state: string;
-      fee_min: number; fee_max: number;
+      lat: number | null; lng: number | null; instruments: string[]; experience_notes: string; gear_notes: string;
+      fee_min: number; fee_max: number; is_volunteer: boolean; bio: string; denomination_tags: string[];
+      rating: number; review_count: number; available: boolean; travel_radius_miles: number;
       profiles: { display_name: string; avatar_url: string | null } | null;
     } | null;
   };
   const [{ data: request }, { data: profile }] = await Promise.all([
     supabase
       .from("service_requests")
-      .select("*, church_profiles(church_name, city, state, lat, lng, address_verified_at)")
+      .select("*, church_profiles(church_name, city, state, lat, lng, address_verified_at, musical_style)")
       .eq("id", id)
       .single() as unknown as Promise<{ data: RequestRow | null; error: unknown }>,
     supabase.from("profiles").select("role").eq("id", user.id).single(),
@@ -75,10 +78,19 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     feeType: request.fee_type,
     notes: request.notes,
   });
+  const serviceCoords = {
+    lat: request.use_church_location ? request.church_profiles?.lat ?? null : request.location_lat,
+    lng: request.use_church_location ? request.church_profiles?.lng ?? null : request.location_lng,
+  };
+  const serviceCoordsVerified = request.use_church_location
+    ? !!request.church_profiles?.address_verified_at
+    : !!request.location_verified_at;
+  const serviceState = request.use_church_location ? request.church_profiles?.state : request.location_state;
 
   // Church-side: fetch applications
   let applications: ApplicationRow[] | null = null;
   let potentialMatches: PotentialMatch[] = [];
+  let unavailableMusicianIdsForRequest = new Set<string>();
   if (!isMusician) {
     const { data } = await supabase
       .from("applications")
@@ -119,21 +131,110 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
       ...(threads ?? []).map(thread => thread.musician_profile_id),
     ]);
     const unavailableMusicianIds = new Set((blocks ?? []).map(block => block.musician_profile_id));
-    const serviceCoords = {
-      lat: request.use_church_location ? request.church_profiles?.lat ?? null : request.location_lat,
-      lng: request.use_church_location ? request.church_profiles?.lng ?? null : request.location_lng,
-    };
-    const serviceCoordsVerified = request.use_church_location
-      ? !!request.church_profiles?.address_verified_at
-      : !!request.location_verified_at;
-    const serviceState = request.use_church_location ? request.church_profiles?.state : request.location_state;
-
+    unavailableMusicianIdsForRequest = unavailableMusicianIds;
+    applications = (applications ?? []).sort((a, b) => {
+      const aMp = a.musician_profiles;
+      const bMp = b.musician_profiles;
+      if (!aMp || !bMp) return Number(!!bMp) - Number(!!aMp);
+      const aScore = scoreServiceReadiness({
+        title: request.title,
+        serviceType: request.service_type,
+        serviceStyle: request.church_profiles?.musical_style ?? null,
+        serviceDate: request.service_date,
+        serviceTime: request.service_time,
+        useChurchLocation: request.use_church_location,
+        churchLocationVerified: !!request.church_profiles?.address_verified_at,
+        locationVerified: !!request.location_verified_at,
+        instrumentsNeeded: request.instruments_needed,
+        rehearsals: request.rehearsals,
+        techSetup: request.tech_setup,
+        offeredFee: request.offered_fee,
+        feeType: request.fee_type,
+        setlistUrl: request.setlist_url,
+        notes: request.notes,
+        serviceCoords: serviceCoordsVerified ? serviceCoords : null,
+        serviceState,
+      }, {
+        displayName: aMp.profiles?.display_name ?? "Musician",
+        available: aMp.available,
+        instruments: aMp.instruments ?? [],
+        primaryInstrument: aMp.primary_instrument,
+        city: aMp.city,
+        state: aMp.state,
+        lat: aMp.lat,
+        lng: aMp.lng,
+        travelRadiusMiles: aMp.travel_radius_miles,
+        bio: aMp.bio,
+        denominationTags: aMp.denomination_tags ?? [],
+        experienceNotes: aMp.experience_notes,
+        gearNotes: aMp.gear_notes,
+        isVolunteer: aMp.is_volunteer,
+        feeMin: aMp.fee_min,
+        feeMax: aMp.fee_max,
+        rating: aMp.rating,
+        reviewCount: aMp.review_count,
+        blockedOnServiceDate: unavailableMusicianIds.has(aMp.id),
+      }).percent;
+      const bScore = scoreServiceReadiness({
+        title: request.title,
+        serviceType: request.service_type,
+        serviceStyle: request.church_profiles?.musical_style ?? null,
+        serviceDate: request.service_date,
+        serviceTime: request.service_time,
+        useChurchLocation: request.use_church_location,
+        churchLocationVerified: !!request.church_profiles?.address_verified_at,
+        locationVerified: !!request.location_verified_at,
+        instrumentsNeeded: request.instruments_needed,
+        rehearsals: request.rehearsals,
+        techSetup: request.tech_setup,
+        offeredFee: request.offered_fee,
+        feeType: request.fee_type,
+        setlistUrl: request.setlist_url,
+        notes: request.notes,
+        serviceCoords: serviceCoordsVerified ? serviceCoords : null,
+        serviceState,
+      }, {
+        displayName: bMp.profiles?.display_name ?? "Musician",
+        available: bMp.available,
+        instruments: bMp.instruments ?? [],
+        primaryInstrument: bMp.primary_instrument,
+        city: bMp.city,
+        state: bMp.state,
+        lat: bMp.lat,
+        lng: bMp.lng,
+        travelRadiusMiles: bMp.travel_radius_miles,
+        bio: bMp.bio,
+        denominationTags: bMp.denomination_tags ?? [],
+        experienceNotes: bMp.experience_notes,
+        gearNotes: bMp.gear_notes,
+        isVolunteer: bMp.is_volunteer,
+        feeMin: bMp.fee_min,
+        feeMax: bMp.fee_max,
+        rating: bMp.rating,
+        reviewCount: bMp.review_count,
+        blockedOnServiceDate: unavailableMusicianIds.has(bMp.id),
+      }).percent;
+      return bScore - aScore;
+    });
     potentialMatches = buildPotentialMatches({
       musicians: musicians ?? [],
       instrumentsNeeded: request.instruments_needed,
       serviceCoords,
       serviceCoordsVerified,
       serviceState,
+      serviceType: request.service_type,
+      serviceStyle: request.church_profiles?.musical_style ?? null,
+      serviceDate: request.service_date,
+      serviceTime: request.service_time,
+      useChurchLocation: request.use_church_location,
+      churchLocationVerified: !!request.church_profiles?.address_verified_at,
+      locationVerified: !!request.location_verified_at,
+      rehearsals: request.rehearsals,
+      techSetup: request.tech_setup,
+      offeredFee: request.offered_fee,
+      feeType: request.fee_type,
+      setlistUrl: request.setlist_url,
+      notes: request.notes,
       contactedMusicianIds,
       unavailableMusicianIds,
     });
@@ -263,14 +364,66 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 {applications && applications.length > 0 ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {applications.map((app, i) => {
-                      const mp = app.musician_profiles as { id: string; profiles: { display_name: string; avatar_url: string | null } | null; primary_instrument: string; city: string; state: string; fee_min: number; fee_max: number };
+                      const mp = app.musician_profiles;
                       const name = mp?.profiles?.display_name ?? "Musician";
+                      const readiness = mp ? scoreServiceReadiness({
+                        title: request.title,
+                        serviceType: request.service_type,
+                        serviceStyle: request.church_profiles?.musical_style ?? null,
+                        serviceDate: request.service_date,
+                        serviceTime: request.service_time,
+                        useChurchLocation: request.use_church_location,
+                        churchLocationVerified: !!request.church_profiles?.address_verified_at,
+                        locationVerified: !!request.location_verified_at,
+                        instrumentsNeeded: request.instruments_needed,
+                        rehearsals: request.rehearsals,
+                        techSetup: request.tech_setup,
+                        offeredFee: request.offered_fee,
+                        feeType: request.fee_type,
+                        setlistUrl: request.setlist_url,
+                        notes: request.notes,
+                        serviceCoords: serviceCoordsVerified ? serviceCoords : null,
+                        serviceState,
+                      }, {
+                        displayName: name,
+                        available: mp.available,
+                        instruments: mp.instruments ?? [],
+                        primaryInstrument: mp.primary_instrument,
+                        city: mp.city,
+                        state: mp.state,
+                        lat: mp.lat,
+                        lng: mp.lng,
+                        travelRadiusMiles: mp.travel_radius_miles,
+                        bio: mp.bio,
+                        denominationTags: mp.denomination_tags ?? [],
+                        experienceNotes: mp.experience_notes,
+                        gearNotes: mp.gear_notes,
+                        isVolunteer: mp.is_volunteer,
+                        feeMin: mp.fee_min,
+                        feeMax: mp.fee_max,
+                        rating: mp.rating,
+                        reviewCount: mp.review_count,
+                        blockedOnServiceDate: unavailableMusicianIdsForRequest.has(mp.id),
+                      }) : null;
                       return (
                         <div key={app.id} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "16px 18px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
                           <Avatar src={mp?.profiles?.avatar_url} name={name} size={44} colorIndex={i} />
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 600, fontSize: 15, color: "var(--sm-fg-1)", marginBottom: 2 }}>{name}</div>
                             <div style={{ fontSize: 13, color: "var(--sm-fg-3)" }}>{mp?.primary_instrument} · {mp?.city}, {mp?.state}</div>
+                            {readiness && (
+                              <>
+                                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sm-accent)", background: "rgba(228,123,2,0.08)", padding: "2px 7px", borderRadius: 10 }}>
+                                    {readiness.percent}% service readiness
+                                  </span>
+                                  <span style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>{readiness.label}</span>
+                                </div>
+                                <p style={{ fontSize: 13, color: "var(--sm-fg-2)", margin: "7px 0 0", lineHeight: 1.45 }}>
+                                  {readiness.explanation}
+                                </p>
+                              </>
+                            )}
                             {app.message && <p style={{ fontSize: 13.5, color: "var(--sm-fg-2)", margin: "8px 0 0", lineHeight: 1.5 }}>{app.message}</p>}
                           </div>
                           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -298,7 +451,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                       </span>
                     </h3>
                     <span style={{ fontSize: 12.5, color: "var(--sm-fg-4)" }}>
-                      Verified first, then rating and profile strength
+                      Ranked by service readiness
                     </span>
                   </div>
 
@@ -327,6 +480,15 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                               <div style={{ fontSize: 13, color: "var(--sm-fg-3)" }}>
                                 {match.primary_instrument} · {match.areaLabel} · {feeLabel}
                               </div>
+                              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sm-accent)", background: "rgba(228,123,2,0.08)", padding: "2px 7px", borderRadius: 10 }}>
+                                  {match.readiness.percent}% service readiness
+                                </span>
+                                <span style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>{match.readiness.label}</span>
+                              </div>
+                              <p style={{ fontSize: 13, color: "var(--sm-fg-2)", margin: "7px 0 0", lineHeight: 1.45 }}>
+                                {match.readiness.explanation}
+                              </p>
                               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, fontSize: 12.5, color: "var(--sm-fg-3)" }}>
                                 <span style={{ color: match.rating > 0 ? "var(--sm-accent)" : "var(--sm-fg-4)" }}>
                                   ★ {match.rating > 0 ? match.rating : "New"}{match.review_count > 0 ? ` (${match.review_count})` : ""}

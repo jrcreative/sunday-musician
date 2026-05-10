@@ -5,6 +5,11 @@ import Link from "next/link";
 import type { OpenRequest, MusicianMeta } from "./page";
 import { INSTRUMENT_OPTIONS, instrumentsOverlap, uniqueInstruments } from "@/lib/instruments";
 import { distanceMiles } from "@/lib/locations/distance";
+import { scoreServiceReadiness, type ServiceReadinessScore } from "@/lib/matches/readiness";
+
+type ScoredOpenRequest = OpenRequest & {
+  readiness: ServiceReadinessScore;
+};
 
 export function OpenRequestsClient({
   requests,
@@ -17,11 +22,60 @@ export function OpenRequestsClient({
   const [dateFilter, setDateFilter] = useState("");
   const [areaOnly, setAreaOnly] = useState(musicianMeta.state !== "");
 
-  const myInstrumentList = uniqueInstruments(musicianMeta.instruments);
+  const myInstrumentList = uniqueInstruments([...musicianMeta.instruments, musicianMeta.primary_instrument]);
   const myInstruments = new Set(myInstrumentList);
 
+  const scored = useMemo<ScoredOpenRequest[]>(() => {
+    return requests.map(r => ({
+      ...r,
+      readiness: scoreServiceReadiness({
+        title: r.title,
+        serviceType: r.service_type,
+        serviceStyle: r.church_musical_style,
+        serviceDate: r.service_date,
+        serviceTime: r.service_time,
+        useChurchLocation: r.use_church_location,
+        churchLocationVerified: !!r.church_location_verified_at,
+        locationVerified: !!r.location_verified_at,
+        instrumentsNeeded: r.instruments_needed,
+        rehearsals: r.rehearsals,
+        techSetup: r.tech_setup,
+        offeredFee: r.offered_fee,
+        feeType: r.fee_type,
+        setlistUrl: r.setlist_url,
+        notes: r.notes,
+        serviceCoords: { lat: r.service_lat, lng: r.service_lng },
+        serviceState: r.service_state,
+      }, {
+        displayName: musicianMeta.display_name,
+        available: musicianMeta.available,
+        instruments: musicianMeta.instruments,
+        primaryInstrument: musicianMeta.primary_instrument,
+        city: musicianMeta.city,
+        state: musicianMeta.state,
+        lat: musicianMeta.lat,
+        lng: musicianMeta.lng,
+        travelRadiusMiles: musicianMeta.travel_radius_miles,
+        bio: musicianMeta.bio,
+        denominationTags: musicianMeta.denomination_tags,
+        experienceNotes: musicianMeta.experience_notes,
+        gearNotes: musicianMeta.gear_notes,
+        isVolunteer: musicianMeta.is_volunteer,
+        feeMin: musicianMeta.fee_min,
+        feeMax: musicianMeta.fee_max,
+        rating: musicianMeta.rating,
+        reviewCount: musicianMeta.review_count,
+        paymentReady: musicianMeta.payment_ready,
+      }),
+    })).sort((a, b) =>
+      b.readiness.percent - a.readiness.percent ||
+      a.service_date.localeCompare(b.service_date) ||
+      a.title.localeCompare(b.title)
+    );
+  }, [requests, musicianMeta]);
+
   const filtered = useMemo(() => {
-    return requests.filter(r => {
+    return scored.filter(r => {
       if (instrFilter.length > 0) {
         if (!instrumentsOverlap(instrFilter, r.instruments_needed)) return false;
       }
@@ -41,7 +95,7 @@ export function OpenRequestsClient({
       }
       return true;
     });
-  }, [requests, instrFilter, dateFilter, areaOnly, musicianMeta]);
+  }, [scored, instrFilter, dateFilter, areaOnly, musicianMeta]);
 
   // Separate matched (overlaps musician's own instruments) from others
   const matched = filtered.filter(r =>
@@ -157,7 +211,7 @@ export function OpenRequestsClient({
 
 function Section({ label, requests, myInstruments, accent }: {
   label: string;
-  requests: OpenRequest[];
+  requests: ScoredOpenRequest[];
   myInstruments: Set<string>;
   accent?: boolean;
 }) {
@@ -173,7 +227,7 @@ function Section({ label, requests, myInstruments, accent }: {
   );
 }
 
-function RequestCard({ r, myInstruments }: { r: OpenRequest; myInstruments: Set<string> }) {
+function RequestCard({ r, myInstruments }: { r: ScoredOpenRequest; myInstruments: Set<string> }) {
   const d = new Date(r.service_date + "T12:00:00");
   const location = r.service_location_label || [r.church_city, r.church_state].filter(Boolean).join(", ");
 
@@ -213,6 +267,15 @@ function RequestCard({ r, myInstruments }: { r: OpenRequest; myInstruments: Set<
             ))}
           </div>
         )}
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sm-accent)", background: "rgba(228,123,2,0.08)", padding: "2px 7px", borderRadius: 10 }}>
+            {r.readiness.percent}% service readiness
+          </span>
+          <span style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>{r.readiness.label}</span>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--sm-fg-2)", margin: "7px 0 0", lineHeight: 1.45 }}>
+          {r.readiness.explanation}
+        </p>
       </div>
 
       {/* Action */}

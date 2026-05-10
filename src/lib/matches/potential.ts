@@ -2,6 +2,7 @@ import { musicianCompleteness } from "@/app/(app)/profile/completeness";
 import { matchingInstruments } from "@/lib/instruments";
 import { distanceMiles, type Coordinates } from "@/lib/locations/distance";
 import { validCoordinates } from "@/lib/locations/verification";
+import { scoreServiceReadiness, type ServiceReadinessScore } from "./readiness";
 
 export type PotentialMatchInput = {
   id: string;
@@ -22,7 +23,9 @@ export type PotentialMatchInput = {
   denomination_tags: string[];
   rating: number;
   review_count: number;
+  available?: boolean;
   travel_radius_miles: number;
+  paymentReady?: boolean | null;
   profiles: {
     display_name: string;
     avatar_url: string | null;
@@ -38,6 +41,7 @@ export type PotentialMatch = Omit<PotentialMatchInput, "profiles" | "address_ver
   matchedInstruments: string[];
   distance: number | null;
   areaLabel: string;
+  readiness: ServiceReadinessScore;
 };
 
 type BuildPotentialMatchesArgs = {
@@ -46,6 +50,19 @@ type BuildPotentialMatchesArgs = {
   serviceCoords: Coordinates;
   serviceCoordsVerified: boolean;
   serviceState: string | null | undefined;
+  serviceType: string;
+  serviceStyle?: string | null;
+  serviceDate: string;
+  serviceTime: string | null;
+  useChurchLocation: boolean;
+  churchLocationVerified: boolean;
+  locationVerified: boolean;
+  rehearsals: string;
+  techSetup: string[];
+  offeredFee: number | null;
+  feeType: string;
+  setlistUrl: string | null;
+  notes: string | null;
   contactedMusicianIds: Set<string>;
   unavailableMusicianIds: Set<string>;
   limit?: number;
@@ -57,6 +74,19 @@ export function buildPotentialMatches({
   serviceCoords,
   serviceCoordsVerified,
   serviceState,
+  serviceType,
+  serviceStyle,
+  serviceDate,
+  serviceTime,
+  useChurchLocation,
+  churchLocationVerified,
+  locationVerified,
+  rehearsals,
+  techSetup,
+  offeredFee,
+  feeType,
+  setlistUrl,
+  notes,
   contactedMusicianIds,
   unavailableMusicianIds,
   limit = 8,
@@ -93,6 +123,46 @@ export function buildPotentialMatches({
         experience_notes: m.experience_notes,
         gear_notes: m.gear_notes,
       }).percent;
+      const readiness = scoreServiceReadiness({
+        serviceType,
+        serviceStyle,
+        serviceDate,
+        serviceTime,
+        useChurchLocation,
+        churchLocationVerified,
+        locationVerified,
+        instrumentsNeeded,
+        rehearsals,
+        techSetup,
+        offeredFee,
+        feeType,
+        setlistUrl,
+        notes,
+        serviceCoords: canUseServiceCoords ? serviceCoords : null,
+        serviceState,
+      }, {
+        displayName: m.profiles?.display_name ?? "Musician",
+        available: m.available ?? true,
+        instruments: m.instruments ?? [],
+        primaryInstrument: m.primary_instrument,
+        city: m.city,
+        state: m.state,
+        lat: m.lat,
+        lng: m.lng,
+        travelRadiusMiles: m.travel_radius_miles,
+        bio: m.bio,
+        denominationTags: m.denomination_tags ?? [],
+        experienceNotes: m.experience_notes,
+        gearNotes: m.gear_notes,
+        isVolunteer: m.is_volunteer,
+        feeMin: m.fee_min,
+        feeMax: m.fee_max,
+        rating: m.rating,
+        reviewCount: m.review_count,
+        profilePercent: completeness,
+        paymentReady: m.paymentReady,
+        blockedOnServiceDate: unavailableMusicianIds.has(m.id),
+      });
 
       return {
         ...m,
@@ -105,6 +175,7 @@ export function buildPotentialMatches({
         areaLabel: distance == null
           ? `${m.city}, ${m.state}`
           : `${Math.round(distance)} mi away`,
+        readiness,
         isPotentialMatch: !contactedMusicianIds.has(m.id) &&
           !unavailableMusicianIds.has(m.id) &&
           matched.length > 0 &&
@@ -130,6 +201,7 @@ export function buildPotentialMatches({
       denomination_tags: m.denomination_tags,
       rating: m.rating,
       review_count: m.review_count,
+      available: m.available,
       travel_radius_miles: m.travel_radius_miles,
       verified: m.verified,
       display_name: m.display_name,
@@ -138,8 +210,10 @@ export function buildPotentialMatches({
       matchedInstruments: m.matchedInstruments,
       distance: m.distance,
       areaLabel: m.areaLabel,
+      readiness: m.readiness,
     }))
     .sort((a, b) =>
+      b.readiness.percent - a.readiness.percent ||
       Number(b.verified) - Number(a.verified) ||
       Number(b.rating) - Number(a.rating) ||
       b.completeness - a.completeness ||
