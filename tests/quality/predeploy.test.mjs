@@ -23,5 +23,5 @@ test("Netlify pins a Node version compatible with Next and Supabase", () => {
   const config = read("netlify.toml");
 
   assert.match(config, /\[build\.environment\]/, "Netlify should declare build environment settings");
-  assert.match(config, /NODE_VERSION\s*=\s*"22\.2\.0"/, "Netlify must use the same Node version as local verification");
+  assert.match(config, /NODE_VERSION\s*=\s*"20\.19\.0"/, "Netlify must use a Node version compatible with the dependency tree");
 });
