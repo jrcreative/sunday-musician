@@ -1,16 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
+import { hasSupabaseBrowserConfig } from "@/lib/supabase/env";
 import Image from "next/image";
 import { HomeClient } from "./HomeClient";
 
 export default async function HomePage() {
-  const supabase = await createClient();
+  const hasSupabase = hasSupabaseBrowserConfig();
+  const supabase = hasSupabase ? await createClient() : null;
 
   const [
     { count: churchCount },
     { count: musicianCount },
     { count: fulfilledCount },
     { data: musicians },
-  ] = await Promise.all([
+  ] = supabase ? await Promise.all([
     supabase.from("church_profiles").select("*", { count: "exact", head: true }),
     supabase.from("musician_profiles").select("*", { count: "exact", head: true }),
     supabase.from("service_requests").select("*", { count: "exact", head: true }).eq("status", "filled"),
@@ -19,7 +21,12 @@ export default async function HomePage() {
       .select("id, city, state, instruments, primary_instrument, is_volunteer, fee_min, fee_max, travel_radius_miles, bio, rating, review_count, available, profiles(display_name, avatar_url)")
       .order("rating", { ascending: false })
       .limit(100),
-  ]);
+  ]) : [
+    { count: 0 },
+    { count: 0 },
+    { count: 0 },
+    { data: [] },
+  ];
 
   const stats = [
     { label: "Churches", value: churchCount ?? 0 },
