@@ -94,8 +94,7 @@ export function BookingsClient({ bookings }: { bookings: Booking[] }) {
                 href={`/messages/${b.threadId}`}
                 style={{ textDecoration: "none" }}
               >
-                <div style={{
-                  display: "grid", gridTemplateColumns: "72px 1fr auto", gap: 20, alignItems: "center",
+                <div className="sm-list-card" style={{
                   padding: "18px 22px",
                   border: "1px solid var(--sm-border-subtle)",
                   borderRadius: "var(--sm-radius-sm)",
@@ -104,7 +103,7 @@ export function BookingsClient({ bookings }: { bookings: Booking[] }) {
                   opacity: dim ? 0.7 : 1,
                 }}>
                   {/* Date block */}
-                  <div style={{ textAlign: "center", paddingRight: 20, borderRight: "1px solid var(--sm-border-subtle)" }}>
+                  <div className="sm-list-card__date" style={{ textAlign: "center", paddingRight: 20, borderRight: "1px solid var(--sm-border-subtle)" }}>
                     {d ? (
                       <>
                         <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".08em", color: dim ? "var(--sm-fg-4)" : "var(--sm-accent)", fontWeight: 700 }}>
@@ -123,11 +122,11 @@ export function BookingsClient({ bookings }: { bookings: Booking[] }) {
                   </div>
 
                   {/* Info */}
-                  <div>
+                  <div className="sm-list-card__main">
                     <div style={{ fontWeight: 600, fontSize: 15, color: "var(--sm-fg-1)", marginBottom: 3, textDecoration: status === "cancelled" ? "line-through" : "none" }}>
                       {b.title}
                     </div>
-                    <div style={{ fontSize: 13, color: "var(--sm-fg-3)", display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <div className="sm-list-card__meta" style={{ fontSize: 13, color: "var(--sm-fg-3)", display: "flex", gap: 10, flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 500, color: "var(--sm-fg-2)" }}>{b.churchName}</span>
                       {location && <span>· {location}</span>}
                       {b.serviceType && <span>· {b.serviceType}</span>}
@@ -137,7 +136,7 @@ export function BookingsClient({ bookings }: { bookings: Booking[] }) {
                   </div>
 
                   {/* Fee + status */}
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div className="sm-list-card__actions" style={{ textAlign: "right" }}>
                     {b.fee != null ? (
                       <div style={{ fontWeight: 700, fontSize: 16, color: "var(--sm-fg-1)" }}>
                         ${b.fee}

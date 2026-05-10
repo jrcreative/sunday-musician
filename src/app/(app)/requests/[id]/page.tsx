@@ -170,9 +170,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           {/* Main content */}
           <div>
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, paddingBottom: 24, borderBottom: "1px solid var(--sm-border-subtle)" }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+            <div className="sm-mobile-stack-header" style={{ marginBottom: 28, paddingBottom: 24, borderBottom: "1px solid var(--sm-border-subtle)" }}>
+              <div style={{ minWidth: 0 }}>
+                <div className="sm-mobile-stack-header" style={{ marginBottom: 8 }}>
                   <h2 style={{ fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>{request.title}</h2>
                   <span className={REQUEST_STATUS_CHIP[display]}>{REQUEST_STATUS_LABEL[display]}</span>
                 </div>

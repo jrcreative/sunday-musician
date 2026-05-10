@@ -76,11 +76,7 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
                 const d = new Date(r.service_date + "T12:00:00");
                 return (
                   <Link key={r.id} href={`/requests/${r.id}`} style={{ textDecoration: "none" }}>
-                    <div style={{
-                      display: "grid",
-                      gridTemplateColumns: "auto 1fr auto",
-                      gap: 22,
-                      alignItems: "center",
+                    <div className="sm-list-card" style={{
                       padding: "20px 24px",
                       border: "1px solid var(--sm-border-subtle)",
                       borderRadius: "var(--sm-radius-sm)",
@@ -90,7 +86,7 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
                       opacity: r._display === "open" ? 1 : 0.78,
                     }}>
                       {/* Date block */}
-                      <div style={{ textAlign: "center", paddingRight: 22, borderRight: "1px solid var(--sm-border-subtle)", minWidth: 72 }}>
+                      <div className="sm-list-card__date" style={{ textAlign: "center", paddingRight: 22, borderRight: "1px solid var(--sm-border-subtle)", minWidth: 72 }}>
                         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--sm-accent)", fontWeight: 700 }}>
                           {d.toLocaleDateString("en-US", { month: "short" })}
                         </div>
@@ -103,9 +99,9 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
                       </div>
 
                       {/* Info */}
-                      <div>
+                      <div className="sm-list-card__main">
                         <div style={{ fontSize: 15.5, fontWeight: 600, margin: "0 0 5px", color: "var(--sm-fg-1)" }}>{r.title}</div>
-                        <div style={{ fontSize: 13.5, color: "var(--sm-fg-3)", display: "flex", gap: 14, flexWrap: "wrap" }}>
+                        <div className="sm-list-card__meta" style={{ fontSize: 13.5, color: "var(--sm-fg-3)", display: "flex", gap: 14, flexWrap: "wrap" }}>
                           <span>{r.service_type}</span>
                           {r.offered_fee != null && <span>· ${r.offered_fee} {r.fee_type.toLowerCase()}</span>}
                           {r.location && <span>· {r.location}</span>}

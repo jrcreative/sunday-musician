@@ -128,7 +128,7 @@ export function HomeClient({ musicians }: { musicians: Musician[] }) {
               </button>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 290px), 1fr))", gap: 16 }}>
               {filtered.map(m => {
                 const name = m.profiles?.display_name ?? "Musician";
                 const idx = m.id.charCodeAt(0) % 6;

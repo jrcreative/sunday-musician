@@ -60,10 +60,10 @@ export function OpenRequestsClient({
   const activeCount = instrFilter.length + (dateFilter ? 1 : 0) + (areaOnly ? 1 : 0);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 24, padding: "24px 32px 80px", alignItems: "start" }}>
+    <div className="sm-open-requests-layout">
 
       {/* ── Filters ── */}
-      <aside style={{ position: "sticky", top: 90 }}>
+      <aside className="sm-filter-rail">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--sm-fg-3)" }}>
             Filters {activeCount > 0 && <span style={{ marginLeft: 4, background: "var(--sm-accent)", color: "#fff", fontSize: 10.5, padding: "1px 6px", borderRadius: 8, fontWeight: 700 }}>{activeCount}</span>}
@@ -178,13 +178,12 @@ function RequestCard({ r, myInstruments }: { r: OpenRequest; myInstruments: Set<
   const location = r.service_location_label || [r.church_city, r.church_state].filter(Boolean).join(", ");
 
   return (
-    <div style={{
-      display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 20, alignItems: "center",
+    <div className="sm-list-card" style={{
       padding: "18px 22px", border: "1px solid var(--sm-border-subtle)",
       borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)",
     }}>
       {/* Date block */}
-      <div style={{ textAlign: "center", paddingRight: 20, borderRight: "1px solid var(--sm-border-subtle)", minWidth: 64 }}>
+      <div className="sm-list-card__date" style={{ textAlign: "center", paddingRight: 20, borderRight: "1px solid var(--sm-border-subtle)", minWidth: 64 }}>
         <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--sm-accent)", fontWeight: 700 }}>
           {d.toLocaleDateString("en-US", { month: "short" })}
         </div>
@@ -197,9 +196,9 @@ function RequestCard({ r, myInstruments }: { r: OpenRequest; myInstruments: Set<
       </div>
 
       {/* Info */}
-      <div>
+      <div className="sm-list-card__main">
         <div style={{ fontWeight: 600, fontSize: 15, color: "var(--sm-fg-1)", marginBottom: 3 }}>{r.title}</div>
-        <div style={{ fontSize: 13, color: "var(--sm-fg-3)", display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+        <div className="sm-list-card__meta" style={{ fontSize: 13, color: "var(--sm-fg-3)", display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
           <span style={{ fontWeight: 500, color: "var(--sm-fg-2)" }}>{r.church_name}</span>
           {location && <span>· {location}</span>}
           <span>· {r.service_type}</span>
@@ -217,7 +216,7 @@ function RequestCard({ r, myInstruments }: { r: OpenRequest; myInstruments: Set<
       </div>
 
       {/* Action */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 7, flexShrink: 0 }}>
+      <div className="sm-list-card__actions">
         <Link href={`/requests/${r.id}`} className="btn btn--primary btn--sm">View request</Link>
         <Link href={`/messages?church_id=${r.church_profile_id}&request_id=${r.id}`} className="btn btn--ghost btn--sm">Message church</Link>
       </div>

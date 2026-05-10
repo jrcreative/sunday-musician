@@ -152,9 +152,9 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
         <div className="sm-split sm-split--profile" style={{ gap: 32 }}>
           <div>
             {/* Header */}
-            <div style={{ display: "flex", gap: 22, alignItems: "flex-start", paddingBottom: 28, borderBottom: "1px solid var(--sm-border-subtle)", marginBottom: 28 }}>
+            <div className="sm-profile-hero">
               <Avatar src={musician.profiles?.avatar_url} name={name} size={80} colorIndex={idx} fontSize={24} />
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <h2 style={{ fontSize: 32, fontWeight: 700, margin: "0 0 6px", letterSpacing: "-0.01em" }}>{name}</h2>
                 <div style={{ display: "flex", gap: 16, flexWrap: "wrap", color: "var(--sm-fg-3)", fontSize: 15, marginBottom: 12 }}>
                   <span>{musician.city}, {musician.state}</span>
@@ -170,7 +170,7 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
                 </div>
                 {/* Church-only actions — outreach is always anchored to a specific request */}
                 {isChurch && (
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <Link href={`/musicians/${id}/invite`} className="btn btn--primary">
                       Invite to a request
                     </Link>

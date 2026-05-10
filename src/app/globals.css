@@ -3,6 +3,13 @@
 
 * { box-sizing: border-box; }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
 body {
   font-family: var(--sm-font-body);
   font-size: var(--sm-fs-medium);
@@ -16,3 +23,10 @@ body {
 button { font: inherit; color: inherit; cursor: pointer; }
 input, textarea, select { font: inherit; color: inherit; }
 a { color: inherit; }
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}

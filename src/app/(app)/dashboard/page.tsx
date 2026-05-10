@@ -129,8 +129,8 @@ export default async function DashboardPage() {
                     .slice(0, 3)
                     .map(r => (
                     <Link key={r.id} href={`/requests/${r.id}`} style={{ textDecoration: "none" }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 22, alignItems: "center", padding: "22px 24px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
-                        <div style={{ textAlign: "center", paddingRight: 22, borderRight: "1px solid var(--sm-border-subtle)", minWidth: 78 }}>
+                      <div className="sm-list-card" style={{ padding: "22px 24px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
+                        <div className="sm-list-card__date" style={{ textAlign: "center", paddingRight: 22, borderRight: "1px solid var(--sm-border-subtle)", minWidth: 78 }}>
                           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--sm-accent)", fontWeight: 700 }}>
                             {new Date(r.service_date + "T12:00:00").toLocaleDateString("en-US", { month: "short" })}
                           </div>
@@ -138,7 +138,7 @@ export default async function DashboardPage() {
                             {new Date(r.service_date + "T12:00:00").getDate()}
                           </div>
                         </div>
-                        <div>
+                        <div className="sm-list-card__main">
                           <div style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px", color: "var(--sm-fg-1)" }}>{r.title}</div>
                           <div style={{ fontSize: 13.5, color: "var(--sm-fg-3)" }}>
                             {r.service_type}{r.offered_fee != null ? ` · $${r.offered_fee} offered` : ""}
