@@ -20,6 +20,8 @@ export type Booking = {
   feeType: string;
   acceptedAt: string;
   cancelledAt: string | null;
+  cancellationPolicyLabel: string | null;
+  disputeReviewRequired: boolean;
 };
 
 export function BookingsClient({ bookings }: { bookings: Booking[] }) {
@@ -129,6 +131,8 @@ export function BookingsClient({ bookings }: { bookings: Booking[] }) {
                       <span style={{ fontWeight: 500, color: "var(--sm-fg-2)" }}>{b.churchName}</span>
                       {location && <span>· {location}</span>}
                       {b.serviceType && <span>· {b.serviceType}</span>}
+                      {b.cancelledAt && b.cancellationPolicyLabel && <span>· {b.cancellationPolicyLabel}</span>}
+                      {b.disputeReviewRequired && <span>· Admin review</span>}
                     </div>
                   </div>
 

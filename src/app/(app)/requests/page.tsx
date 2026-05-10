@@ -72,6 +72,8 @@ export default async function RequestsPage() {
       fee_type: string | null;
       accepted_at: string;
       cancelled_at: string | null;
+      cancellation_policy_label: string | null;
+      dispute_review_required: boolean | null;
       church_profiles: { church_name: string; city: string; state: string } | null;
       service_requests: { title: string; service_type: string } | null;
     };
@@ -79,7 +81,7 @@ export default async function RequestsPage() {
     const { data: rows } = await supabase
       .from("bookings")
       .select(`
-        id, thread_id, service_date, fee, fee_type, accepted_at, cancelled_at,
+        id, thread_id, service_date, fee, fee_type, accepted_at, cancelled_at, cancellation_policy_label, dispute_review_required,
         church_profiles ( church_name, city, state ),
         service_requests ( title, service_type )
       `)
@@ -99,6 +101,8 @@ export default async function RequestsPage() {
       feeType: r.fee_type ?? "per service",
       acceptedAt: r.accepted_at,
       cancelledAt: r.cancelled_at,
+      cancellationPolicyLabel: r.cancellation_policy_label,
+      disputeReviewRequired: r.dispute_review_required === true,
     }));
   }
 

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withJsonErrors } from "@/lib/api/handler";
 import { requireActiveUser } from "@/lib/api/active-user";
+import { cancellationPolicyFor } from "@/lib/disputes/policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ export const POST = withJsonErrors(async (req: Request) => {
   const body = await req.json().catch(() => ({}));
   const bookingId = typeof body.bookingId === "string" ? body.bookingId : null;
   const reason = typeof body.reason === "string" ? body.reason.slice(0, 500) : null;
+  const category = typeof body.category === "string" ? body.category.slice(0, 80) : null;
+  const requestAdminReview = body.requestAdminReview === true;
   if (!bookingId) return NextResponse.json({ error: "bookingId required" }, { status: 400 });
 
   const { data: booking } = await supabase
@@ -48,15 +51,40 @@ export const POST = withJsonErrors(async (req: Request) => {
   }
 
   const admin = createAdminClient();
+  const cancelledAt = new Date();
+  const policy = cancellationPolicyFor({
+    cancelledBy: role,
+    serviceDate: booking.service_date,
+    cancelledAt,
+  });
+  const shouldOpenDispute = requestAdminReview || policy.adminReviewMayApply;
   const { error: cancelErr } = await admin
     .from("bookings")
     .update({
-      cancelled_at: new Date().toISOString(),
+      cancelled_at: cancelledAt.toISOString(),
       cancelled_by: role,
       cancel_reason: reason,
+      cancel_category: category,
+      cancellation_policy_label: policy.label,
+      cancellation_policy: policy,
+      dispute_review_required: shouldOpenDispute,
     })
     .eq("id", bookingId);
   if (cancelErr) return NextResponse.json({ error: cancelErr.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true });
+  if (shouldOpenDispute) {
+    const { error: disputeErr } = await admin
+      .from("booking_disputes")
+      .upsert({
+        booking_id: bookingId,
+        opened_by_profile_id: active.user.id,
+        opened_by_role: role,
+        category: category ?? "cancellation",
+        reason,
+        status: "open",
+      }, { onConflict: "booking_id,opened_by_role,category" });
+    if (disputeErr) return NextResponse.json({ error: disputeErr.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, policy, disputeReviewRequired: shouldOpenDispute });
 });
