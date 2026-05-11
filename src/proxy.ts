@@ -30,7 +30,8 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith("/auth");
-  const isPublicRoute = pathname === "/" || pathname.startsWith("/browse");
+  const isLoaderIoVerification = pathname.startsWith("/loaderio-");
+  const isPublicRoute = pathname === "/" || pathname.startsWith("/browse") || isLoaderIoVerification;
   // /api routes do their own auth (server actions use the cookie session;
   // cron endpoints use a bearer token). Skip the redirect-to-login wrapper.
   const isApiRoute = pathname.startsWith("/api");
