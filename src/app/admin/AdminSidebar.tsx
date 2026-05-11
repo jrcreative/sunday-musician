@@ -43,6 +43,23 @@ const ALERT_ICON = (
     <line x1="12" y1="17" x2="12.01" y2="17"/>
   </svg>
 );
+const CHART_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="20" x2="18" y2="10"/>
+    <line x1="12" y1="20" x2="12" y2="4"/>
+    <line x1="6" y1="20" x2="6" y2="14"/>
+  </svg>
+);
+const MATCH_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 7h8"/>
+    <path d="M8 17h8"/>
+    <path d="M7 7a3 3 0 1 1-3-3"/>
+    <path d="M17 17a3 3 0 1 0 3 3"/>
+    <path d="M4 4v5h5"/>
+    <path d="M20 20v-5h-5"/>
+  </svg>
+);
 const MAIL_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="5" width="18" height="14" rx="2"/>
@@ -55,6 +72,8 @@ const NAV: { group: string; items: NavItem[] }[] = [
     group: "Overview",
     items: [
       { href: "/admin", label: "Dashboard", icon: HOME_ICON },
+      { href: "/admin/liquidity", label: "Liquidity", icon: CHART_ICON },
+      { href: "/admin/match", label: "Match assist", icon: MATCH_ICON },
     ],
   },
   {
@@ -72,6 +91,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "Compliance",
     items: [
+      { href: "/admin/trust-safety", label: "Trust & safety", icon: ALERT_ICON },
       { href: "/admin/disputes", label: "Disputes", icon: ALERT_ICON },
       { href: "/admin/emails", label: "Emails", icon: MAIL_ICON },
       { href: "/admin/audit", label: "Audit log", icon: LOG_ICON },
