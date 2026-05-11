@@ -2,7 +2,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { EMAIL_EVENTS } from "@/lib/email/registry";
 import { AdminTopbar } from "../AdminTopbar";
 import { AdminTable, DateCell, KpiCard, StatusPill } from "../_components/AdminPrimitives";
-import { EmailTemplateCatalog, type EmailTemplateEvent } from "./EmailTemplateCatalog";
 
 function toneFor(status: string) {
   if (status === "sent") return "success";
@@ -23,21 +22,10 @@ export default async function AdminEmailsPage() {
   const sent = rows.filter(r => r.status === "sent").length;
   const failed = rows.filter(r => r.status === "failed").length;
   const skipped = rows.filter(r => r.status === "skipped").length;
-  const templateEvents: EmailTemplateEvent[] = Object.values(EMAIL_EVENTS).map(event => ({
-    key: event.key,
-    label: event.label,
-    description: event.description,
-    subject: event.subject,
-    category: event.category,
-    suggestedTemplateName: event.suggestedTemplateName,
-    templateEnv: event.templateEnv,
-    templateId: process.env[event.templateEnv]?.trim() || null,
-    tags: [...event.tags],
-  }));
 
   return (
     <>
-      <AdminTopbar title="Email deliveries" sub="Transactional email attempts, Resend IDs, template mappings, and failures" />
+      <AdminTopbar title="Email deliveries" sub="Quick stats and delivery log" />
 
       <div className="a-page">
       <div className="kpi-grid">
@@ -46,8 +34,6 @@ export default async function AdminEmailsPage() {
         <KpiCard label="Skipped" value={skipped} context="duplicate or preferences" />
         <KpiCard label="Events" value={Object.keys(EMAIL_EVENTS).length} context="registered in code" />
       </div>
-
-      <EmailTemplateCatalog events={templateEvents} />
 
       <AdminTable
         headers={["Status", "Event", "Recipient", "Subject", "Template", "Sent", "Error"]}

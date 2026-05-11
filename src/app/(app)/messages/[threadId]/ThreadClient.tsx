@@ -189,7 +189,6 @@ export function ThreadClient({
     setSending(true);
     const content = draft.trim();
     setDraft("");
-    const supabase = createClient();
     const optimistic: Message = {
       id: `opt-${Date.now()}`, thread_id: threadId,
       sender_profile_id: currentUserId, kind: "text",
@@ -197,11 +196,17 @@ export function ThreadClient({
       created_at: new Date().toISOString(),
     };
     setMessages(prev => [...prev, optimistic]);
-    const { data } = await supabase
-      .from("messages")
-      .insert({ thread_id: threadId, sender_profile_id: currentUserId, kind: "text", body: content })
-      .select().single();
-    if (data) setMessages(prev => prev.map(m => m.id === optimistic.id ? data as Message : m));
+    const res = await fetch("/api/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ threadId, kind: "text", body: content }),
+    });
+    const data = await res.json().catch(() => null);
+    if (res.ok && data) {
+      setMessages(prev => prev.map(m => m.id === optimistic.id ? data as Message : m));
+    } else {
+      setMessages(prev => prev.filter(m => m.id !== optimistic.id));
+    }
     setSending(false);
     textareaRef.current?.focus();
   }
@@ -209,25 +214,19 @@ export function ThreadClient({
   async function sendProposal() {
     if (sendingProposal) return;
     setSendingProposal(true);
-    const supabase = createClient();
     const proposal: ProposalData = {
       fee: proposalFee === "" ? null : Number(proposalFee),
       feeType: requestInfo?.fee_type ?? "Per service",
       date: requestInfo?.service_date ?? null,
       notes: proposalNotes,
     };
-    const { data } = await supabase
-      .from("messages")
-      .insert({
-        thread_id: threadId,
-        sender_profile_id: currentUserId,
-        kind: "proposal",
-        body: null,
-        proposal,
-        proposal_status: "pending",
-      })
-      .select().single();
-    if (data) setMessages(prev => [...prev, data as Message]);
+    const res = await fetch("/api/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ threadId, kind: "proposal", proposal }),
+    });
+    const data = await res.json().catch(() => null);
+    if (res.ok && data) setMessages(prev => [...prev, data as Message]);
     setSendingProposal(false);
   }
 
