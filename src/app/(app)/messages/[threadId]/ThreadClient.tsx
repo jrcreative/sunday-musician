@@ -36,6 +36,8 @@ export function ThreadClient({
   bookingCancellationPolicy,
   bookingCancellationPolicyLabel,
   bookingDisputeReviewRequired,
+  initialLastReadAt,
+  initialUnreadCount,
   initialMessages,
 }: {
   threadId: string;
@@ -50,9 +52,23 @@ export function ThreadClient({
   bookingCancellationPolicy: CancellationPolicy | null;
   bookingCancellationPolicyLabel: string | null;
   bookingDisputeReviewRequired: boolean;
+  initialLastReadAt: string | null;
+  initialUnreadCount: number;
   initialMessages: Message[];
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages as Message[]);
+  const [unreadMessageIds, setUnreadMessageIds] = useState<Set<string>>(() => {
+    const incoming = initialMessages.filter(m => m.sender_profile_id !== currentUserId);
+    if (!initialLastReadAt) {
+      return new Set(incoming.slice(-initialUnreadCount).map(m => m.id));
+    }
+
+    const readAtMs = new Date(initialLastReadAt).getTime();
+    return new Set(incoming
+      .filter(m => new Date(m.created_at).getTime() > readAtMs)
+      .map(m => m.id));
+  });
+  const [markingRead, setMarkingRead] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [sendingProposal, setSendingProposal] = useState(false);
@@ -118,6 +134,8 @@ export function ThreadClient({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const markReadInFlightRef = useRef(false);
+  const lastReadAtRef = useRef<string | null>(initialLastReadAt);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -135,6 +153,7 @@ export function ThreadClient({
   // Churches must lead with a proposal — text composer locked until they send one.
   const churchMustProposeFirst = isChurchSide && !hasAnyProposal;
   const composerLocked = isArchived || churchMustProposeFirst;
+  const unreadCount = unreadMessageIds.size;
   const archiveLabel = archiveReason === "request_filled"
     ? "Request was filled by another musician"
     : archiveReason === "request_cancelled"
@@ -171,6 +190,14 @@ export function ThreadClient({
         const msg = payload.new as Message;
         if (msg.sender_profile_id !== currentUserId) {
           setMessages(prev => [...prev, msg]);
+          const readAtMs = lastReadAtRef.current ? new Date(lastReadAtRef.current).getTime() : 0;
+          if (new Date(msg.created_at).getTime() > readAtMs) {
+            setUnreadMessageIds(prev => {
+              const next = new Set(prev);
+              next.add(msg.id);
+              return next;
+            });
+          }
         }
       })
       .on("postgres_changes", {
@@ -184,8 +211,26 @@ export function ThreadClient({
     return () => { supabase.removeChannel(channel); };
   }, [threadId, currentUserId]);
 
+  async function markThreadRead() {
+    if (markReadInFlightRef.current || unreadMessageIds.size === 0) return;
+    markReadInFlightRef.current = true;
+    setMarkingRead(true);
+    try {
+      const res = await fetch(`/api/messages/${threadId}/read`, { method: "POST" });
+      const json = await res.json().catch(() => null) as { readAt?: string } | null;
+      if (res.ok && json?.readAt) {
+        lastReadAtRef.current = json.readAt;
+        setUnreadMessageIds(new Set());
+      }
+    } finally {
+      markReadInFlightRef.current = false;
+      setMarkingRead(false);
+    }
+  }
+
   async function sendMessage() {
     if (!draft.trim() || sending) return;
+    void markThreadRead();
     setSending(true);
     const content = draft.trim();
     setDraft("");
@@ -213,6 +258,7 @@ export function ThreadClient({
 
   async function sendProposal() {
     if (sendingProposal) return;
+    void markThreadRead();
     setSendingProposal(true);
     const proposal: ProposalData = {
       fee: proposalFee === "" ? null : Number(proposalFee),
@@ -276,6 +322,10 @@ export function ThreadClient({
     return ids;
   }, [messages]); // fmtDate is stable (defined in scope, no closure deps)
 
+  const firstUnreadId = useMemo(() => {
+    return messages.find(m => unreadMessageIds.has(m.id))?.id ?? null;
+  }, [messages, unreadMessageIds]);
+
   return (
     <div className="sm-thread-layout">
 
@@ -299,6 +349,8 @@ export function ThreadClient({
             const isMe = msg.sender_profile_id === currentUserId;
             const msgDate = fmtDate(msg.created_at);
             const showDivider = dividerMessageIds.has(msg.id);
+            const isUnread = !isMe && unreadMessageIds.has(msg.id);
+            const showUnreadDivider = msg.id === firstUnreadId;
 
             return (
               <div key={msg.id}>
@@ -308,26 +360,38 @@ export function ThreadClient({
                     <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "var(--sm-border-subtle)", zIndex: 0 }} />
                   </div>
                 )}
+                {showUnreadDivider && (
+                  <div style={{ textAlign: "center", fontSize: 11, color: "var(--sm-fg-4)", textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700, margin: "8px 0", position: "relative" }}>
+                    <span style={{ background: "var(--sm-bg-2)", padding: "0 10px", position: "relative", zIndex: 1 }}>Unread</span>
+                    <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "var(--sm-border-subtle)", zIndex: 0 }} />
+                  </div>
+                )}
 
                 {msg.kind === "proposal" ? (
-                  <ProposalBubble
-                    msg={msg}
-                    isMe={isMe}
-                    isChurchSide={isChurchSide}
-                    otherName={otherName}
-                    onAccept={acceptProposal}
-                    accepting={accepting}
-                    fmtTime={fmtTime}
-                    fmtShortDate={fmtShortDate}
-                  />
+                  <div style={isUnread ? {
+                    borderRadius: 12,
+                    padding: 4,
+                    background: "rgba(228,123,2,0.045)",
+                  } : undefined}>
+                    <ProposalBubble
+                      msg={msg}
+                      isMe={isMe}
+                      isChurchSide={isChurchSide}
+                      otherName={otherName}
+                      onAccept={acceptProposal}
+                      accepting={accepting}
+                      fmtTime={fmtTime}
+                      fmtShortDate={fmtShortDate}
+                    />
+                  </div>
                 ) : (
                   <div style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start" }}>
                     <div style={{
                       maxWidth: "68%", padding: "10px 14px", borderRadius: 8,
                       fontSize: 14.5, lineHeight: 1.5, wordBreak: "break-word",
-                      background: isMe ? "var(--sm-fg-1)" : "var(--sm-bg-1)",
+                      background: isMe ? "var(--sm-fg-1)" : isUnread ? "rgba(228,123,2,0.045)" : "var(--sm-bg-1)",
                       color: isMe ? "white" : "var(--sm-fg-1)",
-                      border: isMe ? "none" : "1px solid var(--sm-border-subtle)",
+                      border: isMe ? "none" : isUnread ? "1px solid rgba(228,123,2,0.18)" : "1px solid var(--sm-border-subtle)",
                       borderBottomRightRadius: isMe ? 3 : 8,
                       borderBottomLeftRadius: isMe ? 8 : 3,
                     }}>
@@ -341,6 +405,23 @@ export function ThreadClient({
           })}
           <div ref={messagesEndRef} />
         </div>
+
+        {unreadCount > 0 && !composerLocked && (
+          <div style={{
+            borderTop: "1px solid var(--sm-border-subtle)",
+            padding: "8px 14px",
+            background: "var(--sm-bg-1)",
+            color: "var(--sm-fg-3)",
+            fontSize: 13,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}>
+            <span>{unreadCount === 1 ? "1 unread message" : `${unreadCount} unread messages`}</span>
+            {markingRead && <span style={{ color: "var(--sm-fg-4)", fontSize: 12 }}>Updating…</span>}
+          </div>
+        )}
 
         {acceptError && (
           <div style={{
@@ -373,7 +454,12 @@ export function ThreadClient({
               ref={textareaRef}
               placeholder={`Message ${otherName.split(" ")[0]}…`}
               value={draft}
-              onChange={e => setDraft(e.target.value)}
+              onChange={e => {
+                setDraft(e.target.value);
+                void markThreadRead();
+              }}
+              onFocus={markThreadRead}
+              onClick={markThreadRead}
               onKeyDown={handleKeyDown}
               rows={1}
               style={{ flex: 1, resize: "none", border: "none", outline: "none", fontSize: 14.5, background: "transparent", lineHeight: 1.5, padding: "6px 4px", fontFamily: "inherit", color: "var(--sm-fg-1)", minHeight: 34, maxHeight: 140, overflowY: "auto" }}

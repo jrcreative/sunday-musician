@@ -38,6 +38,18 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`h-full ${sourceSans.variable} ${workSans.variable}`}>
+      <head>
+        <script
+          type="text/javascript"
+          dangerouslySetInnerHTML={{
+            __html: `(function(k) {
+        let s=document.createElement('script');s.defer=true;
+        s.src="https://cdn.feedbucket.app/assets/feedbucket.js";
+        s.dataset.feedbucket=k;document.head.appendChild(s);
+    })('yHUicpcTyCstQ9Wj3YcB')`,
+          }}
+        />
+      </head>
       <body className="min-h-full" suppressHydrationWarning>{children}</body>
     </html>
   );
