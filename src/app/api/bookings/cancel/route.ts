@@ -1,12 +1,123 @@
 import { NextResponse } from "next/server";
+import { appUrl } from "@/lib/app-url";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withJsonErrors } from "@/lib/api/handler";
 import { requireActiveUser } from "@/lib/api/active-user";
 import { cancellationPolicyFor } from "@/lib/disputes/policy";
+import { sendTransactionalEmail } from "@/lib/email/delivery";
+import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
+import { bookingCancelledEmail } from "@/lib/email/templates/marketplace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type BookingCancelNoticeRow = {
+  id: string;
+  thread_id: string;
+  service_date: string;
+  cancelled_by: string | null;
+  cancel_category: string | null;
+  cancel_reason: string | null;
+  cancellation_policy_label: string | null;
+  dispute_review_required: boolean;
+  service_requests: { title: string } | null;
+  church_profiles: {
+    church_name: string;
+    profile_id: string;
+    profiles: { email: string; display_name: string } | null;
+  } | null;
+  musician_profiles: {
+    profile_id: string;
+    profiles: { email: string; display_name: string } | null;
+  } | null;
+};
+
+function reasonLabel(category: string | null, reason: string | null) {
+  const cat = category ? category.replaceAll("_", " ") : "Not specified";
+  return reason ? `${cat}: ${reason}` : cat;
+}
+
+async function sendBookingCancelledEmails(admin: ReturnType<typeof createAdminClient>, bookingId: string, dedupeStamp: string) {
+  const { data: booking } = await admin
+    .from("bookings")
+    .select(`
+      id, thread_id, service_date, cancelled_by, cancel_category, cancel_reason,
+      cancellation_policy_label, dispute_review_required,
+      service_requests ( title ),
+      church_profiles ( church_name, profile_id, profiles ( email, display_name ) ),
+      musician_profiles ( profile_id, profiles ( email, display_name ) )
+    `)
+    .eq("id", bookingId)
+    .single() as unknown as { data: BookingCancelNoticeRow | null };
+  if (!booking) return;
+
+  const event = EMAIL_EVENTS.bookingCancelled;
+  const templateId = configuredTemplateId(event);
+  const threadUrl = appUrl(`/messages/${booking.thread_id}`);
+  const requestTitle = booking.service_requests?.title ?? "Booking";
+  const cancelledByName = booking.cancelled_by === "church"
+    ? booking.church_profiles?.church_name ?? "Church"
+    : booking.musician_profiles?.profiles?.display_name ?? "Musician";
+  const reason = reasonLabel(booking.cancel_category, booking.cancel_reason);
+  const policyLabel = booking.cancellation_policy_label ?? "Standard cancellation policy";
+  const church = booking.church_profiles;
+  const musician = booking.musician_profiles;
+  const recipients = [
+    {
+      role: "church",
+      profileId: church?.profile_id ?? null,
+      email: church?.profiles?.email ?? null,
+      name: church?.profiles?.display_name ?? church?.church_name ?? "Church",
+    },
+    {
+      role: "musician",
+      profileId: musician?.profile_id ?? null,
+      email: musician?.profiles?.email ?? null,
+      name: musician?.profiles?.display_name ?? "Musician",
+    },
+  ];
+
+  for (const recipient of recipients) {
+    if (!recipient.profileId || !recipient.email) continue;
+    const message = bookingCancelledEmail({
+      to: recipient.email,
+      recipientName: recipient.name,
+      cancelledByName,
+      requestTitle,
+      serviceDate: booking.service_date,
+      policyLabel,
+      reason,
+      threadUrl,
+      disputeReviewRequired: booking.dispute_review_required,
+    });
+    await sendTransactionalEmail({
+      eventKey: event.key,
+      category: event.category,
+      dedupeKey: `${event.key}:${booking.id}:${dedupeStamp}:${recipient.role}`,
+      recipientProfileId: recipient.profileId,
+      message,
+      template: templateId ? {
+        templateId,
+        variables: {
+          RECIPIENT_NAME: recipient.name,
+          CANCELLED_BY_NAME: cancelledByName,
+          REQUEST_TITLE: requestTitle,
+          SERVICE_DATE: booking.service_date,
+          POLICY_LABEL: policyLabel,
+          REASON: reason,
+          THREAD_URL: threadUrl,
+        },
+      } : undefined,
+      payload: {
+        booking_id: booking.id,
+        thread_id: booking.thread_id,
+        recipient_role: recipient.role,
+        dispute_review_required: booking.dispute_review_required,
+      },
+    });
+  }
+}
 
 // Cancel a confirmed booking. Either side may cancel before the event.
 // The cancel_payment_on_booking_cancel trigger will move any 'scheduled'
@@ -52,6 +163,7 @@ export const POST = withJsonErrors(async (req: Request) => {
 
   const admin = createAdminClient();
   const cancelledAt = new Date();
+  const cancelledAtIso = cancelledAt.toISOString();
   const policy = cancellationPolicyFor({
     cancelledBy: role,
     serviceDate: booking.service_date,
@@ -61,7 +173,7 @@ export const POST = withJsonErrors(async (req: Request) => {
   const { error: cancelErr } = await admin
     .from("bookings")
     .update({
-      cancelled_at: cancelledAt.toISOString(),
+      cancelled_at: cancelledAtIso,
       cancelled_by: role,
       cancel_reason: reason,
       cancel_category: category,
@@ -85,6 +197,8 @@ export const POST = withJsonErrors(async (req: Request) => {
       }, { onConflict: "booking_id,opened_by_role,category" });
     if (disputeErr) return NextResponse.json({ error: disputeErr.message }, { status: 500 });
   }
+
+  await sendBookingCancelledEmails(admin, bookingId, cancelledAtIso);
 
   return NextResponse.json({ ok: true, policy, disputeReviewRequired: shouldOpenDispute });
 });

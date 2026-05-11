@@ -7,6 +7,10 @@ type NavItem = {
   href: string;
   label: string;
   icon: React.ReactNode;
+  children?: Array<{
+    href: string;
+    label: string;
+  }>;
 };
 
 const HOME_ICON = (
@@ -93,7 +97,15 @@ const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/trust-safety", label: "Trust & safety", icon: ALERT_ICON },
       { href: "/admin/disputes", label: "Disputes", icon: ALERT_ICON },
-      { href: "/admin/emails", label: "Emails", icon: MAIL_ICON },
+      {
+        href: "/admin/emails",
+        label: "Emails",
+        icon: MAIL_ICON,
+        children: [
+          { href: "/admin/emails", label: "Overview & log" },
+          { href: "/admin/emails/triggers", label: "Triggers" },
+        ],
+      },
       { href: "/admin/audit", label: "Audit log", icon: LOG_ICON },
     ],
   },
@@ -121,16 +133,36 @@ export function AdminSidebar({
             const active = item.href === "/admin"
               ? pathname === "/admin"
               : pathname === item.href || pathname.startsWith(item.href + "/");
+            const childActive = item.children?.some(child => pathname === child.href) ?? false;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="a-nav-item"
-                aria-current={active ? "page" : undefined}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
+              <div key={item.href}>
+                <Link
+                  href={item.href}
+                  className="a-nav-item"
+                  data-parent-active={active ? "true" : undefined}
+                  aria-current={active && !childActive ? "page" : undefined}
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+                {item.children && active && (
+                  <div className="a-nav-children">
+                    {item.children.map(child => {
+                      const isActive = pathname === child.href;
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className="a-nav-child"
+                          aria-current={isActive ? "page" : undefined}
+                        >
+                          {child.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>

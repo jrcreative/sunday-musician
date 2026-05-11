@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
-import { sendEmail } from "@/lib/email/send";
+import type { EmailMessage } from "@/lib/email/send";
+import { sendTransactionalEmail } from "@/lib/email/delivery";
+import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
 import {
   reviewPromptEmail,
   reviewReminderEmail,
@@ -20,6 +22,34 @@ import {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+async function deliverReviewEmail(input: {
+  event: typeof EMAIL_EVENTS.reviewPrompt | typeof EMAIL_EVENTS.reviewReminder | typeof EMAIL_EVENTS.reviewReleased;
+  periodId: string;
+  role: "musician" | "church";
+  recipientProfileId: string;
+  message: EmailMessage;
+  variables: Record<string, string | number>;
+  payload?: Record<string, string | number>;
+}) {
+  const result = await sendTransactionalEmail({
+    eventKey: input.event.key,
+    category: input.event.category,
+    dedupeKey: `${input.event.key}:${input.periodId}:${input.role}`,
+    recipientProfileId: input.recipientProfileId,
+    message: input.message,
+    template: configuredTemplateId(input.event) ? {
+      templateId: configuredTemplateId(input.event),
+      variables: input.variables,
+    } : undefined,
+    payload: {
+      period_id: input.periodId,
+      reviewer_role: input.role,
+      ...(input.payload ?? {}),
+    },
+  });
+  return result.status === "sent" || result.status === "skipped";
+}
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -136,28 +166,59 @@ export async function GET(req: Request) {
     if (serviceCompleted && !p.released_at) {
       if (!p.prompt_musician_at && !submittedRoles.has("musician")) {
         try {
-          await sendEmail(reviewPromptEmail({
+          const event = EMAIL_EVENTS.reviewPrompt;
+          const ok = await deliverReviewEmail({
+            event,
+            periodId: p.id,
+            role: "musician",
+            recipientProfileId: b.musician_profiles.profile_id,
+            message: reviewPromptEmail({
             to: musicianEmail,
             recipientName: musicianName,
             counterpartyName: churchName,
             serviceDate: b.service_date,
             reviewUrl: reviewUrlFor(p.id),
-          }));
-          await supabase.from("review_periods").update({ prompt_musician_at: nowIso }).eq("id", p.id);
-          summary.prompted++;
+            }),
+            variables: {
+              RECIPIENT_NAME: musicianName,
+              COUNTERPARTY_NAME: churchName,
+              SERVICE_DATE: b.service_date,
+              REVIEW_URL: reviewUrlFor(p.id),
+            },
+          });
+          if (ok) {
+            await supabase.from("review_periods").update({ prompt_musician_at: nowIso }).eq("id", p.id);
+            summary.prompted++;
+          } else summary.errors++;
         } catch { summary.errors++; }
       }
       if (!p.prompt_church_at && !submittedRoles.has("church")) {
         try {
-          await sendEmail(reviewPromptEmail({
+          const event = EMAIL_EVENTS.reviewPrompt;
+          const churchRecipientName = b.church_profiles.profiles.display_name;
+          const ok = await deliverReviewEmail({
+            event,
+            periodId: p.id,
+            role: "church",
+            recipientProfileId: b.church_profiles.profile_id,
+            message: reviewPromptEmail({
             to: churchEmail,
-            recipientName: b.church_profiles.profiles.display_name,
+            recipientName: churchRecipientName,
             counterpartyName: musicianName,
             serviceDate: b.service_date,
             reviewUrl: reviewUrlFor(p.id),
-          }));
-          await supabase.from("review_periods").update({ prompt_church_at: nowIso }).eq("id", p.id);
-          summary.prompted++;
+            }),
+            variables: {
+              RECIPIENT_NAME: churchRecipientName,
+              COUNTERPARTY_NAME: musicianName,
+              SERVICE_DATE: b.service_date,
+              REVIEW_URL: reviewUrlFor(p.id),
+            },
+          });
+          if (ok) {
+            await supabase.from("review_periods").update({ prompt_church_at: nowIso }).eq("id", p.id);
+            summary.prompted++;
+          } else summary.errors++;
         } catch { summary.errors++; }
       }
     }
@@ -167,30 +228,65 @@ export async function GET(req: Request) {
       const daysRemaining = Math.max(1, Math.ceil((new Date(p.reveal_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
       if (!p.reminder_musician_at && !submittedRoles.has("musician")) {
         try {
-          await sendEmail(reviewReminderEmail({
+          const event = EMAIL_EVENTS.reviewReminder;
+          const ok = await deliverReviewEmail({
+            event,
+            periodId: p.id,
+            role: "musician",
+            recipientProfileId: b.musician_profiles.profile_id,
+            message: reviewReminderEmail({
             to: musicianEmail,
             recipientName: musicianName,
             counterpartyName: churchName,
             serviceDate: b.service_date,
             reviewUrl: reviewUrlFor(p.id),
             daysRemaining,
-          }));
-          await supabase.from("review_periods").update({ reminder_musician_at: nowIso }).eq("id", p.id);
-          summary.reminded++;
+            }),
+            variables: {
+              RECIPIENT_NAME: musicianName,
+              COUNTERPARTY_NAME: churchName,
+              SERVICE_DATE: b.service_date,
+              DAYS_REMAINING: daysRemaining,
+              REVIEW_URL: reviewUrlFor(p.id),
+            },
+            payload: { days_remaining: daysRemaining },
+          });
+          if (ok) {
+            await supabase.from("review_periods").update({ reminder_musician_at: nowIso }).eq("id", p.id);
+            summary.reminded++;
+          } else summary.errors++;
         } catch { summary.errors++; }
       }
       if (!p.reminder_church_at && !submittedRoles.has("church")) {
         try {
-          await sendEmail(reviewReminderEmail({
+          const event = EMAIL_EVENTS.reviewReminder;
+          const churchRecipientName = b.church_profiles.profiles.display_name;
+          const ok = await deliverReviewEmail({
+            event,
+            periodId: p.id,
+            role: "church",
+            recipientProfileId: b.church_profiles.profile_id,
+            message: reviewReminderEmail({
             to: churchEmail,
-            recipientName: b.church_profiles.profiles.display_name,
+            recipientName: churchRecipientName,
             counterpartyName: musicianName,
             serviceDate: b.service_date,
             reviewUrl: reviewUrlFor(p.id),
             daysRemaining,
-          }));
-          await supabase.from("review_periods").update({ reminder_church_at: nowIso }).eq("id", p.id);
-          summary.reminded++;
+            }),
+            variables: {
+              RECIPIENT_NAME: churchRecipientName,
+              COUNTERPARTY_NAME: musicianName,
+              SERVICE_DATE: b.service_date,
+              DAYS_REMAINING: daysRemaining,
+              REVIEW_URL: reviewUrlFor(p.id),
+            },
+            payload: { days_remaining: daysRemaining },
+          });
+          if (ok) {
+            await supabase.from("review_periods").update({ reminder_church_at: nowIso }).eq("id", p.id);
+            summary.reminded++;
+          } else summary.errors++;
         } catch { summary.errors++; }
       }
     }
@@ -199,28 +295,59 @@ export async function GET(req: Request) {
     if (p.released_at) {
       if (!p.released_email_musician_at) {
         try {
-          await sendEmail(reviewReleasedEmail({
+          const event = EMAIL_EVENTS.reviewReleased;
+          const ok = await deliverReviewEmail({
+            event,
+            periodId: p.id,
+            role: "musician",
+            recipientProfileId: b.musician_profiles.profile_id,
+            message: reviewReleasedEmail({
             to: musicianEmail,
             recipientName: musicianName,
             counterpartyName: churchName,
             serviceDate: b.service_date,
             reviewUrl: reviewUrlFor(p.id),
-          }));
-          await supabase.from("review_periods").update({ released_email_musician_at: nowIso }).eq("id", p.id);
-          summary.releaseEmailed++;
+            }),
+            variables: {
+              RECIPIENT_NAME: musicianName,
+              COUNTERPARTY_NAME: churchName,
+              SERVICE_DATE: b.service_date,
+              REVIEW_URL: reviewUrlFor(p.id),
+            },
+          });
+          if (ok) {
+            await supabase.from("review_periods").update({ released_email_musician_at: nowIso }).eq("id", p.id);
+            summary.releaseEmailed++;
+          } else summary.errors++;
         } catch { summary.errors++; }
       }
       if (!p.released_email_church_at) {
         try {
-          await sendEmail(reviewReleasedEmail({
+          const event = EMAIL_EVENTS.reviewReleased;
+          const churchRecipientName = b.church_profiles.profiles.display_name;
+          const ok = await deliverReviewEmail({
+            event,
+            periodId: p.id,
+            role: "church",
+            recipientProfileId: b.church_profiles.profile_id,
+            message: reviewReleasedEmail({
             to: churchEmail,
-            recipientName: b.church_profiles.profiles.display_name,
+            recipientName: churchRecipientName,
             counterpartyName: musicianName,
             serviceDate: b.service_date,
             reviewUrl: reviewUrlFor(p.id),
-          }));
-          await supabase.from("review_periods").update({ released_email_church_at: nowIso }).eq("id", p.id);
-          summary.releaseEmailed++;
+            }),
+            variables: {
+              RECIPIENT_NAME: churchRecipientName,
+              COUNTERPARTY_NAME: musicianName,
+              SERVICE_DATE: b.service_date,
+              REVIEW_URL: reviewUrlFor(p.id),
+            },
+          });
+          if (ok) {
+            await supabase.from("review_periods").update({ released_email_church_at: nowIso }).eq("id", p.id);
+            summary.releaseEmailed++;
+          } else summary.errors++;
         } catch { summary.errors++; }
       }
     }

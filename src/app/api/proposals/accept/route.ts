@@ -1,12 +1,109 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { appUrl } from "@/lib/app-url";
 import { computeFees } from "@/lib/stripe/fees";
 import { withJsonErrors } from "@/lib/api/handler";
 import { requireActiveUser } from "@/lib/api/active-user";
+import { sendTransactionalEmail } from "@/lib/email/delivery";
+import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
+import { bookingConfirmedEmail } from "@/lib/email/templates/marketplace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type BookingNoticeRow = {
+  id: string;
+  thread_id: string;
+  service_date: string;
+  fee: number | null;
+  fee_type: string | null;
+  service_requests: { title: string } | null;
+  church_profiles: {
+    church_name: string;
+    profile_id: string;
+    profiles: { email: string; display_name: string } | null;
+  } | null;
+  musician_profiles: {
+    profile_id: string;
+    profiles: { email: string; display_name: string } | null;
+  } | null;
+};
+
+function feeLabel(fee: number | null, feeType: string | null) {
+  if (fee == null) return "Fee TBD";
+  return `$${fee} ${feeType ?? "Per service"}`;
+}
+
+async function sendBookingConfirmedEmails(admin: ReturnType<typeof createAdminClient>, bookingId: string) {
+  const { data: booking } = await admin
+    .from("bookings")
+    .select(`
+      id, thread_id, service_date, fee, fee_type,
+      service_requests ( title ),
+      church_profiles ( church_name, profile_id, profiles ( email, display_name ) ),
+      musician_profiles ( profile_id, profiles ( email, display_name ) )
+    `)
+    .eq("id", bookingId)
+    .single() as unknown as { data: BookingNoticeRow | null };
+  if (!booking) return;
+
+  const event = EMAIL_EVENTS.bookingConfirmed;
+  const templateId = configuredTemplateId(event);
+  const threadUrl = appUrl(`/messages/${booking.thread_id}`);
+  const requestTitle = booking.service_requests?.title ?? "Booking";
+  const label = feeLabel(booking.fee, booking.fee_type);
+  const church = booking.church_profiles;
+  const musician = booking.musician_profiles;
+  const recipients = [
+    {
+      role: "church",
+      profileId: church?.profile_id ?? null,
+      email: church?.profiles?.email ?? null,
+      name: church?.profiles?.display_name ?? church?.church_name ?? "Church",
+      counterparty: musician?.profiles?.display_name ?? "Musician",
+    },
+    {
+      role: "musician",
+      profileId: musician?.profile_id ?? null,
+      email: musician?.profiles?.email ?? null,
+      name: musician?.profiles?.display_name ?? "Musician",
+      counterparty: church?.church_name ?? "Church",
+    },
+  ];
+
+  for (const recipient of recipients) {
+    if (!recipient.profileId || !recipient.email) continue;
+    const message = bookingConfirmedEmail({
+      to: recipient.email,
+      recipientName: recipient.name,
+      counterpartyName: recipient.counterparty,
+      requestTitle,
+      serviceDate: booking.service_date,
+      feeLabel: label,
+      threadUrl,
+    });
+    await sendTransactionalEmail({
+      eventKey: event.key,
+      category: event.category,
+      dedupeKey: `${event.key}:${booking.id}:${recipient.role}`,
+      recipientProfileId: recipient.profileId,
+      message,
+      template: templateId ? {
+        templateId,
+        variables: {
+          RECIPIENT_NAME: recipient.name,
+          COUNTERPARTY_NAME: recipient.counterparty,
+          REQUEST_TITLE: requestTitle,
+          SERVICE_DATE: booking.service_date,
+          FEE_LABEL: label,
+          THREAD_URL: threadUrl,
+        },
+      } : undefined,
+      payload: { booking_id: booking.id, thread_id: booking.thread_id, recipient_role: recipient.role },
+    });
+  }
+}
 
 // Accept a proposal. Validates that:
 //   - the caller is the musician on the thread (only musicians accept)
@@ -129,6 +226,8 @@ export const POST = withJsonErrors(async (req: Request) => {
   if (payErr && !payErr.message.includes("duplicate key")) {
     return NextResponse.json({ error: payErr.message }, { status: 500 });
   }
+
+  await sendBookingConfirmedEmails(admin, booking.id);
 
   return NextResponse.json({ ok: true });
 });

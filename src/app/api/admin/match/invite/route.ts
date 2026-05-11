@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
+import { appUrl } from "@/lib/app-url";
 import { logAdminAction } from "@/app/admin/_lib/audit";
 import { withAdminJson } from "@/app/admin/_lib/with-admin-json";
+import { sendTransactionalEmail } from "@/lib/email/delivery";
+import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
+import { messageReceivedEmail } from "@/lib/email/templates/marketplace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,6 +90,42 @@ export const POST = withAdminJson(async ({ actor, admin }, req: Request) => {
   });
   if (messageErr) {
     return NextResponse.json({ error: messageErr.message }, { status: 400 });
+  }
+
+  if (musician.profiles?.email) {
+    const event = EMAIL_EVENTS.messageReceived;
+    const threadUrl = appUrl(`/messages/${threadId}`);
+    const email = messageReceivedEmail({
+      to: musician.profiles.email,
+      recipientName: musician.profiles.display_name,
+      senderName: "Sunday Musician admin",
+      requestTitle: requestRow.title,
+      preview: message,
+      threadUrl,
+    });
+    await sendTransactionalEmail({
+      eventKey: event.key,
+      category: event.category,
+      dedupeKey: `${event.key}:admin-match:${threadId}:${musician.id}`,
+      recipientProfileId: musician.profile_id,
+      message: email,
+      template: configuredTemplateId(event) ? {
+        templateId: configuredTemplateId(event),
+        variables: {
+          RECIPIENT_NAME: musician.profiles.display_name,
+          SENDER_NAME: "Sunday Musician admin",
+          REQUEST_TITLE: requestRow.title,
+          MESSAGE_PREVIEW: message,
+          THREAD_URL: threadUrl,
+        },
+      } : undefined,
+      payload: {
+        request_id: requestRow.id,
+        thread_id: threadId,
+        musician_profile_id: musician.id,
+        source: "admin_match_assist",
+      },
+    });
   }
 
   await logAdminAction({
