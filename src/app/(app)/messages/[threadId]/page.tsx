@@ -31,18 +31,9 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
     .eq("thread_id", threadId)
     .order("created_at", { ascending: true });
 
-  // Mark thread as read for this side. Done as a fire-and-forget update —
-  // RLS guarantees this only succeeds for participants. We don't await
-  // failures because failure isn't user-facing.
   const { data: myCp } = await supabase
     .from("church_profiles").select("id").eq("profile_id", user.id).maybeSingle();
   const isChurchSide = myCp?.id === thread.church_profile_id;
-  const nowIso = new Date().toISOString();
-  if (isChurchSide) {
-    await supabase.from("threads").update({ last_read_at_church: nowIso }).eq("id", threadId);
-  } else {
-    await supabase.from("threads").update({ last_read_at_musician: nowIso }).eq("id", threadId);
-  }
 
   const { data: booking } = await supabase
     .from("bookings")
@@ -97,6 +88,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
         bookingCancellationPolicy={bookingPolicy}
         bookingCancellationPolicyLabel={booking?.cancellation_policy_label ?? null}
         bookingDisputeReviewRequired={booking?.dispute_review_required === true}
+        initialLastReadAt={isChurchSide ? thread.last_read_at_church : thread.last_read_at_musician}
+        initialUnreadCount={isChurchSide ? thread.unread_count_church : thread.unread_count_musician}
         initialMessages={(messages ?? []) as unknown as Parameters<typeof ThreadClient>[0]["initialMessages"]}
       />
     </>
