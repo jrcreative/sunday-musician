@@ -896,7 +896,7 @@
   font-variant-numeric: tabular-nums;
 }
 .a-nav-item .badge.subtle { background: var(--sm-bg-3); color: var(--sm-fg-3); }
-.a-nav-children {
+.a-sidebar .a-nav-children {
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -904,22 +904,41 @@
   padding-left: 10px;
   border-left: 1px solid var(--sm-border-subtle);
 }
-.a-nav-child {
+.a-sidebar .a-nav-child {
+  position: relative;
   display: block;
-  padding: 5px 8px;
+  padding: 5px 8px 5px 12px;
   border-radius: 3px;
   color: var(--sm-fg-3);
   font-size: 12.5px;
   font-weight: 500;
+  line-height: 1.25;
   text-decoration: none;
 }
-.a-nav-child:hover {
+.a-sidebar .a-nav-child::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--sm-fg-4);
+  transform: translateY(-50%);
+  opacity: 0.65;
+}
+.a-sidebar .a-nav-child:hover {
   background: var(--sm-bg-2);
   color: var(--sm-fg-1);
 }
-.a-nav-child[aria-current="page"] {
+.a-sidebar .a-nav-child[aria-current="page"] {
   color: var(--sm-fg-1);
   background: rgba(228,123,2,0.08);
+  font-weight: 650;
+}
+.a-sidebar .a-nav-child[aria-current="page"]::before {
+  background: var(--sm-accent);
+  opacity: 1;
 }
 
 .a-sidebar .footer {

@@ -74,6 +74,32 @@ function TemplateDrawer({
   event: EmailTemplateEvent;
   onClose: () => void;
 }) {
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function sendTest() {
+    if (testing) return;
+    setTesting(true);
+    setResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/emails/test", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ eventKey: event.key }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json.error ?? "Could not send test email");
+        return;
+      }
+      setResult(json.status === "sent" ? "Test email sent to your admin email." : "Test email recorded.");
+    } finally {
+      setTesting(false);
+    }
+  }
+
   return (
     <>
       <div className="drawer-scrim" onClick={onClose} aria-hidden />
@@ -87,6 +113,20 @@ function TemplateDrawer({
         </div>
 
         <div className="drawer-body">
+          <div className="action-row" style={{ marginBottom: 18 }}>
+            <div>
+              <div className="label">Send test email</div>
+              <div className="desc">Sends this trigger to your admin email using sample tag values.</div>
+              {result && <div style={{ color: "var(--sm-status-success)", fontSize: 12.5, marginTop: 6 }}>{result}</div>}
+              {error && <div style={{ color: "var(--sm-status-error)", fontSize: 12.5, marginTop: 6 }}>{error}</div>}
+            </div>
+            <div className="right">
+              <button className="btn btn--primary btn--sm" type="button" onClick={sendTest} disabled={testing}>
+                {testing ? "Sending..." : "Send test"}
+              </button>
+            </div>
+          </div>
+
           <div className="section-h">Trigger</div>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--sm-fg-2)" }}>
             {event.description}
