@@ -9,6 +9,8 @@ export type RequestInfo = {
   title: string;
   service_date: string;
   service_time: string | null;
+  service_end_time?: string | null;
+  service_timezone?: string | null;
   offered_fee: number | null;
   fee_type: string;
   instruments_needed: string[];
@@ -49,7 +51,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
   if (thread.request_id) {
     const { data: req } = await supabase
       .from("service_requests")
-      .select("id, title, service_date, service_time, offered_fee, fee_type, instruments_needed, rehearsals, status")
+      .select("id, title, service_date, service_time, service_end_time, service_timezone, offered_fee, fee_type, instruments_needed, rehearsals, status")
       .eq("id", thread.request_id)
       .single();
     if (req) requestInfo = req as RequestInfo;

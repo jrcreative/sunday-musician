@@ -4,6 +4,7 @@ import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
 import { scoreRequestQuality } from "@/lib/requests/quality";
+import { formatServiceTimeRange, getBrowserTimeZone, normalizeServiceTimeForInput } from "@/lib/requests/time";
 import { RequestQualityCard } from "../RequestQualityCard";
 
 const SERVICE_TYPES = [
@@ -35,6 +36,7 @@ type FormData = {
   serviceType: string;
   date: string;
   time: string;
+  endTime: string;
   useChurchLocation: boolean;
   locationAddress: string;
   locationCity: string;
@@ -58,6 +60,8 @@ type ExistingRequest = {
   service_type: string;
   service_date: string;
   service_time: string | null;
+  service_end_time?: string | null;
+  service_timezone?: string | null;
   use_church_location?: boolean;
   location_address?: string | null;
   location_city?: string | null;
@@ -116,7 +120,8 @@ export function NewRequestForm({
         title: existingRequest.title,
         serviceType: existingRequest.service_type,
         date: existingRequest.service_date,
-        time: existingRequest.service_time ?? "10:00",
+        time: normalizeServiceTimeForInput(existingRequest.service_time) || "10:00",
+        endTime: normalizeServiceTimeForInput(existingRequest.service_end_time),
         useChurchLocation: existingRequest.use_church_location ?? true,
         locationAddress: existingRequest.location_address ?? "",
         locationCity: existingRequest.location_city ?? "",
@@ -139,6 +144,7 @@ export function NewRequestForm({
       serviceType: "Sunday morning",
       date: "",
       time: "10:00",
+      endTime: "",
       useChurchLocation: true,
       locationAddress: "",
       locationCity: "",
@@ -239,7 +245,9 @@ export function NewRequestForm({
         title: data.title || "Untitled request",
         service_type: data.serviceType,
         service_date: data.date,
-        service_time: data.time || null,
+        service_time: normalizeServiceTimeForInput(data.time) || null,
+        service_end_time: normalizeServiceTimeForInput(data.endTime) || null,
+        service_timezone: getBrowserTimeZone(),
         location: data.useChurchLocation ? null : (data.locationFormattedAddress || data.locationAddress || null),
         use_church_location: data.useChurchLocation,
         location_address: data.useChurchLocation ? null : data.locationAddress || null,
@@ -340,6 +348,10 @@ export function NewRequestForm({
             <div>
               <label className="label">Service start time</label>
               <input type="time" className="input" value={data.time} onChange={e => set("time", e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Service end time</label>
+              <input type="time" className="input" value={data.endTime} onChange={e => set("endTime", e.target.value)} />
             </div>
             <div style={{ gridColumn: "1 / -1", paddingTop: 10 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14.5 }}>
@@ -569,7 +581,7 @@ export function NewRequestForm({
               rows: [
                 ["Title", data.title || <em style={{ color: "var(--sm-fg-4)" }}>untitled</em>],
                 ["Type", data.serviceType],
-                ["Date & time", data.date ? `${data.date} at ${data.time}` : <em style={{ color: "var(--sm-fg-4)" }}>not set</em>],
+                ["Date & time", data.date ? `${data.date} at ${formatServiceTimeRange(data.time, data.endTime)}` : <em style={{ color: "var(--sm-fg-4)" }}>not set</em>],
                 ["Location", data.useChurchLocation ? "Church address" : (data.locationFormattedAddress || <em style={{ color: "var(--sm-fg-4)" }}>alternate location not verified</em>)],
               ],
             },

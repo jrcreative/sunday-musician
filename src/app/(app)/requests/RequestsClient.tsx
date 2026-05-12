@@ -8,6 +8,7 @@ import {
   type RequestStatusRaw,
   requestDisplayStatus,
 } from "@/lib/requests/status";
+import { formatServiceTimeRange } from "@/lib/requests/time";
 
 type Request = {
   id: string;
@@ -15,6 +16,8 @@ type Request = {
   service_type: string;
   service_date: string;
   service_time: string | null;
+  service_end_time?: string | null;
+  service_timezone?: string | null;
   location: string | null;
   offered_fee: number | null;
   fee_type: string;
@@ -103,6 +106,7 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
                         <div style={{ fontSize: 15.5, fontWeight: 600, margin: "0 0 5px", color: "var(--sm-fg-1)" }}>{r.title}</div>
                         <div className="sm-list-card__meta" style={{ fontSize: 13.5, color: "var(--sm-fg-3)", display: "flex", gap: 14, flexWrap: "wrap" }}>
                           <span>{r.service_type}</span>
+                          {(r.service_time || r.service_end_time) && <span>· {formatServiceTimeRange(r.service_time, r.service_end_time)}</span>}
                           {r.offered_fee != null && <span>· ${r.offered_fee} {r.fee_type.toLowerCase()}</span>}
                           {r.location && <span>· {r.location}</span>}
                         </div>

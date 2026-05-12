@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cancellationPolicyFor, cancellationPolicyLine, type CancellationPolicy } from "@/lib/disputes/policy";
+import { formatServiceTimeRange } from "@/lib/requests/time";
 import type { RequestInfo } from "./page";
 
 type ProposalData = {
@@ -491,7 +492,9 @@ export function ThreadClient({
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 10 }}>Request details</div>
             <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
               <Row label="Date" value={fmtShortDate(requestInfo.service_date)} />
-              {requestInfo.service_time && <Row label="Time" value={requestInfo.service_time} />}
+              {(requestInfo.service_time || requestInfo.service_end_time) && (
+                <Row label="Time" value={formatServiceTimeRange(requestInfo.service_time, requestInfo.service_end_time)} />
+              )}
               {requestInfo.instruments_needed.length > 0 && (
                 <Row label="Instruments" value={requestInfo.instruments_needed.join(", ")} />
               )}

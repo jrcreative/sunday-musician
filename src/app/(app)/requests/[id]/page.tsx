@@ -13,6 +13,7 @@ import {
   requestDisplayStatus,
 } from "@/lib/requests/status";
 import { scoreRequestQuality } from "@/lib/requests/quality";
+import { formatServiceTimeRange } from "@/lib/requests/time";
 import { RequestQualityCard } from "../RequestQualityCard";
 
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +25,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   type RequestRow = {
     id: string; church_profile_id: string; title: string; service_type: string;
     service_date: string; service_time: string | null; location: string | null;
+    service_end_time: string | null;
+    service_timezone: string | null;
     use_church_location: boolean; location_lat: number | null; location_lng: number | null;
     location_city: string | null; location_state: string | null; location_formatted_address: string | null;
     location_verified_at: string | null;
@@ -45,6 +48,14 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
       profiles: { display_name: string; avatar_url: string | null } | null;
     } | null;
   };
+  type AcceptedBookingRow = {
+    id: string; thread_id: string; fee: number | null; fee_type: string | null; accepted_at: string;
+    musician_profiles: {
+      id: string; primary_instrument: string; city: string; state: string;
+      rating: number; review_count: number;
+      profiles: { display_name: string; avatar_url: string | null } | null;
+    } | null;
+  };
   const [{ data: request }, { data: profile }] = await Promise.all([
     supabase
       .from("service_requests")
@@ -58,11 +69,13 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
   const isMusician = profile?.role === "musician";
   const display = requestDisplayStatus(request.status, request.service_date);
+  const isFilled = display === "filled";
   const d = new Date(request.service_date + "T12:00:00");
+  const serviceTimeLabel = formatServiceTimeRange(request.service_time, request.service_end_time);
   const serviceLocation = request.use_church_location
     ? [request.church_profiles?.city, request.church_profiles?.state].filter(Boolean).join(", ")
     : request.location_formatted_address ?? [request.location_city, request.location_state].filter(Boolean).join(", ");
-  const qualityScore = scoreRequestQuality({
+  const qualityScore = !isFilled ? scoreRequestQuality({
     title: request.title,
     serviceType: request.service_type,
     serviceDate: request.service_date,
@@ -77,7 +90,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     offeredFee: request.offered_fee,
     feeType: request.fee_type,
     notes: request.notes,
-  });
+  }) : null;
   const serviceCoords = {
     lat: request.use_church_location ? request.church_profiles?.lat ?? null : request.location_lat,
     lng: request.use_church_location ? request.church_profiles?.lng ?? null : request.location_lng,
@@ -87,57 +100,153 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     : !!request.location_verified_at;
   const serviceState = request.use_church_location ? request.church_profiles?.state : request.location_state;
 
-  // Church-side: fetch applications
+  // Church-side: show booking details for filled requests, otherwise show matching workflow.
   let applications: ApplicationRow[] | null = null;
+  let acceptedBooking: AcceptedBookingRow | null = null;
   let potentialMatches: PotentialMatch[] = [];
   let unavailableMusicianIdsForRequest = new Set<string>();
   if (!isMusician) {
-    const { data } = await supabase
-      .from("applications")
-      .select("*, musician_profiles(*, profiles(display_name, avatar_url))")
-      .eq("request_id", id)
-      .order("created_at", { ascending: false }) as unknown as { data: ApplicationRow[] | null; error: unknown };
-    applications = data;
+    if (isFilled) {
+      const { data } = await supabase
+        .from("bookings")
+        .select("id, thread_id, fee, fee_type, accepted_at, musician_profiles(id, primary_instrument, city, state, rating, review_count, profiles(display_name, avatar_url))")
+        .eq("request_id", id)
+        .is("cancelled_at", null)
+        .order("accepted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle() as unknown as { data: AcceptedBookingRow | null; error: unknown };
+      acceptedBooking = data;
+    } else {
+      const { data } = await supabase
+        .from("applications")
+        .select("*, musician_profiles(*, profiles(display_name, avatar_url))")
+        .eq("request_id", id)
+        .order("created_at", { ascending: false }) as unknown as { data: ApplicationRow[] | null; error: unknown };
+      applications = data;
 
-    const [{ data: threads }, { data: blocks }, { data: musicians }] = await Promise.all([
-      supabase
-        .from("threads")
-        .select("musician_profile_id")
-        .eq("request_id", id) as unknown as Promise<{ data: { musician_profile_id: string }[] | null; error: unknown }>,
-      supabase
-        .from("unavailability_blocks")
-        .select("musician_profile_id, start_date, end_date")
-        .lte("start_date", request.service_date)
-        .gte("end_date", request.service_date) as unknown as Promise<{ data: { musician_profile_id: string; start_date: string; end_date: string }[] | null; error: unknown }>,
-      supabase
-        .from("musician_profiles")
-        .select("id, profile_id, city, state, lat, lng, address_verified_at, instruments, primary_instrument, experience_notes, gear_notes, is_volunteer, fee_min, fee_max, bio, denomination_tags, rating, review_count, available, travel_radius_miles, profiles(display_name, avatar_url, verified)")
-        .eq("available", true)
-        .limit(150) as unknown as Promise<{
-          data: Array<{
-            id: string; profile_id: string; city: string; state: string; lat: number | null; lng: number | null;
-            address_verified_at: string | null;
-            instruments: string[]; primary_instrument: string; experience_notes: string; gear_notes: string;
-            is_volunteer: boolean; fee_min: number; fee_max: number; bio: string; denomination_tags: string[];
-            rating: number; review_count: number; available: boolean; travel_radius_miles: number;
-            profiles: { display_name: string; avatar_url: string | null; verified: boolean } | null;
-          }> | null;
-          error: unknown;
-        }>,
-    ]);
+      const [{ data: threads }, { data: blocks }, { data: musicians }] = await Promise.all([
+        supabase
+          .from("threads")
+          .select("musician_profile_id")
+          .eq("request_id", id) as unknown as Promise<{ data: { musician_profile_id: string }[] | null; error: unknown }>,
+        supabase
+          .from("unavailability_blocks")
+          .select("musician_profile_id, start_date, end_date")
+          .lte("start_date", request.service_date)
+          .gte("end_date", request.service_date) as unknown as Promise<{ data: { musician_profile_id: string; start_date: string; end_date: string }[] | null; error: unknown }>,
+        supabase
+          .from("musician_profiles")
+          .select("id, profile_id, city, state, lat, lng, address_verified_at, instruments, primary_instrument, experience_notes, gear_notes, is_volunteer, fee_min, fee_max, bio, denomination_tags, rating, review_count, available, travel_radius_miles, profiles(display_name, avatar_url, verified)")
+          .eq("available", true)
+          .limit(150) as unknown as Promise<{
+            data: Array<{
+              id: string; profile_id: string; city: string; state: string; lat: number | null; lng: number | null;
+              address_verified_at: string | null;
+              instruments: string[]; primary_instrument: string; experience_notes: string; gear_notes: string;
+              is_volunteer: boolean; fee_min: number; fee_max: number; bio: string; denomination_tags: string[];
+              rating: number; review_count: number; available: boolean; travel_radius_miles: number;
+              profiles: { display_name: string; avatar_url: string | null; verified: boolean } | null;
+            }> | null;
+            error: unknown;
+          }>,
+      ]);
 
-    const contactedMusicianIds = new Set([
-      ...(applications ?? []).map(app => app.musician_profile_id),
-      ...(threads ?? []).map(thread => thread.musician_profile_id),
-    ]);
-    const unavailableMusicianIds = new Set((blocks ?? []).map(block => block.musician_profile_id));
-    unavailableMusicianIdsForRequest = unavailableMusicianIds;
-    applications = (applications ?? []).sort((a, b) => {
-      const aMp = a.musician_profiles;
-      const bMp = b.musician_profiles;
-      if (!aMp || !bMp) return Number(!!bMp) - Number(!!aMp);
-      const aScore = scoreServiceReadiness({
-        title: request.title,
+      const contactedMusicianIds = new Set([
+        ...(applications ?? []).map(app => app.musician_profile_id),
+        ...(threads ?? []).map(thread => thread.musician_profile_id),
+      ]);
+      const unavailableMusicianIds = new Set((blocks ?? []).map(block => block.musician_profile_id));
+      unavailableMusicianIdsForRequest = unavailableMusicianIds;
+      applications = (applications ?? []).sort((a, b) => {
+        const aMp = a.musician_profiles;
+        const bMp = b.musician_profiles;
+        if (!aMp || !bMp) return Number(!!bMp) - Number(!!aMp);
+        const aScore = scoreServiceReadiness({
+          title: request.title,
+          serviceType: request.service_type,
+          serviceStyle: request.church_profiles?.musical_style ?? null,
+          serviceDate: request.service_date,
+          serviceTime: request.service_time,
+          useChurchLocation: request.use_church_location,
+          churchLocationVerified: !!request.church_profiles?.address_verified_at,
+          locationVerified: !!request.location_verified_at,
+          instrumentsNeeded: request.instruments_needed,
+          rehearsals: request.rehearsals,
+          techSetup: request.tech_setup,
+          offeredFee: request.offered_fee,
+          feeType: request.fee_type,
+          setlistUrl: request.setlist_url,
+          notes: request.notes,
+          serviceCoords: serviceCoordsVerified ? serviceCoords : null,
+          serviceState,
+        }, {
+          displayName: aMp.profiles?.display_name ?? "Musician",
+          available: aMp.available,
+          instruments: aMp.instruments ?? [],
+          primaryInstrument: aMp.primary_instrument,
+          city: aMp.city,
+          state: aMp.state,
+          lat: aMp.lat,
+          lng: aMp.lng,
+          travelRadiusMiles: aMp.travel_radius_miles,
+          bio: aMp.bio,
+          denominationTags: aMp.denomination_tags ?? [],
+          experienceNotes: aMp.experience_notes,
+          gearNotes: aMp.gear_notes,
+          isVolunteer: aMp.is_volunteer,
+          feeMin: aMp.fee_min,
+          feeMax: aMp.fee_max,
+          rating: aMp.rating,
+          reviewCount: aMp.review_count,
+          blockedOnServiceDate: unavailableMusicianIds.has(aMp.id),
+        }).percent;
+        const bScore = scoreServiceReadiness({
+          title: request.title,
+          serviceType: request.service_type,
+          serviceStyle: request.church_profiles?.musical_style ?? null,
+          serviceDate: request.service_date,
+          serviceTime: request.service_time,
+          useChurchLocation: request.use_church_location,
+          churchLocationVerified: !!request.church_profiles?.address_verified_at,
+          locationVerified: !!request.location_verified_at,
+          instrumentsNeeded: request.instruments_needed,
+          rehearsals: request.rehearsals,
+          techSetup: request.tech_setup,
+          offeredFee: request.offered_fee,
+          feeType: request.fee_type,
+          setlistUrl: request.setlist_url,
+          notes: request.notes,
+          serviceCoords: serviceCoordsVerified ? serviceCoords : null,
+          serviceState,
+        }, {
+          displayName: bMp.profiles?.display_name ?? "Musician",
+          available: bMp.available,
+          instruments: bMp.instruments ?? [],
+          primaryInstrument: bMp.primary_instrument,
+          city: bMp.city,
+          state: bMp.state,
+          lat: bMp.lat,
+          lng: bMp.lng,
+          travelRadiusMiles: bMp.travel_radius_miles,
+          bio: bMp.bio,
+          denominationTags: bMp.denomination_tags ?? [],
+          experienceNotes: bMp.experience_notes,
+          gearNotes: bMp.gear_notes,
+          isVolunteer: bMp.is_volunteer,
+          feeMin: bMp.fee_min,
+          feeMax: bMp.fee_max,
+          rating: bMp.rating,
+          reviewCount: bMp.review_count,
+          blockedOnServiceDate: unavailableMusicianIds.has(bMp.id),
+        }).percent;
+        return bScore - aScore;
+      });
+      potentialMatches = buildPotentialMatches({
+        musicians: musicians ?? [],
+        instrumentsNeeded: request.instruments_needed,
+        serviceCoords,
+        serviceCoordsVerified,
+        serviceState,
         serviceType: request.service_type,
         serviceStyle: request.church_profiles?.musical_style ?? null,
         serviceDate: request.service_date,
@@ -145,99 +254,16 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         useChurchLocation: request.use_church_location,
         churchLocationVerified: !!request.church_profiles?.address_verified_at,
         locationVerified: !!request.location_verified_at,
-        instrumentsNeeded: request.instruments_needed,
         rehearsals: request.rehearsals,
         techSetup: request.tech_setup,
         offeredFee: request.offered_fee,
         feeType: request.fee_type,
         setlistUrl: request.setlist_url,
         notes: request.notes,
-        serviceCoords: serviceCoordsVerified ? serviceCoords : null,
-        serviceState,
-      }, {
-        displayName: aMp.profiles?.display_name ?? "Musician",
-        available: aMp.available,
-        instruments: aMp.instruments ?? [],
-        primaryInstrument: aMp.primary_instrument,
-        city: aMp.city,
-        state: aMp.state,
-        lat: aMp.lat,
-        lng: aMp.lng,
-        travelRadiusMiles: aMp.travel_radius_miles,
-        bio: aMp.bio,
-        denominationTags: aMp.denomination_tags ?? [],
-        experienceNotes: aMp.experience_notes,
-        gearNotes: aMp.gear_notes,
-        isVolunteer: aMp.is_volunteer,
-        feeMin: aMp.fee_min,
-        feeMax: aMp.fee_max,
-        rating: aMp.rating,
-        reviewCount: aMp.review_count,
-        blockedOnServiceDate: unavailableMusicianIds.has(aMp.id),
-      }).percent;
-      const bScore = scoreServiceReadiness({
-        title: request.title,
-        serviceType: request.service_type,
-        serviceStyle: request.church_profiles?.musical_style ?? null,
-        serviceDate: request.service_date,
-        serviceTime: request.service_time,
-        useChurchLocation: request.use_church_location,
-        churchLocationVerified: !!request.church_profiles?.address_verified_at,
-        locationVerified: !!request.location_verified_at,
-        instrumentsNeeded: request.instruments_needed,
-        rehearsals: request.rehearsals,
-        techSetup: request.tech_setup,
-        offeredFee: request.offered_fee,
-        feeType: request.fee_type,
-        setlistUrl: request.setlist_url,
-        notes: request.notes,
-        serviceCoords: serviceCoordsVerified ? serviceCoords : null,
-        serviceState,
-      }, {
-        displayName: bMp.profiles?.display_name ?? "Musician",
-        available: bMp.available,
-        instruments: bMp.instruments ?? [],
-        primaryInstrument: bMp.primary_instrument,
-        city: bMp.city,
-        state: bMp.state,
-        lat: bMp.lat,
-        lng: bMp.lng,
-        travelRadiusMiles: bMp.travel_radius_miles,
-        bio: bMp.bio,
-        denominationTags: bMp.denomination_tags ?? [],
-        experienceNotes: bMp.experience_notes,
-        gearNotes: bMp.gear_notes,
-        isVolunteer: bMp.is_volunteer,
-        feeMin: bMp.fee_min,
-        feeMax: bMp.fee_max,
-        rating: bMp.rating,
-        reviewCount: bMp.review_count,
-        blockedOnServiceDate: unavailableMusicianIds.has(bMp.id),
-      }).percent;
-      return bScore - aScore;
-    });
-    potentialMatches = buildPotentialMatches({
-      musicians: musicians ?? [],
-      instrumentsNeeded: request.instruments_needed,
-      serviceCoords,
-      serviceCoordsVerified,
-      serviceState,
-      serviceType: request.service_type,
-      serviceStyle: request.church_profiles?.musical_style ?? null,
-      serviceDate: request.service_date,
-      serviceTime: request.service_time,
-      useChurchLocation: request.use_church_location,
-      churchLocationVerified: !!request.church_profiles?.address_verified_at,
-      locationVerified: !!request.location_verified_at,
-      rehearsals: request.rehearsals,
-      techSetup: request.tech_setup,
-      offeredFee: request.offered_fee,
-      feeType: request.fee_type,
-      setlistUrl: request.setlist_url,
-      notes: request.notes,
-      contactedMusicianIds,
-      unavailableMusicianIds,
-    });
+        contactedMusicianIds,
+        unavailableMusicianIds,
+      });
+    }
   }
 
   // Musician-side: check if they have a thread for this request
@@ -284,7 +310,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                   <span>{request.service_type}</span>
                   <span>·</span>
                   <span>{d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
-                  {request.service_time && <><span>·</span><span>{request.service_time}</span></>}
+                  {serviceTimeLabel && <><span>·</span><span>{serviceTimeLabel}</span></>}
                   {serviceLocation && <><span>·</span><span>{serviceLocation}</span></>}
                 </div>
               </div>
@@ -341,14 +367,64 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               </div>
             )}
 
-            {!isMusician && (
+            {!isMusician && qualityScore && (
               <div style={{ marginBottom: 32 }}>
                 <RequestQualityCard score={qualityScore} />
               </div>
             )}
 
-            {/* Church view: applicants */}
-            {!isMusician && (
+            {/* Church view */}
+            {!isMusician && isFilled && (
+              <section style={{ marginBottom: 32 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 16px" }}>
+                  Confirmed musician
+                </h3>
+                {acceptedBooking?.musician_profiles ? (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "18px 20px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
+                    <Avatar
+                      src={acceptedBooking.musician_profiles.profiles?.avatar_url}
+                      name={acceptedBooking.musician_profiles.profiles?.display_name ?? "Musician"}
+                      size={52}
+                      colorIndex={0}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
+                        <Link href={`/musicians/${acceptedBooking.musician_profiles.id}`} style={{ fontWeight: 700, fontSize: 16, color: "var(--sm-fg-1)", textDecoration: "none" }}>
+                          {acceptedBooking.musician_profiles.profiles?.display_name ?? "Musician"}
+                        </Link>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sm-status-success)", background: "rgba(16, 122, 82, 0.08)", padding: "2px 7px", borderRadius: 10 }}>
+                          Accepted
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13.5, color: "var(--sm-fg-3)", marginBottom: 10 }}>
+                        {acceptedBooking.musician_profiles.primary_instrument} · {acceptedBooking.musician_profiles.city}, {acceptedBooking.musician_profiles.state}
+                      </div>
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 13, color: "var(--sm-fg-3)" }}>
+                        <span>
+                          {acceptedBooking.fee != null ? `$${acceptedBooking.fee} / ${(acceptedBooking.fee_type ?? request.fee_type).toLowerCase()}` : "Fee not set"}
+                        </span>
+                        <span>
+                          Accepted {new Date(acceptedBooking.accepted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </span>
+                        <span style={{ color: acceptedBooking.musician_profiles.rating > 0 ? "var(--sm-accent)" : "var(--sm-fg-4)" }}>
+                          ★ {acceptedBooking.musician_profiles.rating > 0 ? acceptedBooking.musician_profiles.rating : "New"}{acceptedBooking.musician_profiles.review_count > 0 ? ` (${acceptedBooking.musician_profiles.review_count})` : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                      <Link href={`/musicians/${acceptedBooking.musician_profiles.id}`} className="btn btn--ghost btn--sm">Profile</Link>
+                      <Link href={`/messages/${acceptedBooking.thread_id}`} className="btn btn--primary btn--sm">Message</Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: "28px 24px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", color: "var(--sm-fg-3)", background: "var(--sm-bg-1)" }}>
+                    This request is filled, but the accepted musician details are not available.
+                  </div>
+                )}
+              </section>
+            )}
+
+            {!isMusician && !isFilled && (
               <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
                 <div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -554,17 +630,17 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               <dd style={{ margin: "0 0 16px", fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>
                 {d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
               </dd>
-              {request.service_time && (
+              {serviceTimeLabel && (
                 <>
                   <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Time</dt>
-                  <dd style={{ margin: "0 0 16px", fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>{request.service_time}</dd>
+                  <dd style={{ margin: "0 0 16px", fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>{serviceTimeLabel}</dd>
                 </>
               )}
               <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Status</dt>
               <dd style={{ margin: isMusician ? 0 : "0 0 16px" }}>
                 <span className={REQUEST_STATUS_CHIP[display]}>{REQUEST_STATUS_LABEL[display]}</span>
               </dd>
-              {!isMusician && (
+              {!isMusician && !isFilled && (
                 <>
                   <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Applicants</dt>
                   <dd style={{ margin: 0, fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>
@@ -589,6 +665,16 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                     ← Back to requests
                   </Link>
                 </>
+              ) : isFilled ? (
+                acceptedBooking ? (
+                  <Link href={`/messages/${acceptedBooking.thread_id}`} className="btn btn--primary" style={{ textAlign: "center", textDecoration: "none" }}>
+                    View conversation
+                  </Link>
+                ) : (
+                  <Link href="/requests" className="btn btn--ghost" style={{ textAlign: "center", textDecoration: "none" }}>
+                    ← Back to requests
+                  </Link>
+                )
               ) : (
                 <Link href="/find" className="btn btn--primary" style={{ textAlign: "center", textDecoration: "none" }}>
                   Find a musician

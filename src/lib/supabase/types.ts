@@ -199,6 +199,8 @@ export type Database = {
           service_type: string;
           service_date: string;
           service_time: string | null;
+          service_end_time: string | null;
+          service_timezone: string | null;
           location: string | null;
           use_church_location: boolean;
           location_address: string | null;

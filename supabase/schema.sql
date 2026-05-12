@@ -130,6 +130,8 @@ create table service_requests (
   service_type       text not null,
   service_date       date not null,
   service_time       time,
+  service_end_time   time,
+  service_timezone   text,
   location           text,
   use_church_location boolean not null default true,
   location_address   text,

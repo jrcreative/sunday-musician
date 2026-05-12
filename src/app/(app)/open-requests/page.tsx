@@ -9,6 +9,8 @@ export type OpenRequest = {
   service_type: string;
   service_date: string;
   service_time: string | null;
+  service_end_time: string | null;
+  service_timezone: string | null;
   offered_fee: number | null;
   fee_type: string;
   instruments_needed: string[];
@@ -137,13 +139,13 @@ export default async function OpenRequestsPage() {
 
   const { data: rows } = await supabase
     .from("service_requests")
-    .select("id, title, service_type, service_date, service_time, offered_fee, fee_type, instruments_needed, rehearsals, tech_setup, setlist_url, notes, status, church_profile_id, use_church_location, location_lat, location_lng, location_city, location_state, location_formatted_address, location_verified_at, church_profiles(church_name, city, state, lat, lng, address_verified_at, musical_style)")
+    .select("id, title, service_type, service_date, service_time, service_end_time, service_timezone, offered_fee, fee_type, instruments_needed, rehearsals, tech_setup, setlist_url, notes, status, church_profile_id, use_church_location, location_lat, location_lng, location_city, location_state, location_formatted_address, location_verified_at, church_profiles(church_name, city, state, lat, lng, address_verified_at, musical_style)")
     .eq("status", "open")
     .gte("service_date", today)
     .order("service_date", { ascending: true }) as unknown as {
       data: Array<{
         id: string; title: string; service_type: string; service_date: string;
-        service_time: string | null; offered_fee: number | null; fee_type: string;
+        service_time: string | null; service_end_time: string | null; service_timezone: string | null; offered_fee: number | null; fee_type: string;
         instruments_needed: string[]; rehearsals: string; notes: string | null;
         tech_setup: string[]; setlist_url: string | null;
         status: string; church_profile_id: string; use_church_location: boolean;
@@ -165,6 +167,8 @@ export default async function OpenRequestsPage() {
       service_type: r.service_type,
       service_date: r.service_date,
       service_time: r.service_time,
+      service_end_time: r.service_end_time,
+      service_timezone: r.service_timezone,
       offered_fee: r.offered_fee,
       fee_type: r.fee_type,
       instruments_needed: r.instruments_needed,

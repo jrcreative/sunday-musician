@@ -6,12 +6,15 @@ import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
 import { requestCreatedChurchEmail } from "@/lib/email/templates/requests";
 import { uniqueInstruments } from "@/lib/instruments";
 import { verifyUsAddress, type VerifiedAddress } from "@/lib/locations/verification";
+import { normalizeServiceTimeForInput } from "@/lib/requests/time";
 
 type RequestPayload = {
   title?: string;
   service_type?: string;
   service_date?: string;
   service_time?: string | null;
+  service_end_time?: string | null;
+  service_timezone?: string | null;
   location?: string | null;
   use_church_location?: boolean;
   location_address?: string | null;
@@ -79,7 +82,9 @@ export async function POST(req: Request) {
     title: body.title || "Untitled request",
     service_type: body.service_type || "Sunday morning",
     service_date: body.service_date,
-    service_time: body.service_time || null,
+    service_time: normalizeServiceTimeForInput(body.service_time) || null,
+    service_end_time: normalizeServiceTimeForInput(body.service_end_time) || null,
+    service_timezone: body.service_timezone?.trim() || null,
     location: useChurchLocation ? null : alternateLocation?.formattedAddress ?? null,
     use_church_location: useChurchLocation,
     location_address: useChurchLocation ? null : body.location_address?.trim() || null,

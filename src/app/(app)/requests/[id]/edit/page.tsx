@@ -11,7 +11,7 @@ export default async function EditRequestPage({ params }: { params: Promise<{ id
 
   const { data: request } = await supabase
     .from("service_requests")
-    .select("id, title, service_type, service_date, service_time, use_church_location, location_address, location_city, location_state, location_zip, location_lat, location_lng, location_formatted_address, location_verified_at, instruments_needed, rehearsals, setlist_url, tech_setup, offered_fee, fee_type, notes, church_profile_id")
+    .select("id, title, service_type, service_date, service_time, service_end_time, service_timezone, use_church_location, location_address, location_city, location_state, location_zip, location_lat, location_lng, location_formatted_address, location_verified_at, instruments_needed, rehearsals, setlist_url, tech_setup, offered_fee, fee_type, notes, church_profile_id")
     .eq("id", id)
     .single();
 
@@ -38,6 +38,8 @@ export default async function EditRequestPage({ params }: { params: Promise<{ id
           service_type: request.service_type,
           service_date: request.service_date,
           service_time: request.service_time,
+          service_end_time: request.service_end_time,
+          service_timezone: request.service_timezone,
           use_church_location: request.use_church_location,
           location_address: request.location_address,
           location_city: request.location_city,
