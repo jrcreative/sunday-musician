@@ -6,6 +6,7 @@ import type { OpenRequest, MusicianMeta } from "./page";
 import { INSTRUMENT_OPTIONS, instrumentsOverlap, uniqueInstruments } from "@/lib/instruments";
 import { distanceMiles } from "@/lib/locations/distance";
 import { scoreServiceReadiness, type ServiceReadinessScore } from "@/lib/matches/readiness";
+import { formatServiceTimeRange } from "@/lib/requests/time";
 
 type ScoredOpenRequest = OpenRequest & {
   readiness: ServiceReadinessScore;
@@ -256,6 +257,7 @@ function RequestCard({ r, myInstruments }: { r: ScoredOpenRequest; myInstruments
           <span style={{ fontWeight: 500, color: "var(--sm-fg-2)" }}>{r.church_name}</span>
           {location && <span>· {location}</span>}
           <span>· {r.service_type}</span>
+          {(r.service_time || r.service_end_time) && <span>· {formatServiceTimeRange(r.service_time, r.service_end_time)}</span>}
           {r.offered_fee != null && <span>· ${r.offered_fee} {r.fee_type.toLowerCase()}</span>}
         </div>
         {r.instruments_needed.length > 0 && (
