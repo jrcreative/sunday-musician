@@ -102,9 +102,8 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          <div className="sm-split sm-split--with-aside" style={{ gap: 28 }}>
-            <div>
-              <div className="sm-row-3" style={{ marginBottom: 32 }}>
+          <div>
+            <div className="sm-row-3" style={{ marginBottom: 32 }}>
                 {[
                   { label: "Open requests", val: openCount, sub: "awaiting reply" },
                   { label: "Filled", val: filledCount, sub: "this month" },
@@ -155,21 +154,6 @@ export default async function DashboardPage() {
                   <Link href="/requests/new" className="btn btn--primary">Post a request</Link>
                 </div>
               )}
-            </div>
-
-            <div style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 16px" }}>Quick links</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {[
-                  { href: "/find", label: "Find musicians" },
-                  { href: "/messages", label: "Messages" },
-                  { href: "/requests", label: "All requests" },
-                ].map(({ href, label }) => (
-                  <Link key={href} href={href} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderTop: "1px solid var(--sm-border-subtle)", color: "var(--sm-fg-1)", textDecoration: "none", fontSize: 14.5, fontWeight: 500 }}>
-                    {label} <span style={{ color: "var(--sm-fg-4)" }}>→</span>
-                  </Link>
-                ))}
-              </div>
             </div>
           </div>
         </div>
