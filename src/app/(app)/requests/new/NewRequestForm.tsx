@@ -466,10 +466,10 @@ export function NewRequestForm({
               </select>
             </div>
             <div>
-              <label className="label">Setlist / repertoire link</label>
-              <input className="input" placeholder="Planning Center, shared doc, or Spotify playlist"
+              <label className="label">Setlist / music reference link <span style={{ fontWeight: 400, color: "var(--sm-fg-4)" }}>(optional)</span></label>
+              <input className="input" placeholder="Spotify playlist, YouTube link, Planning Center, shared doc…"
                 value={data.setlistUrl} onChange={e => set("setlistUrl", e.target.value)} />
-              <div style={{ fontSize: 12.5, color: "var(--sm-fg-4)", marginTop: 5 }}>Optional. Helps musicians know if they&apos;re a fit.</div>
+              <div style={{ fontSize: 12.5, color: "var(--sm-fg-4)", marginTop: 5 }}>Spotify and YouTube links will be embedded so musicians can preview the music directly in their request view.</div>
             </div>
           </div>
         </div>

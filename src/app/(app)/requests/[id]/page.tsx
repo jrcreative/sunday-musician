@@ -16,6 +16,70 @@ import { scoreRequestQuality } from "@/lib/requests/quality";
 import { formatServiceTimeRange } from "@/lib/requests/time";
 import { RequestQualityCard } from "../RequestQualityCard";
 
+function renderMusicLink(url: string): React.ReactNode {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace(/^www\./, "");
+
+    // Spotify embed
+    if (hostname === "open.spotify.com" || hostname === "spotify.com") {
+      // pathname looks like /track/ID or /playlist/ID or /album/ID
+      const embedUrl = url.replace(
+        /^https?:\/\/(www\.)?open\.spotify\.com\//,
+        "https://open.spotify.com/embed/"
+      ).split("?")[0]; // strip query params
+      const isTrack = parsed.pathname.startsWith("/track/");
+      return (
+        <iframe
+          src={embedUrl}
+          width="100%"
+          height={isTrack ? 80 : 152}
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          loading="lazy"
+          style={{ border: "none", borderRadius: 8, display: "block" }}
+        />
+      );
+    }
+
+    // YouTube embed
+    if (hostname === "youtube.com" || hostname === "youtu.be" || hostname === "m.youtube.com") {
+      let videoId: string | null = null;
+      if (hostname === "youtu.be") {
+        videoId = parsed.pathname.slice(1).split("?")[0];
+      } else {
+        videoId = parsed.searchParams.get("v");
+      }
+      if (videoId) {
+        return (
+          <iframe
+            src={`https://www.youtube.com/embed/${videoId}`}
+            width="100%"
+            height={300}
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            allowFullScreen
+            style={{ border: "none", borderRadius: 8, display: "block" }}
+          />
+        );
+      }
+    }
+  } catch {
+    // Fall through to generic link if URL parsing fails
+  }
+
+  // Generic link fallback
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: "var(--sm-accent)", fontSize: 14.5, textDecoration: "underline" }}
+    >
+      View setlist / music reference →
+    </a>
+  );
+}
+
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
@@ -351,11 +415,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
               {request.setlist_url && (
                 <div>
-                  <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Setlist</h3>
-                  <a href={request.setlist_url} target="_blank" rel="noopener noreferrer"
-                    style={{ color: "var(--sm-accent)", fontSize: 14.5, textDecoration: "underline" }}>
-                    View setlist →
-                  </a>
+                  <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Setlist / Music Reference</h3>
+                  {renderMusicLink(request.setlist_url)}
                 </div>
               )}
             </div>
