@@ -20,7 +20,7 @@ type Message = {
   kind: "text" | "proposal";
   body: string | null;
   proposal: ProposalData | null;
-  proposal_status: "pending" | "accepted" | null;
+  proposal_status: "pending" | "accepted" | "declined" | "countered" | null;
   created_at: string;
 };
 
@@ -273,7 +273,17 @@ export function ThreadClient({
       body: JSON.stringify({ threadId, kind: "proposal", proposal }),
     });
     const data = await res.json().catch(() => null);
-    if (res.ok && data) setMessages(prev => [...prev, data as Message]);
+    if (res.ok && data) {
+      setMessages(prev => [
+        // Mark any previously pending proposals as superseded
+        ...prev.map(m =>
+          m.kind === "proposal" && m.proposal_status === "pending"
+            ? { ...m, proposal_status: "declined" as const }
+            : m
+        ),
+        data as Message,
+      ]);
+    }
     setSendingProposal(false);
   }
 
@@ -756,19 +766,20 @@ function ProposalBubble({
   const p = msg.proposal;
   const accepted = msg.proposal_status === "accepted";
   const pending = msg.proposal_status === "pending";
+  const superseded = msg.proposal_status === "declined";
   const canAccept = !isChurchSide && pending;
 
   return (
-    <div style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start" }}>
+    <div style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start", opacity: superseded ? 0.5 : 1 }}>
       <div style={{
-        maxWidth: "75%", border: `1.5px solid ${accepted ? "rgba(22,163,74,0.35)" : "var(--sm-accent)"}`,
+        maxWidth: "75%", border: `1.5px solid ${accepted ? "rgba(22,163,74,0.35)" : superseded ? "var(--sm-border-subtle)" : "var(--sm-accent)"}`,
         borderRadius: 10, background: "var(--sm-bg-1)", overflow: "hidden",
         borderBottomRightRadius: isMe ? 3 : 10, borderBottomLeftRadius: isMe ? 10 : 3,
       }}>
         {/* Proposal header */}
-        <div style={{ padding: "9px 14px 8px", background: accepted ? "rgba(22,163,74,0.06)" : "rgba(228,123,2,0.06)", borderBottom: `1px solid ${accepted ? "rgba(22,163,74,0.15)" : "rgba(228,123,2,0.15)"}`, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13.5, fontWeight: 700, color: accepted ? "var(--sm-status-success)" : "var(--sm-accent)" }}>
-            {accepted ? "✓ Agreed terms" : "📋 Proposal"}
+        <div style={{ padding: "9px 14px 8px", background: accepted ? "rgba(22,163,74,0.06)" : superseded ? "var(--sm-bg-2)" : "rgba(228,123,2,0.06)", borderBottom: `1px solid ${accepted ? "rgba(22,163,74,0.15)" : superseded ? "var(--sm-border-subtle)" : "rgba(228,123,2,0.15)"}`, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: accepted ? "var(--sm-status-success)" : superseded ? "var(--sm-fg-4)" : "var(--sm-accent)" }}>
+            {accepted ? "✓ Agreed terms" : superseded ? "Proposal" : "📋 Proposal"}
           </span>
           <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--sm-fg-4)" }}>
             {isMe ? `You sent` : `from ${otherName.split(" ")[0]}`}
@@ -814,6 +825,9 @@ function ProposalBubble({
           )}
           {pending && isMe && (
             <span style={{ fontSize: 12.5, color: "var(--sm-fg-4)" }}>Awaiting response…</span>
+          )}
+          {superseded && (
+            <span style={{ fontSize: 12, color: "var(--sm-fg-4)", fontStyle: "italic" }}>Superseded</span>
           )}
         </div>
       </div>
