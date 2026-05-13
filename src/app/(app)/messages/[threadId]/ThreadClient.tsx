@@ -599,7 +599,7 @@ export function ThreadClient({
                   {latestProposal.proposal?.notes && <Row label="Notes" value={latestProposal.proposal.notes} />}
                 </dl>
                 <p style={{ fontSize: 12, color: "var(--sm-fg-4)", marginTop: 12, lineHeight: 1.4 }}>
-                  See the proposal in the chat to accept.
+                  See the church's proposal in the chat to accept their terms.
                 </p>
               </>
             )}
@@ -768,7 +768,7 @@ function ProposalBubble({
         {/* Proposal header */}
         <div style={{ padding: "9px 14px 8px", background: accepted ? "rgba(22,163,74,0.06)" : "rgba(228,123,2,0.06)", borderBottom: `1px solid ${accepted ? "rgba(22,163,74,0.15)" : "rgba(228,123,2,0.15)"}`, display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 13.5, fontWeight: 700, color: accepted ? "var(--sm-status-success)" : "var(--sm-accent)" }}>
-            {accepted ? "✓ Agreed terms" : "📋 Proposal"}
+            {accepted ? "✓ Church's terms accepted" : "📋 Church's Proposal"}
           </span>
           <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--sm-fg-4)" }}>
             {isMe ? `You sent` : `from ${otherName.split(" ")[0]}`}
@@ -806,11 +806,11 @@ function ProposalBubble({
               disabled={accepting === msg.id}
               onClick={() => onAccept(msg.id)}
             >
-              {accepting === msg.id ? "Accepting…" : "Accept terms"}
+              {accepting === msg.id ? "Accepting…" : "Accept church's terms"}
             </button>
           )}
           {accepted && (
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--sm-status-success)" }}>✓ Accepted</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--sm-status-success)" }}>✓ You accepted</span>
           )}
           {pending && isMe && (
             <span style={{ fontSize: 12.5, color: "var(--sm-fg-4)" }}>Awaiting response…</span>
