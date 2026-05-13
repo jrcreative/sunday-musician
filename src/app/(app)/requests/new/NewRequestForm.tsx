@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Fragment } from "react";
+import { useState, Fragment, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
 import { scoreRequestQuality } from "@/lib/requests/quality";
@@ -163,6 +163,7 @@ export function NewRequestForm({
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [verifyingLocation, setVerifyingLocation] = useState(false);
+  const [locationVerifyError, setLocationVerifyError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [data, setData] = useState<FormData>(() => {
@@ -260,20 +261,22 @@ export function NewRequestForm({
       locationLat: null,
       locationLng: null,
     }));
+    setLocationVerifyError(null);
   }
 
-  async function verifyRequestLocation() {
+  const verifyRequestLocation = useCallback(async (fields: { address: string; city: string; state: string; zip: string }) => {
+    if (!fields.address || !fields.city || !fields.state || !fields.zip) return;
     setVerifyingLocation(true);
-    setError(null);
+    setLocationVerifyError(null);
     try {
       const res = await fetch("/api/locations/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          address: data.locationAddress,
-          city: data.locationCity,
-          state: data.locationState,
-          zip: data.locationZip,
+          address: fields.address,
+          city: fields.city,
+          state: fields.state,
+          zip: fields.zip,
         }),
       });
       const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddress> & { error?: string };
@@ -290,10 +293,24 @@ export function NewRequestForm({
         locationZip: payload.zip ?? d.locationZip,
       }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not verify location");
+      setLocationVerifyError(e instanceof Error ? e.message : "Could not verify location");
     } finally {
       setVerifyingLocation(false);
     }
+  }, []);
+
+  function handleZipBlur() {
+    setData(current => {
+      if (current.locationAddress && current.locationCity && current.locationState && current.locationZip && !current.locationFormattedAddress) {
+        verifyRequestLocation({
+          address: current.locationAddress,
+          city: current.locationCity,
+          state: current.locationState,
+          zip: current.locationZip,
+        });
+      }
+      return current;
+    });
   }
 
   async function handleSubmit() {
@@ -510,17 +527,26 @@ export function NewRequestForm({
                     </div>
                     <div>
                       <label className="label">ZIP code</label>
-                      <input className="input" value={data.locationZip} onChange={e => { set("locationZip", e.target.value); clearRequestLocationVerification(); }} />
+                      <input className="input" value={data.locationZip} onChange={e => { set("locationZip", e.target.value); clearRequestLocationVerification(); }} onBlur={handleZipBlur} />
                     </div>
                   </div>
-                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <button type="button" className="btn btn--secondary btn--sm" onClick={verifyRequestLocation} disabled={verifyingLocation || !data.locationAddress || !data.locationCity || !data.locationState}>
-                      {verifyingLocation ? "Verifying..." : "Verify service location"}
-                    </button>
-                    {data.locationFormattedAddress ? (
-                      <span style={{ fontSize: 13, color: "var(--sm-status-success)" }}>Verified: {data.locationFormattedAddress}</span>
+                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {verifyingLocation ? (
+                      <span style={{ fontSize: 13, color: "var(--sm-fg-3)" }}>Verifying address...</span>
+                    ) : data.locationFormattedAddress ? (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sm-status-success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                          <path d="M20 6 9 17l-5-5"/>
+                        </svg>
+                        <span style={{ fontSize: 13, color: "var(--sm-status-success)", flex: 1 }}>{data.locationFormattedAddress}</span>
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={clearRequestLocationVerification} style={{ fontSize: 12 }}>
+                          Edit address
+                        </button>
+                      </>
+                    ) : locationVerifyError ? (
+                      <span style={{ fontSize: 13, color: "var(--sm-status-error)" }}>{locationVerifyError} — check your address and move away from the ZIP field to retry.</span>
                     ) : (
-                      <span style={{ fontSize: 13, color: "var(--sm-fg-4)" }}>Required for accurate alternate-location matching.</span>
+                      <span style={{ fontSize: 13, color: "var(--sm-fg-4)" }}>Fill in all fields — address will verify automatically.</span>
                     )}
                   </div>
                 </div>
@@ -790,7 +816,13 @@ export function NewRequestForm({
           </button>
         )}
         {step < 3 ? (
-          <button type="button" className="btn btn--primary" onClick={() => setStep(s => s + 1)}>
+          <button
+            type="button"
+            className="btn btn--primary"
+            disabled={step === 0 && !data.useChurchLocation && !data.locationFormattedAddress}
+            title={step === 0 && !data.useChurchLocation && !data.locationFormattedAddress ? "Verify the service location before continuing" : undefined}
+            onClick={() => setStep(s => s + 1)}
+          >
             Continue →
           </button>
         ) : (

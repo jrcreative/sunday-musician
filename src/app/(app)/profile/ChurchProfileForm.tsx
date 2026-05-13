@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 import { AvatarUploader } from "./AvatarUploader";
@@ -71,22 +71,25 @@ export function ChurchProfileForm({
     };
   });
   const [verifyingAddress, setVerifyingAddress] = useState(false);
+  const [addressVerifyError, setAddressVerifyError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function clearAddressVerification() {
     setVerifiedAddress(null);
+    setAddressVerifyError(null);
   }
 
-  async function verifyAddress() {
+  const verifyAddress = useCallback(async (fields: { address: string; city: string; state: string; zip: string }) => {
+    if (!fields.address || !fields.city || !fields.state || !fields.zip) return;
     setVerifyingAddress(true);
-    setError(null);
+    setAddressVerifyError(null);
     try {
       const res = await fetch("/api/locations/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, city, state: stateVal, zip }),
+        body: JSON.stringify({ address: fields.address, city: fields.city, state: fields.state, zip: fields.zip }),
       });
       const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddress> & { error?: string };
       if (!res.ok || typeof payload.lat !== "number" || typeof payload.lng !== "number" || !payload.formattedAddress) {
@@ -96,14 +99,20 @@ export function ChurchProfileForm({
         formattedAddress: payload.formattedAddress,
         lat: payload.lat,
         lng: payload.lng,
-        city: payload.city ?? city,
-        state: payload.state ?? stateVal,
-        zip: payload.zip ?? zip,
+        city: payload.city ?? fields.city,
+        state: payload.state ?? fields.state,
+        zip: payload.zip ?? fields.zip,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not verify address");
+      setAddressVerifyError(e instanceof Error ? e.message : "Could not verify address");
     } finally {
       setVerifyingAddress(false);
+    }
+  }, []);
+
+  function handleZipBlur(currentAddress: string, currentCity: string, currentState: string, currentZip: string) {
+    if (currentAddress && currentCity && currentState && currentZip && !verifiedAddress) {
+      verifyAddress({ address: currentAddress, city: currentCity, state: currentState, zip: currentZip });
     }
   }
 
@@ -187,17 +196,26 @@ export function ChurchProfileForm({
           </div>
           <div className="field">
             <label className="label" htmlFor="zip">ZIP code</label>
-            <input id="zip" type="text" className="input" value={zip} onChange={e => { setZip(e.target.value); clearAddressVerification(); }} placeholder="78701" />
+            <input id="zip" type="text" className="input" value={zip} onChange={e => { setZip(e.target.value); clearAddressVerification(); }} onBlur={() => handleZipBlur(address, city, stateVal, zip)} placeholder="78701" />
           </div>
         </div>
-        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <button type="button" className="btn btn--secondary btn--sm" onClick={verifyAddress} disabled={verifyingAddress || !address || !city || !stateVal}>
-            {verifyingAddress ? "Verifying..." : "Verify address"}
-          </button>
-          {verifiedAddress ? (
-            <span style={{ fontSize: 13, color: "var(--sm-status-success)" }}>Verified: {verifiedAddress.formattedAddress}</span>
+        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {verifyingAddress ? (
+            <span style={{ fontSize: 13, color: "var(--sm-fg-3)" }}>Verifying address...</span>
+          ) : verifiedAddress ? (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sm-status-success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              <span style={{ fontSize: 13, color: "var(--sm-status-success)", flex: 1 }}>{verifiedAddress.formattedAddress}</span>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={clearAddressVerification} style={{ fontSize: 12 }}>
+                Edit address
+              </button>
+            </>
+          ) : addressVerifyError ? (
+            <span style={{ fontSize: 13, color: "var(--sm-status-error)" }}>{addressVerifyError} — check your address and move away from the ZIP field to retry.</span>
           ) : (
-            <span style={{ fontSize: 13, color: "var(--sm-fg-4)" }}>Verification enables accurate musician distance matching.</span>
+            <span style={{ fontSize: 13, color: "var(--sm-fg-4)" }}>Fill in all fields — address will verify automatically.</span>
           )}
         </div>
       </Section>
