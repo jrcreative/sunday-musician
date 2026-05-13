@@ -284,15 +284,24 @@ export function AvailabilityClient({
             {available ? "Churches can find you and send requests." : "You won't appear in search results."}
           </div>
         </div>
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
-          <input
-            type="checkbox"
-            checked={available}
-            onChange={e => toggleMaster(e.target.checked)}
-            style={{ accentColor: "var(--sm-accent)", width: 16, height: 16 }}
-          />
-          {available ? "On" : "Off"}
-        </label>
+        <button
+          role="switch"
+          aria-checked={available}
+          onClick={() => toggleMaster(!available)}
+          aria-label={available ? "Pause bookings" : "Enable bookings"}
+          style={{
+            position: "relative", display: "inline-flex", alignItems: "center",
+            width: 48, height: 26, borderRadius: 13, border: "none", cursor: "pointer",
+            background: available ? "var(--sm-accent)" : "var(--sm-border-subtle)",
+            transition: "background 0.2s", padding: 0, flexShrink: 0,
+          }}
+        >
+          <span style={{
+            position: "absolute", left: available ? 24 : 2, width: 22, height: 22,
+            borderRadius: "50%", background: "#fff",
+            transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+          }} />
+        </button>
       </div>
 
       {error && (
