@@ -88,6 +88,7 @@ export function AvailabilityClient({
   const [calBusy, setCalBusy] = useState(false);
   const [calError, setCalError] = useState<string | null>(null);
   const [busyConn, setBusyConn] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Calendar nav state
   const now = new Date();
@@ -249,6 +250,36 @@ export function AvailabilityClient({
           {error}
         </div>
       )}
+
+      {/* Subscribe to calendar */}
+      {(() => {
+        const icsUrl = `https://app.sundaymusician.com/api/calendar/${musicianId}`;
+        return (
+          <div style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", padding: 18, marginBottom: 24 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--sm-fg-1)", marginBottom: 4 }}>Share your bookings with other calendars</div>
+            <div style={{ fontSize: 13, color: "var(--sm-fg-3)", marginBottom: 12 }}>
+              Paste this link into Google Calendar, Apple Calendar, or Outlook to automatically sync your Sunday Musician bookings.
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                readOnly
+                value={icsUrl}
+                style={{ flex: 1, fontSize: 13, padding: "8px 10px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-2)", color: "var(--sm-fg-2)", minWidth: 0 }}
+                onFocus={e => e.target.select()}
+              />
+              <button
+                className="btn btn--secondary btn--sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(icsUrl).then(() => setCopied(true));
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+              >
+                {copied ? "Copied!" : "Copy link"}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Connected calendars */}
       <div style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", padding: 18, marginBottom: 24 }}>
