@@ -16,6 +16,28 @@ import { scoreRequestQuality } from "@/lib/requests/quality";
 import { formatServiceTimeRange } from "@/lib/requests/time";
 import { RequestQualityCard } from "../RequestQualityCard";
 
+function spotifyPlaylistEmbedUrl(rawUrl: string) {
+  const value = rawUrl.trim();
+  if (!value || value.startsWith("<")) return null;
+
+  const uriMatch = value.match(/^spotify:playlist:([A-Za-z0-9]+)$/);
+  if (uriMatch) return `https://open.spotify.com/embed/playlist/${uriMatch[1]}`;
+
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/^www\./, "");
+    if (host !== "open.spotify.com") return null;
+
+    const parts = url.pathname.split("/").filter(Boolean);
+    const playlistIndex = parts.indexOf("playlist");
+    const playlistId = playlistIndex >= 0 ? parts[playlistIndex + 1] : null;
+
+    return playlistId ? `https://open.spotify.com/embed/playlist/${playlistId}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
@@ -99,6 +121,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     ? !!request.church_profiles?.address_verified_at
     : !!request.location_verified_at;
   const serviceState = request.use_church_location ? request.church_profiles?.state : request.location_state;
+  const spotifySetlistEmbedUrl = request.setlist_url ? spotifyPlaylistEmbedUrl(request.setlist_url) : null;
 
   // Church-side: show booking details for filled requests, otherwise show matching workflow.
   let applications: ApplicationRow[] | null = null;
@@ -350,12 +373,34 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               )}
 
               {request.setlist_url && (
-                <div>
+                <div style={spotifySetlistEmbedUrl ? { gridColumn: "1 / -1" } : undefined}>
                   <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Setlist</h3>
-                  <a href={request.setlist_url} target="_blank" rel="noopener noreferrer"
-                    style={{ color: "var(--sm-accent)", fontSize: 14.5, textDecoration: "underline" }}>
-                    View setlist →
-                  </a>
+                  {spotifySetlistEmbedUrl ? (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <iframe
+                        src={spotifySetlistEmbedUrl}
+                        title={`${request.title} Spotify playlist`}
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        loading="lazy"
+                        style={{
+                          width: "100%",
+                          height: 352,
+                          border: 0,
+                          borderRadius: "var(--sm-radius-sm)",
+                          background: "var(--sm-bg-3)",
+                        }}
+                      />
+                      <a href={request.setlist_url} target="_blank" rel="noopener noreferrer"
+                        style={{ color: "var(--sm-accent)", fontSize: 13.5, textDecoration: "underline" }}>
+                        Open playlist in Spotify →
+                      </a>
+                    </div>
+                  ) : (
+                    <a href={request.setlist_url} target="_blank" rel="noopener noreferrer"
+                      style={{ color: "var(--sm-accent)", fontSize: 14.5, textDecoration: "underline" }}>
+                      View setlist →
+                    </a>
+                  )}
                 </div>
               )}
             </div>
