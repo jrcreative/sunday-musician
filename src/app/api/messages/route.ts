@@ -181,6 +181,19 @@ export const POST = withJsonErrors(async (req: Request) => {
     return NextResponse.json({ error: error?.message ?? "Could not send message" }, { status: 400 });
   }
 
+  // Cancel any other pending proposals in this thread so the musician cannot
+  // accept a superseded proposal after the church sends a revised one.
+  if (kind === "proposal") {
+    const admin = createAdminClient();
+    await admin
+      .from("messages")
+      .update({ proposal_status: "declined" })
+      .eq("thread_id", threadId)
+      .eq("kind", "proposal")
+      .eq("proposal_status", "pending")
+      .neq("id", message.id);
+  }
+
   const admin = createAdminClient();
   const { data: thread } = await admin
     .from("threads")
