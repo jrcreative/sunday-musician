@@ -5,20 +5,12 @@ import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
 import { AvatarUploader } from "./AvatarUploader";
+import { VerifiedAddressInput, type VerifiedAddressValue } from "@/components/VerifiedAddressInput";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type MusicianProfile = Database["public"]["Tables"]["musician_profiles"]["Row"];
 type InstrumentEntry = { instrument: string; skill: string };
 type VideoEntry = { url: string; title: string; description: string };
-type VerifiedAddress = {
-  formattedAddress: string;
-  lat: number;
-  lng: number;
-  city: string;
-  state: string;
-  zip: string;
-};
-
 const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced", "Professional"];
 const TRAVEL_OPTIONS = [
   { value: 10, label: "Within 10 miles" },
@@ -86,13 +78,15 @@ export function MusicianProfileForm({
   const [stateVal, setStateVal] = useState(mp?.state ?? "");
   const [address, setAddress] = useState(mp?.address ?? "");
   const [zip, setZip] = useState(mp?.zip ?? "");
+  const [addressSearch, setAddressSearch] = useState(mp?.formatted_address ?? [mp?.address, mp?.city, mp?.state, mp?.zip].filter(Boolean).join(", "));
   const [travelRadius, setTravelRadius] = useState(mp?.travel_radius_miles ?? 25);
   const [denominationTags, setDenominationTags] = useState<string[]>(mp?.denomination_tags ?? []);
   const [videos, setVideos] = useState<VideoEntry[]>(() => videoEntriesFromProfile(mp));
-  const [verifiedAddress, setVerifiedAddress] = useState<VerifiedAddress | null>(() => {
+  const [verifiedAddress, setVerifiedAddress] = useState<VerifiedAddressValue | null>(() => {
     if (!mp?.address_verified_at || mp.lat == null || mp.lng == null) return null;
     return {
       formattedAddress: mp.formatted_address ?? [mp.address, mp.city, mp.state, mp.zip].filter(Boolean).join(", "),
+      streetAddress: mp.address ?? "",
       lat: mp.lat,
       lng: mp.lng,
       city: mp.city,
@@ -100,7 +94,6 @@ export function MusicianProfileForm({
       zip: mp.zip ?? "",
     };
   });
-  const [verifyingAddress, setVerifyingAddress] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,32 +126,12 @@ export function MusicianProfileForm({
   function clearAddressVerification() {
     setVerifiedAddress(null);
   }
-  async function verifyAddress() {
-    setVerifyingAddress(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/locations/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, city, state: stateVal, zip }),
-      });
-      const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddress> & { error?: string };
-      if (!res.ok || typeof payload.lat !== "number" || typeof payload.lng !== "number" || !payload.formattedAddress) {
-        throw new Error(payload.error ?? "Could not verify address");
-      }
-      setVerifiedAddress({
-        formattedAddress: payload.formattedAddress,
-        lat: payload.lat,
-        lng: payload.lng,
-        city: payload.city ?? city,
-        state: payload.state ?? stateVal,
-        zip: payload.zip ?? zip,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not verify address");
-    } finally {
-      setVerifyingAddress(false);
-    }
+  function applyVerifiedAddress(next: VerifiedAddressValue) {
+    setVerifiedAddress(next);
+    setAddress(next.streetAddress);
+    setCity(next.city);
+    setStateVal(next.state);
+    setZip(next.zip);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -322,21 +295,18 @@ export function MusicianProfileForm({
 
       <Section title="Location & travel">
         <div className="sm-row-2">
-          <div className="field" style={{ gridColumn: "1 / -1" }}>
-            <label className="label" htmlFor="address">Street address (optional)</label>
-            <input id="address" type="text" className="input" value={address} onChange={e => { setAddress(e.target.value); clearAddressVerification(); }} placeholder="123 Main St" />
-          </div>
-          <div className="field">
-            <label className="label" htmlFor="city">City</label>
-            <input id="city" type="text" className="input" value={city} onChange={e => { setCity(e.target.value); clearAddressVerification(); }} required />
-          </div>
-          <div className="field">
-            <label className="label" htmlFor="state">State</label>
-            <input id="state" type="text" className="input" value={stateVal} onChange={e => { setStateVal(e.target.value.toUpperCase()); clearAddressVerification(); }} placeholder="TX" maxLength={2} required />
-          </div>
-          <div className="field">
-            <label className="label" htmlFor="zip">ZIP code</label>
-            <input id="zip" type="text" className="input" value={zip} onChange={e => { setZip(e.target.value); clearAddressVerification(); }} placeholder="78701" />
+          <div style={{ gridColumn: "1 / -1" }}>
+            <VerifiedAddressInput
+              id="musicianAddress"
+              label="Home base address"
+              value={addressSearch}
+              verifiedAddress={verifiedAddress}
+              placeholder="123 Main St, Austin, TX 78701"
+              help="Verification enables churches to match within your travel radius."
+              onValueChange={setAddressSearch}
+              onVerified={applyVerifiedAddress}
+              onClear={clearAddressVerification}
+            />
           </div>
           <div className="field">
             <label className="label" htmlFor="travel">Willing to travel</label>
@@ -344,16 +314,6 @@ export function MusicianProfileForm({
               {TRAVEL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
-        </div>
-        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <button type="button" className="btn btn--secondary btn--sm" onClick={verifyAddress} disabled={verifyingAddress || !address || !city || !stateVal}>
-            {verifyingAddress ? "Verifying..." : "Verify address"}
-          </button>
-          {verifiedAddress ? (
-            <span style={{ fontSize: 13, color: "var(--sm-status-success)" }}>Verified: {verifiedAddress.formattedAddress}</span>
-          ) : (
-            <span style={{ fontSize: 13, color: "var(--sm-fg-4)" }}>Verification enables churches to match within your travel radius.</span>
-          )}
         </div>
       </Section>
 

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, Fragment, useCallback } from "react";
+import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
 import { scoreRequestQuality } from "@/lib/requests/quality";
 import { formatServiceTimeRange, getBrowserTimeZone, normalizeServiceTimeForInput } from "@/lib/requests/time";
 import { RequestQualityCard } from "../RequestQualityCard";
+import { VerifiedAddressInput, type VerifiedAddressValue } from "@/components/VerifiedAddressInput";
 
 const SERVICE_TYPES = [
   "Sunday morning",
@@ -96,15 +97,6 @@ type ChurchLocation = {
   address_verified_at: string | null;
 } | null;
 
-type VerifiedAddress = {
-  formattedAddress: string;
-  lat: number;
-  lng: number;
-  city: string;
-  state: string;
-  zip: string;
-};
-
 /**
  * Encodes structured rehearsal date/time into the rehearsals string field.
  * Format: "REHEARSAL_DATE:<date>|REHEARSAL_START:<start>|REHEARSAL_END:<end>|NOTES:<notes>"
@@ -162,8 +154,6 @@ export function NewRequestForm({
   const isEditing = !!existingRequest;
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [verifyingLocation, setVerifyingLocation] = useState(false);
-  const [locationVerifyError, setLocationVerifyError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [data, setData] = useState<FormData>(() => {
@@ -225,6 +215,7 @@ export function NewRequestForm({
       notes: "",
     };
   });
+  const [locationSearch, setLocationSearch] = useState(data.locationFormattedAddress || [data.locationAddress, data.locationCity, data.locationState, data.locationZip].filter(Boolean).join(", "));
 
   function set<K extends keyof FormData>(k: K, v: FormData[K]) {
     setData(d => ({ ...d, [k]: v }));
@@ -261,56 +252,19 @@ export function NewRequestForm({
       locationLat: null,
       locationLng: null,
     }));
-    setLocationVerifyError(null);
   }
 
-  const verifyRequestLocation = useCallback(async (fields: { address: string; city: string; state: string; zip: string }) => {
-    if (!fields.address || !fields.city || !fields.state || !fields.zip) return;
-    setVerifyingLocation(true);
-    setLocationVerifyError(null);
-    try {
-      const res = await fetch("/api/locations/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          address: fields.address,
-          city: fields.city,
-          state: fields.state,
-          zip: fields.zip,
-        }),
-      });
-      const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddress> & { error?: string };
-      if (!res.ok || typeof payload.lat !== "number" || typeof payload.lng !== "number" || !payload.formattedAddress) {
-        throw new Error(payload.error ?? "Could not verify location");
-      }
-      setData(d => ({
-        ...d,
-        locationFormattedAddress: payload.formattedAddress ?? "",
-        locationLat: payload.lat ?? null,
-        locationLng: payload.lng ?? null,
-        locationCity: payload.city ?? d.locationCity,
-        locationState: payload.state ?? d.locationState,
-        locationZip: payload.zip ?? d.locationZip,
-      }));
-    } catch (e) {
-      setLocationVerifyError(e instanceof Error ? e.message : "Could not verify location");
-    } finally {
-      setVerifyingLocation(false);
-    }
-  }, []);
-
-  function handleZipBlur() {
-    setData(current => {
-      if (current.locationAddress && current.locationCity && current.locationState && current.locationZip && !current.locationFormattedAddress) {
-        verifyRequestLocation({
-          address: current.locationAddress,
-          city: current.locationCity,
-          state: current.locationState,
-          zip: current.locationZip,
-        });
-      }
-      return current;
-    });
+  function applyVerifiedLocation(address: VerifiedAddressValue) {
+    setData(d => ({
+      ...d,
+      locationAddress: address.streetAddress,
+      locationCity: address.city,
+      locationState: address.state,
+      locationZip: address.zip,
+      locationFormattedAddress: address.formattedAddress,
+      locationLat: address.lat,
+      locationLng: address.lng,
+    }));
   }
 
   async function handleSubmit() {
@@ -512,43 +466,26 @@ export function NewRequestForm({
                 </p>
               ) : (
                 <div style={{ marginTop: 14, padding: 16, border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
-                  <div className="sm-row-2" style={{ gap: "12px 16px" }}>
-                    <div style={{ gridColumn: "1 / -1" }}>
-                      <label className="label">Service street address</label>
-                      <input className="input" value={data.locationAddress} onChange={e => { set("locationAddress", e.target.value); clearRequestLocationVerification(); }} placeholder="123 Venue St" />
-                    </div>
-                    <div>
-                      <label className="label">City</label>
-                      <input className="input" value={data.locationCity} onChange={e => { set("locationCity", e.target.value); clearRequestLocationVerification(); }} />
-                    </div>
-                    <div>
-                      <label className="label">State</label>
-                      <input className="input" value={data.locationState} onChange={e => { set("locationState", e.target.value.toUpperCase()); clearRequestLocationVerification(); }} maxLength={2} />
-                    </div>
-                    <div>
-                      <label className="label">ZIP code</label>
-                      <input className="input" value={data.locationZip} onChange={e => { set("locationZip", e.target.value); clearRequestLocationVerification(); }} onBlur={handleZipBlur} />
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    {verifyingLocation ? (
-                      <span style={{ fontSize: 13, color: "var(--sm-fg-3)" }}>Verifying address...</span>
-                    ) : data.locationFormattedAddress ? (
-                      <>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sm-status-success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                          <path d="M20 6 9 17l-5-5"/>
-                        </svg>
-                        <span style={{ fontSize: 13, color: "var(--sm-status-success)", flex: 1 }}>{data.locationFormattedAddress}</span>
-                        <button type="button" className="btn btn--ghost btn--sm" onClick={clearRequestLocationVerification} style={{ fontSize: 12 }}>
-                          Edit address
-                        </button>
-                      </>
-                    ) : locationVerifyError ? (
-                      <span style={{ fontSize: 13, color: "var(--sm-status-error)" }}>{locationVerifyError} — check your address and move away from the ZIP field to retry.</span>
-                    ) : (
-                      <span style={{ fontSize: 13, color: "var(--sm-fg-4)" }}>Fill in all fields — address will verify automatically.</span>
-                    )}
-                  </div>
+                  <VerifiedAddressInput
+                    id="serviceLocation"
+                    label="Service location"
+                    value={locationSearch}
+                    verifiedAddress={data.locationFormattedAddress && data.locationLat != null && data.locationLng != null ? {
+                      formattedAddress: data.locationFormattedAddress,
+                      streetAddress: data.locationAddress,
+                      lat: data.locationLat,
+                      lng: data.locationLng,
+                      city: data.locationCity,
+                      state: data.locationState,
+                      zip: data.locationZip,
+                    } : null}
+                    placeholder="123 Venue St, Austin, TX 78701"
+                    help="Verify the address so musicians can trust the commute."
+                    required={!data.useChurchLocation}
+                    onValueChange={setLocationSearch}
+                    onVerified={applyVerifiedLocation}
+                    onClear={clearRequestLocationVerification}
+                  />
                 </div>
               )}
             </div>

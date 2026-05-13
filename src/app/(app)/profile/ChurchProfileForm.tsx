@@ -1,21 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 import { AvatarUploader } from "./AvatarUploader";
+import { VerifiedAddressInput, type VerifiedAddressValue } from "@/components/VerifiedAddressInput";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ChurchProfile = Database["public"]["Tables"]["church_profiles"]["Row"];
-type VerifiedAddress = {
-  formattedAddress: string;
-  lat: number;
-  lng: number;
-  city: string;
-  state: string;
-  zip: string;
-};
-
 const MUSICAL_APPROACHES = [
   "Vocals Only",
   "Piano / Organ Centric",
@@ -51,6 +43,7 @@ export function ChurchProfileForm({
   const [city, setCity] = useState(cp?.city ?? "");
   const [stateVal, setStateVal] = useState(cp?.state ?? "");
   const [zip, setZip] = useState(cp?.zip ?? "");
+  const [addressSearch, setAddressSearch] = useState(cp?.formatted_address ?? [cp?.address, cp?.city, cp?.state, cp?.zip].filter(Boolean).join(", "));
   const [capacity, setCapacity] = useState<number | "">(cp?.capacity ?? "");
   const [serviceCount, setServiceCount] = useState<number | "">(cp?.service_count ?? "");
   const [musicalStyle, setMusicalStyle] = useState(cp?.musical_style ?? "");
@@ -59,10 +52,11 @@ export function ChurchProfileForm({
   const [productionLevel, setProductionLevel] = useState(cp?.production_level ?? "");
   const [worshipTheology, setWorshipTheology] = useState(cp?.worship_theology ?? "");
   const [additionalValues, setAdditionalValues] = useState(cp?.additional_worship_values ?? "");
-  const [verifiedAddress, setVerifiedAddress] = useState<VerifiedAddress | null>(() => {
+  const [verifiedAddress, setVerifiedAddress] = useState<VerifiedAddressValue | null>(() => {
     if (!cp?.address_verified_at || cp.lat == null || cp.lng == null) return null;
     return {
       formattedAddress: cp.formatted_address ?? [cp.address, cp.city, cp.state, cp.zip].filter(Boolean).join(", "),
+      streetAddress: cp.address ?? "",
       lat: cp.lat,
       lng: cp.lng,
       city: cp.city,
@@ -70,50 +64,20 @@ export function ChurchProfileForm({
       zip: cp.zip ?? "",
     };
   });
-  const [verifyingAddress, setVerifyingAddress] = useState(false);
-  const [addressVerifyError, setAddressVerifyError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function clearAddressVerification() {
     setVerifiedAddress(null);
-    setAddressVerifyError(null);
   }
 
-  const verifyAddress = useCallback(async (fields: { address: string; city: string; state: string; zip: string }) => {
-    if (!fields.address || !fields.city || !fields.state || !fields.zip) return;
-    setVerifyingAddress(true);
-    setAddressVerifyError(null);
-    try {
-      const res = await fetch("/api/locations/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: fields.address, city: fields.city, state: fields.state, zip: fields.zip }),
-      });
-      const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddress> & { error?: string };
-      if (!res.ok || typeof payload.lat !== "number" || typeof payload.lng !== "number" || !payload.formattedAddress) {
-        throw new Error(payload.error ?? "Could not verify address");
-      }
-      setVerifiedAddress({
-        formattedAddress: payload.formattedAddress,
-        lat: payload.lat,
-        lng: payload.lng,
-        city: payload.city ?? fields.city,
-        state: payload.state ?? fields.state,
-        zip: payload.zip ?? fields.zip,
-      });
-    } catch (e) {
-      setAddressVerifyError(e instanceof Error ? e.message : "Could not verify address");
-    } finally {
-      setVerifyingAddress(false);
-    }
-  }, []);
-
-  function handleZipBlur(currentAddress: string, currentCity: string, currentState: string, currentZip: string) {
-    if (currentAddress && currentCity && currentState && currentZip && !verifiedAddress) {
-      verifyAddress({ address: currentAddress, city: currentCity, state: currentState, zip: currentZip });
-    }
+  function applyVerifiedAddress(next: VerifiedAddressValue) {
+    setVerifiedAddress(next);
+    setAddress(next.streetAddress);
+    setCity(next.city);
+    setStateVal(next.state);
+    setZip(next.zip);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -181,43 +145,17 @@ export function ChurchProfileForm({
       </Section>
 
       <Section title="Location">
-        <div className="sm-row-2">
-          <div className="field" style={{ gridColumn: "1 / -1" }}>
-            <label className="label" htmlFor="address">Street address</label>
-            <input id="address" type="text" className="input" value={address} onChange={e => { setAddress(e.target.value); clearAddressVerification(); }} placeholder="123 Church St" />
-          </div>
-          <div className="field">
-            <label className="label" htmlFor="city">City</label>
-            <input id="city" type="text" className="input" value={city} onChange={e => { setCity(e.target.value); clearAddressVerification(); }} required />
-          </div>
-          <div className="field">
-            <label className="label" htmlFor="state">State</label>
-            <input id="state" type="text" className="input" value={stateVal} onChange={e => { setStateVal(e.target.value.toUpperCase()); clearAddressVerification(); }} placeholder="TX" maxLength={2} required />
-          </div>
-          <div className="field">
-            <label className="label" htmlFor="zip">ZIP code</label>
-            <input id="zip" type="text" className="input" value={zip} onChange={e => { setZip(e.target.value); clearAddressVerification(); }} onBlur={() => handleZipBlur(address, city, stateVal, zip)} placeholder="78701" />
-          </div>
-        </div>
-        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {verifyingAddress ? (
-            <span style={{ fontSize: 13, color: "var(--sm-fg-3)" }}>Verifying address...</span>
-          ) : verifiedAddress ? (
-            <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sm-status-success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="M20 6 9 17l-5-5"/>
-              </svg>
-              <span style={{ fontSize: 13, color: "var(--sm-status-success)", flex: 1 }}>{verifiedAddress.formattedAddress}</span>
-              <button type="button" className="btn btn--ghost btn--sm" onClick={clearAddressVerification} style={{ fontSize: 12 }}>
-                Edit address
-              </button>
-            </>
-          ) : addressVerifyError ? (
-            <span style={{ fontSize: 13, color: "var(--sm-status-error)" }}>{addressVerifyError} — check your address and move away from the ZIP field to retry.</span>
-          ) : (
-            <span style={{ fontSize: 13, color: "var(--sm-fg-4)" }}>Fill in all fields — address will verify automatically.</span>
-          )}
-        </div>
+        <VerifiedAddressInput
+          id="churchAddress"
+          label="Church address"
+          value={addressSearch}
+          verifiedAddress={verifiedAddress}
+          placeholder="123 Church St, Austin, TX 78701"
+          required
+          onValueChange={setAddressSearch}
+          onVerified={applyVerifiedAddress}
+          onClear={clearAddressVerification}
+        />
       </Section>
 
       <Section title="Ministry details">
