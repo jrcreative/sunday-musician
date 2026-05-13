@@ -23,6 +23,8 @@ test("location verification validates input, coordinates, and network timeouts",
   const source = read("src/lib/locations/verification.ts");
 
   assert.match(source, /validateAddressInput/, "address input must be validated before geocoding");
+  assert.match(source, /query\?: string \| null/, "verifier should accept one-line address queries");
+  assert.match(source, /streetAddressFromMatch/, "verified addresses should return a storable street address");
   assert.match(source, /\^\[A-Z\]\{2\}\$/, "state must be normalized and constrained to 2-letter codes");
   assert.match(source, /validCoordinates/, "coordinates must be range checked");
   assert.match(source, /AbortController/, "external geocoder calls need a timeout");

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
+import { VerifiedAddressInput, type VerifiedAddressValue } from "@/components/VerifiedAddressInput";
 import { INSTRUMENT_OPTIONS, instrumentsOverlap } from "@/lib/instruments";
 import { distanceMiles } from "@/lib/locations/distance";
 
@@ -43,15 +44,6 @@ type ViewerLocation = {
   formatted_address: string | null;
   address_verified_at: string | null;
 };
-type VerifiedAddress = {
-  formattedAddress: string;
-  lat: number;
-  lng: number;
-  city: string;
-  state: string;
-  zip: string;
-};
-
 export function FindMusiciansClient({
   musicians,
   viewerLocation,
@@ -68,13 +60,8 @@ export function FindMusiciansClient({
   const [maxDistance, setMaxDistance] = useState(9999);
   const [query, setQuery] = useState("");
   const [useCustomOrigin, setUseCustomOrigin] = useState(false);
-  const [originAddress, setOriginAddress] = useState("");
-  const [originCity, setOriginCity] = useState("");
-  const [originState, setOriginState] = useState("");
-  const [originZip, setOriginZip] = useState("");
-  const [customOrigin, setCustomOrigin] = useState<VerifiedAddress | null>(null);
-  const [verifyingOrigin, setVerifyingOrigin] = useState(false);
-  const [originError, setOriginError] = useState<string | null>(null);
+  const [originSearch, setOriginSearch] = useState("");
+  const [customOrigin, setCustomOrigin] = useState<VerifiedAddressValue | null>(null);
 
   const activeOrigin = useMemo(() => {
     if (useCustomOrigin && customOrigin) {
@@ -165,40 +152,10 @@ export function FindMusiciansClient({
     setQuery("");
     setUseCustomOrigin(false);
     setCustomOrigin(null);
-    setOriginError(null);
   }
 
   function clearCustomOriginVerification() {
     setCustomOrigin(null);
-    setOriginError(null);
-  }
-
-  async function verifyCustomOrigin() {
-    setVerifyingOrigin(true);
-    setOriginError(null);
-    try {
-      const res = await fetch("/api/locations/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: originAddress, city: originCity, state: originState, zip: originZip }),
-      });
-      const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddress> & { error?: string };
-      if (!res.ok || typeof payload.lat !== "number" || typeof payload.lng !== "number" || !payload.formattedAddress) {
-        throw new Error(payload.error ?? "Could not verify address");
-      }
-      setCustomOrigin({
-        formattedAddress: payload.formattedAddress,
-        lat: payload.lat,
-        lng: payload.lng,
-        city: payload.city ?? originCity,
-        state: payload.state ?? originState,
-        zip: payload.zip ?? originZip,
-      });
-    } catch (e) {
-      setOriginError(e instanceof Error ? e.message : "Could not verify address");
-    } finally {
-      setVerifyingOrigin(false);
-    }
   }
 
   const locationLabel = isChurch ? "Your church" : "Your location";
@@ -234,22 +191,22 @@ export function FindMusiciansClient({
           {isChurch && (
             <FilterSection label="Search location">
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, cursor: "pointer", color: "var(--sm-fg-2)" }}>
-                <input type="checkbox" checked={useCustomOrigin} onChange={e => { setUseCustomOrigin(e.target.checked); setOriginError(null); }} />
+                <input type="checkbox" checked={useCustomOrigin} onChange={e => setUseCustomOrigin(e.target.checked)} />
                 Search from another service location
               </label>
               {useCustomOrigin && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                  <input className="input" placeholder="Street address" value={originAddress} onChange={e => { setOriginAddress(e.target.value); clearCustomOriginVerification(); }} />
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 68px", gap: 8 }}>
-                    <input className="input" placeholder="City" value={originCity} onChange={e => { setOriginCity(e.target.value); clearCustomOriginVerification(); }} />
-                    <input className="input" placeholder="ST" value={originState} onChange={e => { setOriginState(e.target.value.toUpperCase()); clearCustomOriginVerification(); }} maxLength={2} />
-                  </div>
-                  <input className="input" placeholder="ZIP" value={originZip} onChange={e => { setOriginZip(e.target.value); clearCustomOriginVerification(); }} />
-                  <button type="button" className="btn btn--secondary btn--sm" onClick={verifyCustomOrigin} disabled={verifyingOrigin || !originAddress || !originCity || !originState}>
-                    {verifyingOrigin ? "Verifying..." : "Verify location"}
-                  </button>
-                  {customOrigin && <span style={{ fontSize: 12.5, color: "var(--sm-status-success)" }}>{customOrigin.formattedAddress}</span>}
-                  {originError && <span style={{ fontSize: 12.5, color: "var(--sm-status-error)" }}>{originError}</span>}
+                <div style={{ marginTop: 10 }}>
+                  <VerifiedAddressInput
+                    id="searchOrigin"
+                    label="Service location"
+                    value={originSearch}
+                    verifiedAddress={customOrigin}
+                    placeholder="123 Venue St, Austin, TX 78701"
+                    help="Verified locations make distance filtering more accurate."
+                    onValueChange={setOriginSearch}
+                    onVerified={setCustomOrigin}
+                    onClear={clearCustomOriginVerification}
+                  />
                 </div>
               )}
             </FilterSection>

@@ -1,4 +1,5 @@
 export type AddressInput = {
+  query?: string | null;
   address?: string | null;
   city?: string | null;
   state?: string | null;
@@ -7,6 +8,7 @@ export type AddressInput = {
 
 export type VerifiedAddress = {
   formattedAddress: string;
+  streetAddress: string;
   lat: number;
   lng: number;
   city: string;
@@ -21,6 +23,12 @@ type CensusMatch = {
     y?: number;
   };
   addressComponents?: {
+    fromAddress?: string;
+    preDirection?: string;
+    preType?: string;
+    streetName?: string;
+    suffixType?: string;
+    suffixDirection?: string;
     city?: string;
     state?: string;
     zip?: string;
@@ -47,6 +55,9 @@ export function validCoordinates(lat: number | null | undefined, lng: number | n
 }
 
 export function buildAddress(input: AddressInput) {
+  const query = clean(input.query);
+  if (query) return query;
+
   return [
     clean(input.address),
     clean(input.city),
@@ -56,6 +67,17 @@ export function buildAddress(input: AddressInput) {
 }
 
 export function validateAddressInput(input: AddressInput) {
+  const query = clean(input.query);
+  if (query) {
+    if (query.length < 8) {
+      return { ok: false as const, error: "Enter a full street address" };
+    }
+    return {
+      ok: true as const,
+      value: { query, address: "", city: "", state: "", zip: "" },
+    };
+  }
+
   const address = clean(input.address);
   const city = clean(input.city);
   const state = normalizeState(input.state);
@@ -75,6 +97,21 @@ export function validateAddressInput(input: AddressInput) {
     ok: true as const,
     value: { address, city, state, zip },
   };
+}
+
+function streetAddressFromMatch(match: CensusMatch) {
+  const components = match.addressComponents;
+  const componentStreet = [
+    components?.fromAddress,
+    components?.preDirection,
+    components?.preType,
+    components?.streetName,
+    components?.suffixType,
+    components?.suffixDirection,
+  ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+
+  if (componentStreet) return componentStreet;
+  return match.matchedAddress?.split(",")[0]?.trim() ?? "";
 }
 
 export async function verifyUsAddress(input: AddressInput): Promise<
@@ -116,6 +153,7 @@ export async function verifyUsAddress(input: AddressInput): Promise<
       ok: true,
       address: {
         formattedAddress: match.matchedAddress,
+        streetAddress: streetAddressFromMatch(match),
         lat: lat!,
         lng: lng!,
         city: match.addressComponents?.city ?? validation.value.city,
