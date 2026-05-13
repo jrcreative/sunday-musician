@@ -46,6 +46,25 @@ function fmtRange(start: string, end: string) {
   return `${s.toLocaleDateString(undefined, opts)} – ${e.toLocaleDateString(undefined, { ...opts, year: "numeric" })}`;
 }
 
+function parseBlockNote(note: string | null): { timeRange: string | null; displayNote: string } {
+  if (!note) return { timeRange: null, displayNote: "" };
+  const m = note.match(/^\[(\d{2}:\d{2}-\d{2}:\d{2})\]\s*/);
+  if (!m) return { timeRange: null, displayNote: note };
+  return { timeRange: m[1], displayNote: note.slice(m[0].length) };
+}
+
+function fmtTime12(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const period = h < 12 ? "AM" : "PM";
+  const hour = h % 12 || 12;
+  return m === 0 ? `${hour} ${period}` : `${hour}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+function formatTimeRange(range: string): string {
+  const [s, e] = range.split("-");
+  return `${fmtTime12(s)} – ${fmtTime12(e)}`;
+}
+
 function buildMonthGrid(year: number, month: number) {
   const first = new Date(year, month, 1);
   const startOffset = first.getDay();
@@ -80,6 +99,9 @@ export function AvailabilityClient({
   const [start, setStart] = useState(todayISO());
   const [end, setEnd] = useState(todayISO());
   const [note, setNote] = useState("");
+  const [hasTime, setHasTime] = useState(false);
+  const [blockStartTime, setBlockStartTime] = useState("09:00");
+  const [blockEndTime, setBlockEndTime] = useState("13:00");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [showConnect, setShowConnect] = useState(false);
@@ -94,16 +116,40 @@ export function AvailabilityClient({
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
 
-  const blockedDates = useMemo(() => {
-    const set = new Set<string>();
+  const { fullDayBlockedDates, partialDayBlockedDates } = useMemo(() => {
+    // Track for each date: whether any block is full-day (no time prefix)
+    const fullDay = new Set<string>();
+    const partialOnly = new Set<string>();
+    // Map date -> has full-day block
+    const dateHasFullDay = new Map<string, boolean>();
+
     for (const b of blocks) {
+      const { timeRange } = parseBlockNote(b.note);
       const s = new Date(b.start_date + "T00:00:00");
       const e = new Date(b.end_date + "T00:00:00");
       for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-        set.add(dateISO(d));
+        const iso = dateISO(d);
+        if (!timeRange) {
+          // full-day block
+          dateHasFullDay.set(iso, true);
+        } else {
+          // partial block — only mark partial if not already marked as having a full-day block
+          if (!dateHasFullDay.has(iso)) {
+            dateHasFullDay.set(iso, false);
+          }
+        }
       }
     }
-    return set;
+
+    for (const [iso, hasFull] of dateHasFullDay) {
+      if (hasFull) {
+        fullDay.add(iso);
+      } else {
+        partialOnly.add(iso);
+      }
+    }
+
+    return { fullDayBlockedDates: fullDay, partialDayBlockedDates: partialOnly };
   }, [blocks]);
 
   const cells = buildMonthGrid(viewYear, viewMonth);
@@ -134,6 +180,9 @@ export function AvailabilityClient({
     e.preventDefault();
     setError(null);
     if (end < start) { setError("End date must be after start date."); return; }
+    const noteToSave = hasTime
+      ? `[${blockStartTime}-${blockEndTime}]${note.trim() ? " " + note.trim() : ""}`
+      : note;
     const { data, error } = await supabase
       .from("unavailability_blocks")
       .insert({
@@ -141,7 +190,7 @@ export function AvailabilityClient({
         start_date: start,
         end_date: end,
         source: "manual",
-        note: note.trim() || null,
+        note: noteToSave.trim() || null,
       })
       .select("id, start_date, end_date, source, note")
       .single();
@@ -152,6 +201,7 @@ export function AvailabilityClient({
     }
     setAdding(false);
     setNote("");
+    setHasTime(false);
   }
 
   function deleteBlock(id: string) {
@@ -344,9 +394,21 @@ export function AvailabilityClient({
             {cells.map((d, i) => {
               if (!d) return <div key={i} />;
               const iso = dateISO(d);
-              const blocked = blockedDates.has(iso);
+              const isFullBlocked = fullDayBlockedDates.has(iso);
+              const isPartialBlocked = partialDayBlockedDates.has(iso);
+              const blocked = isFullBlocked || isPartialBlocked;
               const isToday = iso === todayStr;
               const past = iso < todayStr;
+
+              let cellBackground = "var(--sm-bg-1)";
+              let cellBorder = isToday ? "1.5px solid var(--sm-accent)" : "1px solid var(--sm-border-subtle)";
+              if (isFullBlocked) {
+                cellBackground = "rgba(228,123,2,0.1)";
+              } else if (isPartialBlocked) {
+                cellBackground = "rgba(228,123,2,0.04)";
+                cellBorder = "1px dashed var(--sm-accent)";
+              }
+
               return (
                 <button
                   key={i}
@@ -354,9 +416,9 @@ export function AvailabilityClient({
                   disabled={past}
                   style={{
                     aspectRatio: "1 / 1",
-                    border: isToday ? "1.5px solid var(--sm-accent)" : "1px solid var(--sm-border-subtle)",
+                    border: cellBorder,
                     borderRadius: "var(--sm-radius-sm)",
-                    background: blocked ? "rgba(228,123,2,0.1)" : "var(--sm-bg-1)",
+                    background: cellBackground,
                     color: past ? "var(--sm-fg-4)" : blocked ? "var(--sm-accent)" : "var(--sm-fg-1)",
                     fontWeight: blocked ? 600 : 400,
                     fontSize: 13.5,
@@ -364,7 +426,7 @@ export function AvailabilityClient({
                     display: "flex", alignItems: "center", justifyContent: "center",
                     opacity: past ? 0.5 : 1,
                   }}
-                  title={blocked ? "Blocked — click for details" : past ? "Past" : "Click to block this day"}
+                  title={isFullBlocked ? "Blocked — click for details" : isPartialBlocked ? "Partially blocked — click for details" : past ? "Past" : "Click to block this day"}
                 >
                   {d.getDate()}
                 </button>
@@ -374,6 +436,9 @@ export function AvailabilityClient({
           <div style={{ display: "flex", gap: 16, marginTop: 14, fontSize: 12, color: "var(--sm-fg-3)" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 12, height: 12, borderRadius: 3, background: "rgba(228,123,2,0.1)", border: "1px solid var(--sm-accent)" }} /> Blocked
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: "rgba(228,123,2,0.04)", border: "1px dashed var(--sm-accent)" }} /> Partial
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 12, height: 12, borderRadius: 3, border: "1.5px solid var(--sm-accent)" }} /> Today
@@ -394,11 +459,27 @@ export function AvailabilityClient({
               <input type="date" className="input" value={start} min={todayISO()} onChange={e => { setStart(e.target.value); if (end < e.target.value) setEnd(e.target.value); }} style={{ width: "100%", marginBottom: 10 }} />
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>To</label>
               <input type="date" className="input" value={end} min={start} onChange={e => setEnd(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--sm-fg-2)", marginBottom: 10, cursor: "pointer" }}>
+                <input type="checkbox" checked={hasTime} onChange={e => setHasTime(e.target.checked)} />
+                Block a specific time of day
+              </label>
+              {hasTime && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>From</label>
+                    <input type="time" className="input" value={blockStartTime} onChange={e => setBlockStartTime(e.target.value)} style={{ width: "100%" }} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>To</label>
+                    <input type="time" className="input" value={blockEndTime} onChange={e => setBlockEndTime(e.target.value)} style={{ width: "100%" }} />
+                  </div>
+                </div>
+              )}
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>Note (optional)</label>
               <input type="text" className="input" value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. vacation" style={{ width: "100%", marginBottom: 14 }} />
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="submit" className="btn btn--primary btn--sm" style={{ flex: 1 }}>Save</button>
-                <button type="button" className="btn btn--ghost btn--sm" style={{ flex: 1 }} onClick={() => { setAdding(false); setNote(""); setError(null); }}>Cancel</button>
+                <button type="button" className="btn btn--ghost btn--sm" style={{ flex: 1 }} onClick={() => { setAdding(false); setNote(""); setHasTime(false); setError(null); }}>Cancel</button>
               </div>
             </form>
           )}
@@ -417,22 +498,32 @@ export function AvailabilityClient({
             }
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {manualBlocks.map(b => (
-                  <div key={b.id} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, padding: "12px 14px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--sm-fg-1)" }}>{fmtRange(b.start_date, b.end_date)}</div>
-                      {b.note && (
-                        <div style={{ fontSize: 12, color: "var(--sm-fg-4)", marginTop: 2 }}>{b.note}</div>
-                      )}
+                {manualBlocks.map(b => {
+                  const parsed = parseBlockNote(b.note);
+                  return (
+                    <div key={b.id} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, padding: "12px 14px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--sm-fg-1)" }}>
+                          {fmtRange(b.start_date, b.end_date)}
+                          {parsed.timeRange && (
+                            <span style={{ fontWeight: 400, color: "var(--sm-accent)", marginLeft: 6 }}>
+                              · {formatTimeRange(parsed.timeRange)}
+                            </span>
+                          )}
+                        </div>
+                        {parsed.displayNote && (
+                          <div style={{ fontSize: 12, color: "var(--sm-fg-4)", marginTop: 2 }}>{parsed.displayNote}</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => deleteBlock(b.id)}
+                        disabled={pending}
+                        aria-label="Remove block"
+                        style={{ background: "none", border: "none", color: "var(--sm-fg-4)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 2 }}
+                      >×</button>
                     </div>
-                    <button
-                      onClick={() => deleteBlock(b.id)}
-                      disabled={pending}
-                      aria-label="Remove block"
-                      style={{ background: "none", border: "none", color: "var(--sm-fg-4)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 2 }}
-                    >×</button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })()}
