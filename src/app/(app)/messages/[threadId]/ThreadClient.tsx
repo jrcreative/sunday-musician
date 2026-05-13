@@ -586,7 +586,7 @@ export function ThreadClient({
           <div>
             {!latestProposal && (
               <p style={{ fontSize: 13.5, color: "var(--sm-fg-3)", lineHeight: 1.5, margin: 0 }}>
-                The church will send a proposal with fee and any notes. You can then accept in the chat.
+                The church will send a proposal with fee and any notes. You can then accept the church's terms in the chat.
               </p>
             )}
             {latestProposal && !isConfirmed && (
@@ -771,7 +771,7 @@ function ProposalBubble({
             {accepted ? "✓ Agreed terms" : "📋 Proposal"}
           </span>
           <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--sm-fg-4)" }}>
-            {isMe ? `You sent` : `from ${otherName.split(" ")[0]}`}
+            {isMe ? `You sent` : otherName.split(" ")[0]}
           </span>
         </div>
 
