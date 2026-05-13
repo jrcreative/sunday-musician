@@ -371,7 +371,7 @@ export default async function DashboardPage() {
           viewAllHref="/requests"
           viewAllLabel="View all bookings"
           empty={bookings.length === 0}
-          emptyMessage="When a church accepts your terms, your confirmed bookings will appear here."
+          emptyMessage="When you accept a church's terms, your confirmed bookings will appear here."
           emptyAction={{ href: "/open-requests", label: "Browse open requests" }}
         >
           {bookings.map(b => {

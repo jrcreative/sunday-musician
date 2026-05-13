@@ -608,7 +608,7 @@ export function ThreadClient({
                   {latestProposal.proposal?.notes && <Row label="Notes" value={latestProposal.proposal.notes} />}
                 </dl>
                 <p style={{ fontSize: 12, color: "var(--sm-fg-4)", marginTop: 12, lineHeight: 1.4 }}>
-                  See the proposal in the chat to accept.
+                  See the church&apos;s proposal in the chat to accept their terms.
                 </p>
               </>
             )}
@@ -774,10 +774,9 @@ function ProposalBubble({
         borderRadius: 10, background: "var(--sm-bg-1)", overflow: "hidden",
         borderBottomRightRadius: isMe ? 3 : 10, borderBottomLeftRadius: isMe ? 10 : 3,
       }}>
-        {/* Proposal header */}
         <div style={{ padding: "9px 14px 8px", background: accepted ? "rgba(22,163,74,0.06)" : superseded ? "var(--sm-bg-2)" : "rgba(228,123,2,0.06)", borderBottom: `1px solid ${accepted ? "rgba(22,163,74,0.15)" : superseded ? "var(--sm-border-subtle)" : "rgba(228,123,2,0.15)"}`, display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 13.5, fontWeight: 700, color: accepted ? "var(--sm-status-success)" : superseded ? "var(--sm-fg-4)" : "var(--sm-accent)" }}>
-            {accepted ? "✓ Agreed terms" : superseded ? "Proposal" : "📋 Proposal"}
+            {accepted ? "✓ Church's terms accepted" : superseded ? "Proposal" : "📋 Church's Proposal"}
           </span>
           {isMe && (
             <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--sm-fg-4)" }}>
@@ -817,11 +816,11 @@ function ProposalBubble({
               disabled={accepting === msg.id}
               onClick={() => onAccept(msg.id)}
             >
-              {accepting === msg.id ? "Accepting…" : "Accept terms"}
+              {accepting === msg.id ? "Accepting…" : "Accept church's terms"}
             </button>
           )}
           {accepted && (
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--sm-status-success)" }}>✓ Accepted</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--sm-status-success)" }}>✓ You accepted</span>
           )}
           {pending && isMe && (
             <span style={{ fontSize: 12.5, color: "var(--sm-fg-4)" }}>Awaiting response…</span>
