@@ -378,7 +378,6 @@ export function ThreadClient({
                       msg={msg}
                       isMe={isMe}
                       isChurchSide={isChurchSide}
-                      otherName={otherName}
                       onAccept={acceptProposal}
                       accepting={accepting}
                       fmtTime={fmtTime}
@@ -586,7 +585,7 @@ export function ThreadClient({
           <div>
             {!latestProposal && (
               <p style={{ fontSize: 13.5, color: "var(--sm-fg-3)", lineHeight: 1.5, margin: 0 }}>
-                The church will send a proposal with fee and any notes. You can then accept the church's terms in the chat.
+                The church will send a proposal with fee and any notes. You can then accept the church&apos;s terms in the chat.
               </p>
             )}
             {latestProposal && !isConfirmed && (
@@ -742,12 +741,11 @@ export function ThreadClient({
 }
 
 function ProposalBubble({
-  msg, isMe, isChurchSide, otherName, onAccept, accepting, fmtTime, fmtShortDate,
+  msg, isMe, isChurchSide, onAccept, accepting, fmtTime, fmtShortDate,
 }: {
   msg: Message;
   isMe: boolean;
   isChurchSide: boolean;
-  otherName: string;
   onAccept: (id: string) => void;
   accepting: string | null;
   fmtTime: (s: string) => string;
@@ -770,9 +768,11 @@ function ProposalBubble({
           <span style={{ fontSize: 13.5, fontWeight: 700, color: accepted ? "var(--sm-status-success)" : "var(--sm-accent)" }}>
             {accepted ? "✓ Agreed terms" : "📋 Proposal"}
           </span>
-          <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--sm-fg-4)" }}>
-            {isMe ? `You sent` : otherName.split(" ")[0]}
-          </span>
+          {isMe && (
+            <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--sm-fg-4)" }}>
+              You sent
+            </span>
+          )}
         </div>
 
         {/* Terms */}
