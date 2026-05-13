@@ -268,6 +268,52 @@ export default async function DashboardPage() {
     })).slice(0, 4);
   }
 
+  // Conversations in progress — threads where musician has a pending proposal
+  // but no confirmed booking yet.
+  type ActiveConversationRow = {
+    id: string;
+    request_id: string;
+    service_requests: { title: string; service_type: string; service_date: string } | null;
+    church_profiles: { church_name: string } | null;
+  };
+
+  let activeConversations: ActiveConversationRow[] = [];
+
+  if (mp) {
+    // Collect booked thread IDs so we can exclude them
+    const bookedThreadIds = new Set(bookings.map(b => b.threadId));
+
+    const { data: threadRows } = await supabase
+      .from("threads")
+      .select(`
+        id, request_id,
+        service_requests ( title, service_type, service_date ),
+        church_profiles ( church_name )
+      `)
+      .eq("musician_profile_id", mp.id)
+      .is("archived_at", null) as unknown as { data: ActiveConversationRow[] | null };
+
+    const candidateThreadIds = (threadRows ?? [])
+      .filter(t => !bookedThreadIds.has(t.id))
+      .map(t => t.id);
+
+    if (candidateThreadIds.length > 0) {
+      // Find which of those threads have at least one pending proposal message
+      const { data: pendingMsgRows } = await supabase
+        .from("messages")
+        .select("thread_id")
+        .in("thread_id", candidateThreadIds)
+        .eq("kind", "proposal")
+        .eq("proposal_status", "pending") as unknown as { data: { thread_id: string }[] | null };
+
+      const threadsWithPending = new Set((pendingMsgRows ?? []).map(m => m.thread_id));
+
+      activeConversations = (threadRows ?? []).filter(
+        t => !bookedThreadIds.has(t.id) && threadsWithPending.has(t.id)
+      );
+    }
+  }
+
   const liveBookings = bookings.filter(b => !b.cancelledAt);
   const totalEarned = liveBookings.reduce((s, b) => s + (b.fee ?? 0), 0);
   const upcomingCount = liveBookings.filter(b => b.serviceDate && new Date(b.serviceDate + "T12:00:00") >= new Date()).length;
@@ -319,6 +365,48 @@ export default async function DashboardPage() {
             </div>
           ))}
         </div>
+
+        {/* Conversations in progress */}
+        <Section
+          label="Conversations in progress"
+          viewAllHref="/messages"
+          viewAllLabel="View all messages"
+          empty={activeConversations.length === 0}
+          emptyMessage="No active negotiations right now. Reply to a request to start one."
+          emptyAction={{ href: "/open-requests", label: "Browse open requests" }}
+        >
+          {activeConversations.map(t => {
+            const sr = t.service_requests;
+            const d = sr?.service_date ? new Date(sr.service_date + "T12:00:00") : null;
+            return (
+              <Link key={t.id} href={`/messages/${t.id}`} style={{ textDecoration: "none" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 18, alignItems: "center", padding: "16px 20px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", marginBottom: 8 }}>
+                  <div style={{ textAlign: "center", paddingRight: 18, borderRight: "1px solid var(--sm-border-subtle)" }}>
+                    {d ? (
+                      <>
+                        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--sm-accent)", fontWeight: 700 }}>
+                          {d.toLocaleDateString("en-US", { month: "short" })}
+                        </div>
+                        <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, color: "var(--sm-fg-1)", marginTop: 1 }}>{d.getDate()}</div>
+                        <div style={{ fontSize: 10.5, color: "var(--sm-fg-3)", marginTop: 1 }}>{d.toLocaleDateString("en-US", { weekday: "short" })}</div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 11, color: "var(--sm-fg-4)" }}>TBD</div>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14.5, color: "var(--sm-fg-1)", marginBottom: 2 }}>{sr?.title ?? "Service"}</div>
+                    <div style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>
+                      {t.church_profiles?.church_name ?? "Church"}
+                      {sr?.service_type ? ` · ${sr.service_type}` : ""}
+                    </div>
+                  </div>
+                  <span className="chip chip--accent" style={{ fontSize: 11, whiteSpace: "nowrap" }}>In discussion</span>
+                </div>
+              </Link>
+            );
+          })}
+        </Section>
 
         {/* Open requests */}
         <Section
