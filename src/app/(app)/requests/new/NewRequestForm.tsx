@@ -45,6 +45,11 @@ type FormData = {
   locationFormattedAddress: string;
   locationLat: number | null;
   locationLng: number | null;
+  hasRehearsal: boolean;
+  rehearsalDate: string;
+  rehearsalStartTime: string;
+  rehearsalEndTime: string;
+  rehearsalNotes: string;
   instruments: string[];
   rehearsals: string;
   setlistUrl: string;
@@ -72,7 +77,7 @@ type ExistingRequest = {
   location_formatted_address?: string | null;
   location_verified_at?: string | null;
   instruments_needed: string[];
-  rehearsals: string;
+  rehearsals: string | null;
   setlist_url: string | null;
   tech_setup: string[];
   offered_fee: number | null;
@@ -100,6 +105,52 @@ type VerifiedAddress = {
   zip: string;
 };
 
+/**
+ * Encodes structured rehearsal date/time into the rehearsals string field.
+ * Format: "REHEARSAL_DATE:<date>|REHEARSAL_START:<start>|REHEARSAL_END:<end>|NOTES:<notes>"
+ * or "None" when there is no rehearsal.
+ */
+function encodeRehearsalString(hasRehearsal: boolean, date: string, start: string, end: string, notes: string): string {
+  if (!hasRehearsal) return "None — show up Sunday morning";
+  const parts: string[] = [];
+  if (date) parts.push(`REHEARSAL_DATE:${date}`);
+  if (start) parts.push(`REHEARSAL_START:${start}`);
+  if (end) parts.push(`REHEARSAL_END:${end}`);
+  if (notes.trim()) parts.push(`NOTES:${notes.trim()}`);
+  return parts.length ? parts.join("|") : "Rehearsal — details TBD";
+}
+
+/**
+ * Parses a rehearsals string back into structured fields.
+ */
+function decodeRehearsalString(raw: string | null | undefined): {
+  hasRehearsal: boolean;
+  rehearsalDate: string;
+  rehearsalStartTime: string;
+  rehearsalEndTime: string;
+  rehearsalNotes: string;
+} {
+  const s = raw ?? "";
+  if (!s || s.startsWith("None")) {
+    return { hasRehearsal: false, rehearsalDate: "", rehearsalStartTime: "", rehearsalEndTime: "", rehearsalNotes: "" };
+  }
+  if (!s.includes("REHEARSAL_DATE:") && !s.includes("REHEARSAL_START:")) {
+    // Legacy free-text entry — preserve as notes
+    return { hasRehearsal: true, rehearsalDate: "", rehearsalStartTime: "", rehearsalEndTime: "", rehearsalNotes: s };
+  }
+  const get = (key: string) => {
+    const match = s.match(new RegExp(`${key}:([^|]*)`));
+    return match ? match[1].trim() : "";
+  };
+  return {
+    hasRehearsal: true,
+    rehearsalDate: get("REHEARSAL_DATE"),
+    rehearsalStartTime: get("REHEARSAL_START"),
+    rehearsalEndTime: get("REHEARSAL_END"),
+    rehearsalNotes: get("NOTES"),
+  };
+}
+
 export function NewRequestForm({
   existingRequest,
   churchLocation,
@@ -116,6 +167,7 @@ export function NewRequestForm({
 
   const [data, setData] = useState<FormData>(() => {
     if (existingRequest) {
+      const decoded = decodeRehearsalString(existingRequest.rehearsals);
       return {
         title: existingRequest.title,
         serviceType: existingRequest.service_type,
@@ -130,8 +182,13 @@ export function NewRequestForm({
         locationFormattedAddress: existingRequest.location_formatted_address ?? "",
         locationLat: existingRequest.location_lat ?? null,
         locationLng: existingRequest.location_lng ?? null,
+        hasRehearsal: decoded.hasRehearsal,
+        rehearsalDate: decoded.rehearsalDate,
+        rehearsalStartTime: decoded.rehearsalStartTime,
+        rehearsalEndTime: decoded.rehearsalEndTime,
+        rehearsalNotes: decoded.rehearsalNotes,
         instruments: uniqueInstruments(existingRequest.instruments_needed),
-        rehearsals: existingRequest.rehearsals,
+        rehearsals: existingRequest.rehearsals ?? "",
         setlistUrl: existingRequest.setlist_url ?? "",
         techSetup: existingRequest.tech_setup,
         fee: existingRequest.offered_fee != null ? String(existingRequest.offered_fee) : "",
@@ -153,6 +210,11 @@ export function NewRequestForm({
       locationFormattedAddress: "",
       locationLat: null,
       locationLng: null,
+      hasRehearsal: false,
+      rehearsalDate: "",
+      rehearsalStartTime: "",
+      rehearsalEndTime: "",
+      rehearsalNotes: "",
       instruments: [],
       rehearsals: "None — show up Sunday morning",
       setlistUrl: "",
@@ -183,7 +245,7 @@ export function NewRequestForm({
     churchLocationVerified: !!churchLocation?.address_verified_at,
     locationVerified: !!data.locationLat && !!data.locationLng && !!data.locationFormattedAddress,
     instrumentsNeeded: data.instruments,
-    rehearsals: data.rehearsals,
+    rehearsals: encodeRehearsalString(data.hasRehearsal, data.rehearsalDate, data.rehearsalStartTime, data.rehearsalEndTime, data.rehearsalNotes),
     setlistUrl: data.setlistUrl,
     techSetup: data.techSetup,
     offeredFee: data.fee,
@@ -255,7 +317,7 @@ export function NewRequestForm({
         location_state: data.useChurchLocation ? null : data.locationState || null,
         location_zip: data.useChurchLocation ? null : data.locationZip || null,
         instruments_needed: uniqueInstruments(data.instruments),
-        rehearsals: data.rehearsals,
+        rehearsals: encodeRehearsalString(data.hasRehearsal, data.rehearsalDate, data.rehearsalStartTime, data.rehearsalEndTime, data.rehearsalNotes),
         setlist_url: data.setlistUrl || null,
         tech_setup: data.techSetup,
         offered_fee: data.fee ? parseFloat(data.fee) : null,
@@ -353,6 +415,69 @@ export function NewRequestForm({
               <label className="label">Service end time</label>
               <input type="time" className="input" value={data.endTime} onChange={e => set("endTime", e.target.value)} />
             </div>
+
+            {/* Rehearsal subsection */}
+            <div style={{ gridColumn: "1 / -1", paddingTop: 8 }}>
+              <div style={{ padding: "16px 18px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14.5, fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    checked={data.hasRehearsal}
+                    onChange={e => set("hasRehearsal", e.target.checked)}
+                  />
+                  Has rehearsal
+                </label>
+                <div style={{ fontSize: 12.5, color: "var(--sm-fg-4)", marginTop: 5, marginLeft: 26 }}>
+                  Check this if musicians need to arrive for a rehearsal before the service.
+                </div>
+                {data.hasRehearsal && (
+                  <div style={{ marginTop: 16 }}>
+                    <div className="sm-row-2" style={{ gap: "12px 16px" }}>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label className="label">Rehearsal date</label>
+                        <input
+                          type="date"
+                          className="input"
+                          value={data.rehearsalDate}
+                          onChange={e => set("rehearsalDate", e.target.value)}
+                        />
+                        <div style={{ fontSize: 12.5, color: "var(--sm-fg-4)", marginTop: 4 }}>
+                          The rehearsal may be on a different day than the service.
+                        </div>
+                      </div>
+                      <div>
+                        <label className="label">Rehearsal start time</label>
+                        <input
+                          type="time"
+                          className="input"
+                          value={data.rehearsalStartTime}
+                          onChange={e => set("rehearsalStartTime", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Rehearsal end time</label>
+                        <input
+                          type="time"
+                          className="input"
+                          value={data.rehearsalEndTime}
+                          onChange={e => set("rehearsalEndTime", e.target.value)}
+                        />
+                      </div>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label className="label">Rehearsal notes (optional)</label>
+                        <input
+                          className="input"
+                          placeholder="e.g. full band only, bring charts"
+                          value={data.rehearsalNotes}
+                          onChange={e => set("rehearsalNotes", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div style={{ gridColumn: "1 / -1", paddingTop: 10 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14.5 }}>
                 <input
@@ -456,22 +581,26 @@ export function NewRequestForm({
             ))}
           </div>
           <div className="sm-row-2" style={{ gap: "16px 20px" }}>
-            <div>
-              <label className="label">Rehearsals</label>
-              <select className="select" value={data.rehearsals} onChange={e => set("rehearsals", e.target.value)}>
-                <option>None — show up Sunday morning</option>
-                <option>1 (Saturday evening)</option>
-                <option>1 (weekday evening)</option>
-                <option>2 — full team practice + run-through</option>
-              </select>
-            </div>
-            <div>
+            <div style={{ gridColumn: "1 / -1" }}>
               <label className="label">Setlist / repertoire link</label>
               <input className="input" placeholder="Planning Center, shared doc, or Spotify playlist"
                 value={data.setlistUrl} onChange={e => set("setlistUrl", e.target.value)} />
               <div style={{ fontSize: 12.5, color: "var(--sm-fg-4)", marginTop: 5 }}>Optional. Helps musicians know if they&apos;re a fit.</div>
             </div>
           </div>
+          {data.hasRehearsal && (
+            <div style={{ marginTop: 16, padding: "12px 16px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", fontSize: 13.5, color: "var(--sm-fg-2)" }}>
+              <strong style={{ fontWeight: 600 }}>Rehearsal:</strong>{" "}
+              {[
+                data.rehearsalDate,
+                data.rehearsalStartTime && data.rehearsalEndTime
+                  ? `${data.rehearsalStartTime} – ${data.rehearsalEndTime}`
+                  : data.rehearsalStartTime || data.rehearsalEndTime || "",
+                data.rehearsalNotes,
+              ].filter(Boolean).join(" · ") || "Date and time set in service details."}
+              {" "}<button type="button" className="btn btn--ghost btn--sm" style={{ verticalAlign: "middle" }} onClick={() => setStep(0)}>Edit</button>
+            </div>
+          )}
         </div>
       )}
 
@@ -582,6 +711,15 @@ export function NewRequestForm({
                 ["Title", data.title || <em style={{ color: "var(--sm-fg-4)" }}>untitled</em>],
                 ["Type", data.serviceType],
                 ["Date & time", data.date ? `${data.date} at ${formatServiceTimeRange(data.time, data.endTime)}` : <em style={{ color: "var(--sm-fg-4)" }}>not set</em>],
+                ["Rehearsal", data.hasRehearsal ? (
+                  [
+                    data.rehearsalDate || "date TBD",
+                    data.rehearsalStartTime && data.rehearsalEndTime
+                      ? `${data.rehearsalStartTime} – ${data.rehearsalEndTime}`
+                      : data.rehearsalStartTime ? `from ${data.rehearsalStartTime}` : data.rehearsalEndTime ? `until ${data.rehearsalEndTime}` : "",
+                    data.rehearsalNotes,
+                  ].filter(Boolean).join(" · ")
+                ) : "None"],
                 ["Location", data.useChurchLocation ? "Church address" : (data.locationFormattedAddress || <em style={{ color: "var(--sm-fg-4)" }}>alternate location not verified</em>)],
               ],
             },
@@ -590,7 +728,6 @@ export function NewRequestForm({
               onEdit: () => setStep(1),
               rows: [
                 ["Instruments", data.instruments.length ? data.instruments.join(", ") : <em style={{ color: "var(--sm-fg-4)" }}>none selected</em>],
-                ["Rehearsals", data.rehearsals],
                 ["Setlist", data.setlistUrl || <em style={{ color: "var(--sm-fg-4)" }}>not provided</em>],
               ],
             },
