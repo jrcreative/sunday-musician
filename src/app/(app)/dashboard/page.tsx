@@ -331,8 +331,8 @@ export default async function DashboardPage() {
       (r.instruments_needed.length === 0 || r.matchedInstrs.length > 0)
     )
     .sort((a, b) =>
-      b.readiness.percent - a.readiness.percent ||
       a.service_date.localeCompare(b.service_date) ||
+      b.readiness.percent - a.readiness.percent ||
       a.title.localeCompare(b.title)
     )
     .slice(0, 5);
@@ -646,9 +646,15 @@ export default async function DashboardPage() {
                         {matchedInstrs.map(i => <span key={i} className="chip chip--accent" style={{ fontSize: 11 }}>{i}</span>)}
                       </div>
                     )}
-                    <div style={{ marginTop: 6, fontSize: 12, color: "var(--sm-fg-3)" }}>
-                      {r.readiness.percent}% match · {r.readiness.label}
+                    <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sm-accent)", background: "rgba(228,123,2,0.08)", padding: "2px 7px", borderRadius: 10 }}>
+                        {r.readiness.percent}% request fit
+                      </span>
+                      <span style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>{r.readiness.label}</span>
                     </div>
+                    <p style={{ fontSize: 13, color: "var(--sm-fg-2)", margin: "7px 0 0", lineHeight: 1.45 }}>
+                      {r.readiness.explanation}
+                    </p>
                   </div>
                   <span style={{ fontSize: 12, color: "var(--sm-fg-4)", whiteSpace: "nowrap" }}>View →</span>
                 </div>
