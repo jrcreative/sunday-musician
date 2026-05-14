@@ -39,6 +39,17 @@ test("musician dashboard keeps conversations, open requests, and bookings distin
   assert.doesNotMatch(source, /dashboardBookings[\s\S]{0,500}\.slice\(0,\s*4\)/, "my bookings must not be capped to four rows");
 });
 
+test("musician dashboard suggested requests show fit context and sort by date before fit", () => {
+  const source = read("src/app/(app)/dashboard/page.tsx");
+  const dateRank = source.indexOf("a.service_date.localeCompare(b.service_date)");
+  const fitRank = source.indexOf("b.readiness.percent - a.readiness.percent");
+
+  assert.ok(dateRank >= 0, "suggested requests should rank service date first");
+  assert.ok(fitRank > dateRank, "request fit should break ties after service date");
+  assert.match(source, /% request fit/, "suggested request cards should label the fit percentage");
+  assert.match(source, /r\.readiness\.explanation/, "suggested request cards should explain why the request fits");
+});
+
 test("server-rendered musician booking lists query by verified profile id", () => {
   for (const path of [
     "src/app/(app)/dashboard/page.tsx",
