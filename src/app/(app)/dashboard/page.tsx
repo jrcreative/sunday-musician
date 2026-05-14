@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/shell/Topbar";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -12,13 +13,18 @@ import {
   bookingDisplayStatus,
   requestDisplayStatus,
 } from "@/lib/requests/status";
-import { instrumentsOverlap, matchingInstruments, uniqueInstruments } from "@/lib/instruments";
+import { matchingInstruments, uniqueInstruments } from "@/lib/instruments";
+import { scoreServiceReadiness } from "@/lib/matches/readiness";
 
 function greeting() {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
+}
+
+function bookingDateTime(serviceDate: string | null) {
+  return serviceDate ? new Date(serviceDate + "T12:00:00").getTime() : Number.POSITIVE_INFINITY;
 }
 
 export default async function DashboardPage() {
@@ -161,9 +167,9 @@ export default async function DashboardPage() {
   }
 
   // ── Musician dashboard ────────────────────────────────────────────────────
-  const { data: mp } = await supabase
+  const { data: mp, error: mpError } = await supabase
     .from("musician_profiles")
-    .select("id, instruments, city, state, bio, primary_instrument, fee_min, fee_max, is_volunteer, travel_radius_miles, denomination_tags, experience_notes, gear_notes")
+    .select("id, instruments, city, state, lat, lng, bio, primary_instrument, fee_min, fee_max, is_volunteer, travel_radius_miles, denomination_tags, experience_notes, gear_notes, available, rating, review_count, profiles(display_name)")
     .eq("profile_id", user.id)
     .maybeSingle() as unknown as {
       data: {
@@ -171,6 +177,8 @@ export default async function DashboardPage() {
         instruments: string[];
         city: string;
         state: string;
+        lat: number | null;
+        lng: number | null;
         bio: string;
         primary_instrument: string;
         fee_min: number;
@@ -180,33 +188,152 @@ export default async function DashboardPage() {
         denomination_tags: string[];
         experience_notes: string;
         gear_notes: string;
+        available: boolean;
+        rating: number;
+        review_count: number;
+        profiles: { display_name: string } | null;
       } | null;
+      error: { message: string } | null;
     };
+  if (mpError) console.error("[dashboard] musician_profiles fetch failed:", mpError.message);
 
-  // Open requests matching musician's instruments
   const today = new Date().toISOString().split("T")[0];
-  const myInstruments = uniqueInstruments(mp?.instruments ?? []);
+  const myInstruments = uniqueInstruments([
+    ...(mp?.instruments ?? []),
+    mp?.primary_instrument ?? "",
+  ]);
+
+  const { data: stripeAccount } = mp
+    ? await supabase
+        .from("stripe_accounts")
+        .select("charges_enabled, payouts_enabled, details_submitted")
+        .eq("musician_profile_id", mp.id)
+        .maybeSingle() as unknown as {
+          data: { charges_enabled: boolean; payouts_enabled: boolean; details_submitted: boolean } | null;
+        }
+    : { data: null };
+
+  type ConversationThreadRow = {
+    id: string;
+    request_id: string;
+    archived_at: string | null;
+    last_message_at: string | null;
+    updated_at: string;
+    service_requests: { title: string; service_type: string; service_date: string; status: string } | null;
+    church_profiles: { church_name: string } | null;
+  };
+
+  let conversationThreads: ConversationThreadRow[] = [];
+  const conversationRequestIds = new Set<string>();
+
+  if (mp) {
+    const { data: threadRows } = await supabase
+      .from("threads")
+      .select(`
+        id, request_id, archived_at, last_message_at, updated_at,
+        service_requests ( title, service_type, service_date, status ),
+        church_profiles ( church_name )
+      `)
+      .eq("musician_profile_id", mp.id) as unknown as { data: ConversationThreadRow[] | null };
+
+    conversationThreads = threadRows ?? [];
+    for (const thread of conversationThreads) {
+      if (thread.request_id) conversationRequestIds.add(thread.request_id);
+    }
+  }
 
   type OpenRequestRow = {
     id: string; title: string; service_type: string; service_date: string;
-    offered_fee: number | null; fee_type: string; instruments_needed: string[];
+    service_time: string | null; offered_fee: number | null; fee_type: string; instruments_needed: string[];
+    rehearsals: string; notes: string | null; tech_setup: string[]; setlist_url: string | null;
     church_profile_id: string;
-    church_profiles: { church_name: string; city: string; state: string } | null;
+    use_church_location: boolean;
+    location_lat: number | null; location_lng: number | null; location_state: string | null; location_verified_at: string | null;
+    church_profiles: {
+      church_name: string; city: string; state: string;
+      lat: number | null; lng: number | null; address_verified_at: string | null; musical_style: string | null;
+    } | null;
   };
 
   const { data: rawRequests } = await supabase
     .from("service_requests")
-    .select("id, title, service_type, service_date, offered_fee, fee_type, instruments_needed, church_profile_id, church_profiles(church_name, city, state)")
+    .select("id, title, service_type, service_date, service_time, offered_fee, fee_type, instruments_needed, rehearsals, notes, tech_setup, setlist_url, church_profile_id, use_church_location, location_lat, location_lng, location_state, location_verified_at, church_profiles(church_name, city, state, lat, lng, address_verified_at, musical_style)")
     .eq("status", "open")
     .gte("service_date", today)
     .order("service_date", { ascending: true })
     .limit(50) as unknown as { data: OpenRequestRow[] | null };
 
+  const { data: blocks } = mp
+    ? await supabase
+        .from("unavailability_blocks")
+        .select("start_date, end_date")
+        .eq("musician_profile_id", mp.id)
+        .gte("end_date", today)
+    : { data: [] as { start_date: string; end_date: string }[] };
+  const blockedRanges = blocks ?? [];
+  const isBlocked = (date: string) => blockedRanges.some(b => date >= b.start_date && date <= b.end_date);
+  const paymentReady = !!stripeAccount?.charges_enabled && !!stripeAccount?.payouts_enabled && !!stripeAccount?.details_submitted;
+
   const openRequests = (rawRequests ?? [])
+    .filter(r => !conversationRequestIds.has(r.id))
+    .filter(r => !isBlocked(r.service_date))
+    .map(r => {
+      const serviceState = r.use_church_location
+        ? r.church_profiles?.state ?? null
+        : r.location_state;
+      const serviceLat = r.use_church_location ? r.church_profiles?.lat ?? null : r.location_lat;
+      const serviceLng = r.use_church_location ? r.church_profiles?.lng ?? null : r.location_lng;
+      const matchedInstrs = matchingInstruments(r.instruments_needed, myInstruments, mp?.primary_instrument ?? "");
+      const readiness = scoreServiceReadiness({
+        title: r.title,
+        serviceType: r.service_type,
+        serviceStyle: r.church_profiles?.musical_style,
+        serviceDate: r.service_date,
+        serviceTime: r.service_time,
+        useChurchLocation: r.use_church_location,
+        churchLocationVerified: !!r.church_profiles?.address_verified_at,
+        locationVerified: !!r.location_verified_at,
+        instrumentsNeeded: r.instruments_needed,
+        rehearsals: r.rehearsals,
+        techSetup: r.tech_setup ?? [],
+        offeredFee: r.offered_fee,
+        feeType: r.fee_type,
+        setlistUrl: r.setlist_url,
+        notes: r.notes,
+        serviceCoords: { lat: serviceLat, lng: serviceLng },
+        serviceState,
+      }, {
+        displayName: mp?.profiles?.display_name ?? firstName,
+        available: mp?.available,
+        instruments: mp?.instruments ?? [],
+        primaryInstrument: mp?.primary_instrument ?? "",
+        city: mp?.city,
+        state: mp?.state,
+        lat: mp?.lat,
+        lng: mp?.lng,
+        travelRadiusMiles: mp?.travel_radius_miles,
+        bio: mp?.bio,
+        denominationTags: mp?.denomination_tags ?? [],
+        experienceNotes: mp?.experience_notes,
+        gearNotes: mp?.gear_notes,
+        isVolunteer: mp?.is_volunteer,
+        feeMin: mp?.fee_min,
+        feeMax: mp?.fee_max,
+        rating: mp?.rating,
+        reviewCount: mp?.review_count,
+        paymentReady,
+      });
+
+      return { ...r, matchedInstrs, readiness };
+    })
     .filter(r =>
-      myInstruments.length === 0 ||
-      r.instruments_needed.length === 0 ||
-      instrumentsOverlap(r.instruments_needed, myInstruments)
+      myInstruments.length > 0 &&
+      (r.instruments_needed.length === 0 || r.matchedInstrs.length > 0)
+    )
+    .sort((a, b) =>
+      b.readiness.percent - a.readiness.percent ||
+      a.service_date.localeCompare(b.service_date) ||
+      a.title.localeCompare(b.title)
     )
     .slice(0, 5);
 
@@ -240,10 +367,11 @@ export default async function DashboardPage() {
     service_requests: { title: string } | null;
   };
 
-  let bookings: DashboardBooking[] = [];
+  let allBookings: DashboardBooking[] = [];
 
   if (mp) {
-    const { data: rows } = await supabase
+    const admin = createAdminClient();
+    const { data: rows, error: bookingsError } = await admin
       .from("bookings")
       .select(`
         id, thread_id, service_date, fee, fee_type, accepted_at, cancelled_at, cancellation_policy_label, dispute_review_required,
@@ -251,9 +379,10 @@ export default async function DashboardPage() {
         service_requests ( title )
       `)
       .eq("musician_profile_id", mp.id)
-      .order("service_date", { ascending: false, nullsFirst: false }) as unknown as { data: BookingRow[] | null };
+      .order("service_date", { ascending: false, nullsFirst: false }) as unknown as { data: BookingRow[] | null; error: { message: string } | null };
+    if (bookingsError) console.error("[dashboard] bookings fetch failed:", bookingsError.message);
 
-    bookings = (rows ?? []).map(r => ({
+    allBookings = (rows ?? []).map(r => ({
       bookingId: r.id,
       threadId: r.thread_id,
       churchName: r.church_profiles?.church_name ?? "Church",
@@ -265,56 +394,66 @@ export default async function DashboardPage() {
       cancelledAt: r.cancelled_at,
       cancellationPolicyLabel: r.cancellation_policy_label,
       disputeReviewRequired: r.dispute_review_required === true,
-    })).slice(0, 4);
+    }));
   }
 
-  // Conversations in progress — threads where musician has a pending proposal
-  // but no confirmed booking yet.
-  type ActiveConversationRow = {
-    id: string;
-    request_id: string;
-    service_requests: { title: string; service_type: string; service_date: string } | null;
-    church_profiles: { church_name: string } | null;
-  };
+  const now = new Date().getTime();
+  // Only show accepted (non-cancelled) bookings; sort upcoming ones first (nearest date at top),
+  // then past completed ones (most recent past first).
+  const dashboardBookings = [...allBookings]
+    .filter(b => !b.cancelledAt)
+    .sort((a, b) => {
+      const aTime = bookingDateTime(a.serviceDate);
+      const bTime = bookingDateTime(b.serviceDate);
+      const aUpcoming = aTime >= now;
+      const bUpcoming = bTime >= now;
+      if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+      if (aUpcoming && bUpcoming) return aTime - bTime;
+      return bTime - aTime;
+    });
 
-  let activeConversations: ActiveConversationRow[] = [];
+  // Conversations in progress are request threads with no terminal proposal
+  // outcome and no booking. A thread with no proposal yet still counts as a
+  // started conversation, so it should leave "Open requests for you".
+  let activeConversations: ConversationThreadRow[] = [];
 
   if (mp) {
-    // Collect booked thread IDs so we can exclude them
-    const bookedThreadIds = new Set(bookings.map(b => b.threadId));
-
-    const { data: threadRows } = await supabase
-      .from("threads")
-      .select(`
-        id, request_id,
-        service_requests ( title, service_type, service_date ),
-        church_profiles ( church_name )
-      `)
-      .eq("musician_profile_id", mp.id)
-      .is("archived_at", null) as unknown as { data: ActiveConversationRow[] | null };
-
-    const candidateThreadIds = (threadRows ?? [])
+    const bookedThreadIds = new Set(allBookings.map(b => b.threadId));
+    const candidateThreadIds = conversationThreads
+      .filter(t => !t.archived_at)
       .filter(t => !bookedThreadIds.has(t.id))
+      .filter(t => ["open", "in_progress"].includes(t.service_requests?.status ?? ""))
       .map(t => t.id);
 
+    const latestProposalByThreadId = new Map<string, string | null>();
+
     if (candidateThreadIds.length > 0) {
-      // Find which of those threads have at least one pending proposal message
-      const { data: pendingMsgRows } = await supabase
+      const { data: proposalRows } = await supabase
         .from("messages")
-        .select("thread_id")
+        .select("thread_id, proposal_status, created_at")
         .in("thread_id", candidateThreadIds)
         .eq("kind", "proposal")
-        .eq("proposal_status", "pending") as unknown as { data: { thread_id: string }[] | null };
+        .order("created_at", { ascending: true }) as unknown as {
+          data: { thread_id: string; proposal_status: string | null; created_at: string }[] | null;
+        };
 
-      const threadsWithPending = new Set((pendingMsgRows ?? []).map(m => m.thread_id));
+      for (const proposal of proposalRows ?? []) {
+        latestProposalByThreadId.set(proposal.thread_id, proposal.proposal_status);
+      }
 
-      activeConversations = (threadRows ?? []).filter(
-        t => !bookedThreadIds.has(t.id) && threadsWithPending.has(t.id)
-      );
+      const resolvedProposalStatuses = new Set(["accepted", "declined"]);
+      activeConversations = conversationThreads
+        .filter(t => candidateThreadIds.includes(t.id))
+        .filter(t => !resolvedProposalStatuses.has(latestProposalByThreadId.get(t.id) ?? ""))
+        .sort((a, b) =>
+          new Date(b.last_message_at ?? b.updated_at).getTime() -
+          new Date(a.last_message_at ?? a.updated_at).getTime()
+        )
+        .slice(0, 5);
     }
   }
 
-  const liveBookings = bookings.filter(b => !b.cancelledAt);
+  const liveBookings = allBookings.filter(b => !b.cancelledAt);
   const totalEarned = liveBookings.reduce((s, b) => s + (b.fee ?? 0), 0);
   const upcomingCount = liveBookings.filter(b => b.serviceDate && new Date(b.serviceDate + "T12:00:00") >= new Date()).length;
   const profileCompleteness = musicianCompleteness(mp);
@@ -365,6 +504,68 @@ export default async function DashboardPage() {
             </div>
           ))}
         </div>
+
+        {/* My bookings — shown first so musicians never miss an upcoming gig */}
+        <Section
+          label="My bookings"
+          viewAllHref="/requests"
+          viewAllLabel="View all bookings"
+          empty={dashboardBookings.length === 0}
+          emptyMessage="When you accept a church's terms, your confirmed bookings will appear here."
+          emptyAction={{ href: "/open-requests", label: "Browse open requests" }}
+        >
+          {dashboardBookings.map((b, idx) => {
+            const d = b.serviceDate ? new Date(b.serviceDate + "T12:00:00") : null;
+            const status = bookingDisplayStatus(b.serviceDate, b.cancelledAt);
+            const isNext = idx === 0 && status === "upcoming";
+            const dim = status !== "upcoming";
+            return (
+              <Link key={b.bookingId} href={`/messages/${b.threadId}`} style={{ textDecoration: "none" }}>
+                <div style={{
+                  display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 18, alignItems: "center",
+                  padding: "16px 20px", marginBottom: 8, opacity: dim ? 0.7 : 1,
+                  border: isNext ? "2px solid var(--sm-accent)" : "1px solid var(--sm-border-subtle)",
+                  borderRadius: "var(--sm-radius-sm)",
+                  background: isNext ? "color-mix(in srgb, var(--sm-accent) 6%, var(--sm-bg-1))" : "var(--sm-bg-1)",
+                }}>
+                  <div style={{ textAlign: "center", paddingRight: 18, borderRight: `1px solid ${isNext ? "color-mix(in srgb, var(--sm-accent) 30%, var(--sm-border-subtle))" : "var(--sm-border-subtle)"}` }}>
+                    {d ? (
+                      <>
+                        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: dim ? "var(--sm-fg-4)" : "var(--sm-accent)", fontWeight: 700 }}>
+                          {d.toLocaleDateString("en-US", { month: "short" })}
+                        </div>
+                        <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, color: "var(--sm-fg-1)", marginTop: 1 }}>{d.getDate()}</div>
+                        <div style={{ fontSize: 10.5, color: "var(--sm-fg-3)", marginTop: 1 }}>{d.toLocaleDateString("en-US", { weekday: "short" })}</div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 11, color: "var(--sm-fg-4)" }}>TBD</div>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14.5, color: "var(--sm-fg-1)" }}>{b.title}</div>
+                      {isNext && <span className="chip chip--accent" style={{ fontSize: 10, whiteSpace: "nowrap" }}>Next gig</span>}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>
+                      {b.churchName}
+                      {b.disputeReviewRequired ? " · Admin review" : ""}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    {b.fee != null ? (
+                      <div style={{ fontWeight: 700, fontSize: 15, color: "var(--sm-fg-1)" }}>${b.fee}</div>
+                    ) : (
+                      <div style={{ fontSize: 12.5, color: "var(--sm-fg-4)" }}>Volunteer</div>
+                    )}
+                    <span className={BOOKING_STATUS_CHIP[status]} style={{ fontSize: 11, marginTop: 4, display: "inline-block" }}>
+                      {BOOKING_STATUS_LABEL[status]}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </Section>
 
         {/* Conversations in progress */}
         <Section
@@ -423,7 +624,7 @@ export default async function DashboardPage() {
         >
           {openRequests.map(r => {
             const d = new Date(r.service_date + "T12:00:00");
-            const matchedInstrs = matchingInstruments(r.instruments_needed, myInstruments);
+            const matchedInstrs = r.matchedInstrs;
             return (
               <Link key={r.id} href={`/requests/${r.id}`} style={{ textDecoration: "none" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 18, alignItems: "center", padding: "16px 20px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", marginBottom: 8 }}>
@@ -445,61 +646,11 @@ export default async function DashboardPage() {
                         {matchedInstrs.map(i => <span key={i} className="chip chip--accent" style={{ fontSize: 11 }}>{i}</span>)}
                       </div>
                     )}
-                  </div>
-                  <span style={{ fontSize: 12, color: "var(--sm-fg-4)", whiteSpace: "nowrap" }}>View →</span>
-                </div>
-              </Link>
-            );
-          })}
-        </Section>
-
-        {/* My bookings */}
-        <Section
-          label="My bookings"
-          viewAllHref="/requests"
-          viewAllLabel="View all bookings"
-          empty={bookings.length === 0}
-          emptyMessage="When you accept a church's terms, your confirmed bookings will appear here."
-          emptyAction={{ href: "/open-requests", label: "Browse open requests" }}
-        >
-          {bookings.map(b => {
-            const d = b.serviceDate ? new Date(b.serviceDate + "T12:00:00") : null;
-            const status = bookingDisplayStatus(b.serviceDate, b.cancelledAt);
-            const dim = status !== "upcoming";
-            return (
-              <Link key={b.bookingId} href={`/messages/${b.threadId}`} style={{ textDecoration: "none" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 18, alignItems: "center", padding: "16px 20px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", marginBottom: 8, opacity: dim ? 0.7 : 1 }}>
-                  <div style={{ textAlign: "center", paddingRight: 18, borderRight: "1px solid var(--sm-border-subtle)" }}>
-                    {d ? (
-                      <>
-                        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: dim ? "var(--sm-fg-4)" : "var(--sm-accent)", fontWeight: 700 }}>
-                          {d.toLocaleDateString("en-US", { month: "short" })}
-                        </div>
-                        <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, color: "var(--sm-fg-1)", marginTop: 1 }}>{d.getDate()}</div>
-                        <div style={{ fontSize: 10.5, color: "var(--sm-fg-3)", marginTop: 1 }}>{d.toLocaleDateString("en-US", { weekday: "short" })}</div>
-                      </>
-                    ) : (
-                      <div style={{ fontSize: 11, color: "var(--sm-fg-4)" }}>TBD</div>
-                    )}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14.5, color: "var(--sm-fg-1)", marginBottom: 2, textDecoration: status === "cancelled" ? "line-through" : "none" }}>{b.title}</div>
-                    <div style={{ fontSize: 12.5, color: "var(--sm-fg-3)" }}>
-                      {b.churchName}
-                      {b.cancelledAt && b.cancellationPolicyLabel ? ` · ${b.cancellationPolicyLabel}` : ""}
-                      {b.disputeReviewRequired ? " · Admin review" : ""}
+                    <div style={{ marginTop: 6, fontSize: 12, color: "var(--sm-fg-3)" }}>
+                      {r.readiness.percent}% match · {r.readiness.label}
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    {b.fee != null ? (
-                      <div style={{ fontWeight: 700, fontSize: 15, color: "var(--sm-fg-1)" }}>${b.fee}</div>
-                    ) : (
-                      <div style={{ fontSize: 12.5, color: "var(--sm-fg-4)" }}>Volunteer</div>
-                    )}
-                    <span className={BOOKING_STATUS_CHIP[status]} style={{ fontSize: 11, marginTop: 4, display: "inline-block" }}>
-                      {BOOKING_STATUS_LABEL[status]}
-                    </span>
-                  </div>
+                  <span style={{ fontSize: 12, color: "var(--sm-fg-4)", whiteSpace: "nowrap" }}>View →</span>
                 </div>
               </Link>
             );

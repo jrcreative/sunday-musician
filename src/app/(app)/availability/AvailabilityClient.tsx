@@ -3,12 +3,13 @@
 import { useMemo, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { connectIcalCalendar, syncCalendarNow, disconnectCalendar } from "./actions";
+import type { UnavailabilitySource } from "@/lib/supabase/types";
 
 type Block = {
   id: string;
   start_date: string;
   end_date: string;
-  source: "manual" | "ical" | "google" | "pco";
+  source: UnavailabilitySource;
   note: string | null;
 };
 

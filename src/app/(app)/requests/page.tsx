@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/shell/Topbar";
 import Link from "next/link";
 import { RequestsClient } from "./RequestsClient";
@@ -64,6 +65,7 @@ export default async function RequestsPage() {
   let bookings: Booking[] = [];
 
   if (mp) {
+    const admin = createAdminClient();
     type BookingRow = {
       id: string;
       thread_id: string;
@@ -78,7 +80,7 @@ export default async function RequestsPage() {
       service_requests: { title: string; service_type: string } | null;
     };
 
-    const { data: rows } = await supabase
+    const { data: rows } = await admin
       .from("bookings")
       .select(`
         id, thread_id, service_date, fee, fee_type, accepted_at, cancelled_at, cancellation_policy_label, dispute_review_required,
