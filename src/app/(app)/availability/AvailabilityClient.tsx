@@ -6,7 +6,7 @@ import { connectIcalCalendar, syncCalendarNow, disconnectCalendar, updateCalenda
 import type { UnavailabilitySource } from "@/lib/supabase/types";
 
 const SUNDAY_MUSICIAN_CALENDAR_COLOR = "#e47b02";
-const IMPORTED_CALENDAR_COLORS = ["#2563eb", "#16a34a", "#db2777", "#7c3aed"] as const;
+const IMPORTED_CALENDAR_COLORS = ["#b9935a", "#8fa06a", "#c8876a", "#8fa3a0"] as const;
 
 type Block = {
   id: string;

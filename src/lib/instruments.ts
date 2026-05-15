@@ -32,6 +32,11 @@ export function instrumentsOverlap(left: string[], right: string[]) {
   return left.some(instrument => rightSet.has(instrument));
 }
 
+export function instrumentsIncludeAll(required: string[], available: string[]) {
+  const availableSet = new Set(available);
+  return required.every(instrument => availableSet.has(instrument));
+}
+
 export function matchingInstruments(needed: string[], musicianInstruments: string[], primaryInstrument = "") {
   const musicianSet = new Set([...musicianInstruments, primaryInstrument].filter(Boolean));
   return needed.filter(instrument => musicianSet.has(instrument));

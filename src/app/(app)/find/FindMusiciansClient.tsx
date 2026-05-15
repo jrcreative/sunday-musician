@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { VerifiedAddressInput, type VerifiedAddressValue } from "@/components/VerifiedAddressInput";
-import { INSTRUMENT_OPTIONS, instrumentsOverlap } from "@/lib/instruments";
+import { INSTRUMENT_OPTIONS, instrumentsIncludeAll } from "@/lib/instruments";
 import { distanceMiles } from "@/lib/locations/distance";
 
 const DISTANCE_OPTIONS = [
@@ -112,7 +112,7 @@ export function FindMusiciansClient({
         if (!nameMatch && !instrMatch) return false;
       }
       if (selectedInstruments.length > 0) {
-        if (!instrumentsOverlap(selectedInstruments, m.instruments)) return false;
+        if (!instrumentsIncludeAll(selectedInstruments, [m.primary_instrument, ...m.instruments].filter(Boolean))) return false;
       }
       if (dateNeeded) {
         const ranges = blocksByMusician.get(m.id) ?? [];
