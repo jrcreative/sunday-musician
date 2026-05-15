@@ -111,3 +111,30 @@ export async function disconnectCalendar(connectionId: string) {
   revalidatePath("/availability");
   return { ok: true as const };
 }
+
+export async function updateCalendarColor(connectionId: string, color: string) {
+  const { supabase, musicianId } = await getMusicianId();
+
+  const { data: connection } = await supabase
+    .from("calendar_connections")
+    .select("id, musician_profile_id, meta")
+    .eq("id", connectionId)
+    .single();
+
+  if (!connection || connection.musician_profile_id !== musicianId) {
+    return { ok: false as const, error: "Calendar not found." };
+  }
+
+  const meta = connection.meta && typeof connection.meta === "object" && !Array.isArray(connection.meta)
+    ? connection.meta
+    : {};
+  const { error } = await supabase
+    .from("calendar_connections")
+    .update({ meta: { ...meta, color } })
+    .eq("id", connectionId);
+
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath("/availability");
+  return { ok: true as const };
+}
