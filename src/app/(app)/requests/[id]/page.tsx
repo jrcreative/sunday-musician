@@ -347,7 +347,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
             {/* Details grid */}
             <div className="sm-row-2" style={{ gap: "24px 40px", marginBottom: 32 }}>
-              <div>
+              <div style={{ padding: "16px 18px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
                 <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Instruments needed</h3>
                 {request.instruments_needed.length > 0 ? (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
@@ -358,13 +358,16 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 )}
               </div>
 
-              <div>
-                <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Rehearsals</h3>
-                <p style={{ margin: 0, fontSize: 14.5, color: "var(--sm-fg-1)" }}>{request.rehearsals}</p>
+              <div style={{ padding: "16px 18px", border: "1px solid color-mix(in srgb, var(--sm-accent) 24%, var(--sm-border-subtle))", borderRadius: "var(--sm-radius-sm)", background: "color-mix(in srgb, var(--sm-accent) 5%, var(--sm-bg-1))" }}>
+                <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 10px" }}>Rehearsal schedule</h3>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--sm-accent)", marginTop: 7, flexShrink: 0 }} />
+                  <p style={{ margin: 0, fontSize: 15.5, color: "var(--sm-fg-1)", fontWeight: 600, lineHeight: 1.45, whiteSpace: "pre-line" }}>{request.rehearsals}</p>
+                </div>
               </div>
 
               {request.tech_setup.length > 0 && (
-                <div>
+                <div style={{ padding: "16px 18px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
                   <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Tech setup</h3>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                     {request.tech_setup.map((t: string) => <span key={t} className="chip chip--outline">{t}</span>)}

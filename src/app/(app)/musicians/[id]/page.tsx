@@ -191,16 +191,6 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
               </div>
             )}
 
-            {/* Denomination tags */}
-            {musician.denomination_tags?.length > 0 && (
-              <div style={{ marginBottom: 28 }}>
-                <h3 style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 10px" }}>Denominations / traditions</h3>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {musician.denomination_tags.map((t: string) => <span key={t} className="chip chip--outline">{t}</span>)}
-                </div>
-              </div>
-            )}
-
             {musician.experience_notes?.trim() && (
               <div style={{ marginBottom: 28 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 14px" }}>Experience</h3>
@@ -284,10 +274,16 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
               <dd style={{ margin: "0 0 16px", fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>
                 ${musician.fee_min}–${musician.fee_max} <span style={{ fontWeight: 400, color: "var(--sm-fg-3)", fontSize: 13 }}>/ service</span>
               </dd>
-              <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Availability</dt>
-              <dd style={{ margin: isChurch ? "0 0 16px" : 0, fontSize: 14.5, fontWeight: 500, color: musician.available ? "var(--sm-status-success)" : "var(--sm-fg-3)" }}>
-                {musician.available ? "Currently available" : "Not available"}
-              </dd>
+              {musician.denomination_tags?.length > 0 && (
+                <>
+                  <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 8 }}>Denominations / traditions</dt>
+                  <dd style={{ margin: 0 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {musician.denomination_tags.map((t: string) => <span key={t} className="chip chip--outline">{t}</span>)}
+                    </div>
+                  </dd>
+                </>
+              )}
             </dl>
             {isChurch && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--sm-border-subtle)" }}>

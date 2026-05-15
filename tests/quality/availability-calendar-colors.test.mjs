@@ -11,6 +11,7 @@ test("availability calendars can be color-coded and applied to calendar dates", 
 
   assert.match(client, /SUNDAY_MUSICIAN_CALENDAR_COLOR/, "Sunday Musician calendar needs a brand color");
   assert.match(client, /IMPORTED_CALENDAR_COLORS = \[[\s\S]*?\] as const/, "imported calendars need a fixed selectable palette");
+  assert.match(client, /"#b9935a", "#8fa06a", "#c8876a", "#8fa3a0"/, "imported calendar colors should stay light and earthy");
   assert.match(client, /connectionColor/, "calendar cards should derive their selected color from connection metadata");
   assert.match(client, /handleColorChange/, "calendar cards should update color selection in place");
   assert.match(client, /dayMarkers/, "calendar dates should apply colors from their blocking calendar source");
