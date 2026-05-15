@@ -25,3 +25,15 @@ test("request detail page presents rehearsal details as a styled schedule card",
   assert.match(source, /whiteSpace: "pre-line"/, "rehearsal text should preserve line breaks");
   assert.match(source, /\{request\.rehearsals\}/, "rehearsal card should render the request rehearsal details");
 });
+
+test("request detail page has mobile-safe detail grid and person cards", () => {
+  const page = read("src/app/(app)/requests/[id]/page.tsx");
+  const css = read("src/styles/design-system.css");
+
+  assert.match(page, /sm-request-detail-grid/, "request detail facts should use the mobile 2x2 grid class");
+  assert.match(page, /sm-request-person-card/, "musician cards should use mobile-safe card layout");
+  assert.match(page, /sm-request-card-actions/, "musician card actions should stack out of the content row on mobile");
+  assert.match(css, /\.sm-request-detail-grid[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important/, "request detail facts should stay 2x2 on mobile");
+  assert.match(css, /\.sm-request-person-card[\s\S]*display: grid !important/, "musician cards should become a grid on mobile");
+  assert.match(css, /\.sm-request-card-actions[\s\S]*grid-column: 1 \/ -1/, "mobile card actions should span the full card width");
+});
