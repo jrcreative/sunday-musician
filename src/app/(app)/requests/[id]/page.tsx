@@ -320,29 +320,33 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           {/* Main content */}
           <div>
             {/* Header */}
-            <div className="sm-mobile-stack-header" style={{ marginBottom: 28, paddingBottom: 24, borderBottom: "1px solid var(--sm-border-subtle)" }}>
-              <div style={{ minWidth: 0 }}>
-                <div className="sm-mobile-stack-header" style={{ marginBottom: 8 }}>
-                  <h2 style={{ fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>{request.title}</h2>
-                  <span className={REQUEST_STATUS_CHIP[display]}>{REQUEST_STATUS_LABEL[display]}</span>
+            <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: "1px solid var(--sm-border-subtle)" }}>
+              <div className="sm-mobile-stack-header" style={{ marginBottom: 10, alignItems: "flex-start" }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h2 style={{ fontSize: 30, fontWeight: 700, margin: "0 0 8px", letterSpacing: "-0.02em", lineHeight: 1.2 }}>{request.title}</h2>
+                  <div style={{ fontSize: 14, color: "var(--sm-fg-3)", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    {isMusician && request.church_profiles && (
+                      <><span style={{ fontWeight: 600, color: "var(--sm-fg-2)" }}>{request.church_profiles.church_name}</span><span>·</span></>
+                    )}
+                    <span style={{ fontWeight: 500, color: "var(--sm-fg-2)" }}>{request.service_type}</span>
+                    <span>·</span>
+                    <span>
+                      {d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                      {serviceTimeLabel && ` · ${serviceTimeLabel}`}
+                    </span>
+                    {serviceLocation && <><span>·</span><span>{serviceLocation}</span></>}
+                  </div>
                 </div>
-                <div style={{ fontSize: 14, color: "var(--sm-fg-3)", display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                  {isMusician && request.church_profiles && (
-                    <><span style={{ fontWeight: 500, color: "var(--sm-fg-2)" }}>{request.church_profiles.church_name}</span><span>·</span></>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                  <span className={REQUEST_STATUS_CHIP[display]}>{REQUEST_STATUS_LABEL[display]}</span>
+                  {!isMusician && display === "open" && (
+                    <>
+                      <Link href={`/requests/${request.id}/edit`} className="btn btn--ghost btn--sm">Edit</Link>
+                      <CancelRequestButton requestId={request.id} requestTitle={request.title} />
+                    </>
                   )}
-                  <span>{request.service_type}</span>
-                  <span>·</span>
-                  <span>{d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
-                  {serviceTimeLabel && <><span>·</span><span>{serviceTimeLabel}</span></>}
-                  {serviceLocation && <><span>·</span><span>{serviceLocation}</span></>}
                 </div>
               </div>
-              {!isMusician && display === "open" && (
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Link href={`/requests/${request.id}/edit`} className="btn btn--ghost btn--sm">Edit request</Link>
-                  <CancelRequestButton requestId={request.id} requestTitle={request.title} />
-                </div>
-              )}
             </div>
 
             {/* Details grid */}
@@ -665,39 +669,34 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
           {/* Aside */}
           <aside style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22, position: "sticky", top: 90 }}>
-            <dl style={{ margin: 0 }}>
-              <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Offered fee</dt>
-              <dd style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700, color: "var(--sm-fg-1)" }}>
+            {/* Fee — primary info */}
+            <div style={{ marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--sm-border-subtle)" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--sm-fg-3)", marginBottom: 6 }}>Offered fee</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: "var(--sm-fg-1)", letterSpacing: "-0.02em" }}>
                 {request.offered_fee != null ? (
-                  <>${request.offered_fee} <span style={{ fontWeight: 400, color: "var(--sm-fg-3)", fontSize: 13 }}>/ {request.fee_type.toLowerCase()}</span></>
+                  <>${request.offered_fee} <span style={{ fontWeight: 400, color: "var(--sm-fg-3)", fontSize: 14 }}>/ {request.fee_type.toLowerCase()}</span></>
                 ) : (
                   <span style={{ fontSize: 14, fontWeight: 400, color: "var(--sm-fg-4)" }}>Not set</span>
                 )}
-              </dd>
-              <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Date</dt>
-              <dd style={{ margin: "0 0 16px", fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>
-                {d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-              </dd>
-              {serviceTimeLabel && (
-                <>
-                  <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Time</dt>
-                  <dd style={{ margin: "0 0 16px", fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>{serviceTimeLabel}</dd>
-                </>
-              )}
-              <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Status</dt>
-              <dd style={{ margin: isMusician ? 0 : "0 0 16px" }}>
-                <span className={REQUEST_STATUS_CHIP[display]}>{REQUEST_STATUS_LABEL[display]}</span>
+              </div>
+            </div>
+            {/* Secondary info */}
+            <dl style={{ margin: "0 0 0" }}>
+              <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>When</dt>
+              <dd style={{ margin: "0 0 14px", fontSize: 14, color: "var(--sm-fg-1)", fontWeight: 500 }}>
+                {d.toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric" })}
+                {serviceTimeLabel && <><br /><span style={{ fontWeight: 400, color: "var(--sm-fg-2)", fontSize: 13.5 }}>{serviceTimeLabel}</span></>}
               </dd>
               {!isMusician && !isFilled && (
                 <>
                   <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Applicants</dt>
-                  <dd style={{ margin: 0, fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>
+                  <dd style={{ margin: 0, fontSize: 14, color: "var(--sm-fg-1)", fontWeight: 500 }}>
                     {applications?.length ?? 0}
                   </dd>
                 </>
               )}
             </dl>
-            <div style={{ marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--sm-border-subtle)", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--sm-border-subtle)", display: "flex", flexDirection: "column", gap: 8 }}>
               {isMusician ? (
                 <>
                   {threadId ? (
