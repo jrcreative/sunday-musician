@@ -2,8 +2,11 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { connectIcalCalendar, syncCalendarNow, disconnectCalendar } from "./actions";
+import { connectIcalCalendar, syncCalendarNow, disconnectCalendar, updateCalendarColor } from "./actions";
 import type { UnavailabilitySource } from "@/lib/supabase/types";
+
+const SUNDAY_MUSICIAN_CALENDAR_COLOR = "#e47b02";
+const IMPORTED_CALENDAR_COLORS = ["#2563eb", "#16a34a", "#db2777", "#7c3aed"] as const;
 
 type Block = {
   id: string;
@@ -11,6 +14,7 @@ type Block = {
   end_date: string;
   source: UnavailabilitySource;
   note: string | null;
+  connection_id: string | null;
 };
 
 type Connection = {
@@ -18,8 +22,14 @@ type Connection = {
   kind: "ical" | "google" | "pco";
   label: string;
   ical_url: string | null;
+  meta: unknown;
   last_synced_at: string | null;
   last_error: string | null;
+};
+
+type CalendarDayMarker = {
+  color: string;
+  partial: boolean;
 };
 
 function timeAgo(iso: string | null): string {
@@ -81,6 +91,15 @@ function dateISO(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function connectionColor(connection: Connection | undefined, index = 0) {
+  const meta = connection?.meta;
+  if (meta && typeof meta === "object" && !Array.isArray(meta) && "color" in meta) {
+    const color = (meta as { color?: unknown }).color;
+    if (typeof color === "string" && color.trim()) return color;
+  }
+  return IMPORTED_CALENDAR_COLORS[index % IMPORTED_CALENDAR_COLORS.length];
+}
+
 export function AvailabilityClient({
   musicianId,
   masterAvailable,
@@ -118,24 +137,36 @@ export function AvailabilityClient({
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
 
-  const { fullDayBlockedDates, partialDayBlockedDates } = useMemo(() => {
-    // Track for each date: whether any block is full-day (no time prefix)
+  const connectionColors = useMemo(() => {
+    const colors = new Map<string, string>();
+    connections.forEach((connection, index) => {
+      colors.set(connection.id, connectionColor(connection, index));
+    });
+    return colors;
+  }, [connections]);
+
+  const { fullDayBlockedDates, partialDayBlockedDates, dayMarkers } = useMemo(() => {
     const fullDay = new Set<string>();
     const partialOnly = new Set<string>();
-    // Map date -> has full-day block
     const dateHasFullDay = new Map<string, boolean>();
+    const markers = new Map<string, CalendarDayMarker[]>();
 
     for (const b of blocks) {
       const { timeRange } = parseBlockNote(b.note);
       const s = new Date(b.start_date + "T00:00:00");
       const e = new Date(b.end_date + "T00:00:00");
+      const color = b.connection_id
+        ? connectionColors.get(b.connection_id) ?? IMPORTED_CALENDAR_COLORS[0]
+        : SUNDAY_MUSICIAN_CALENDAR_COLOR;
       for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
         const iso = dateISO(d);
+        const existingMarkers = markers.get(iso) ?? [];
+        if (!existingMarkers.some(marker => marker.color === color && marker.partial === !!timeRange)) {
+          markers.set(iso, [...existingMarkers, { color, partial: !!timeRange }]);
+        }
         if (!timeRange) {
-          // full-day block
           dateHasFullDay.set(iso, true);
         } else {
-          // partial block — only mark partial if not already marked as having a full-day block
           if (!dateHasFullDay.has(iso)) {
             dateHasFullDay.set(iso, false);
           }
@@ -151,8 +182,8 @@ export function AvailabilityClient({
       }
     }
 
-    return { fullDayBlockedDates: fullDay, partialDayBlockedDates: partialOnly };
-  }, [blocks]);
+    return { fullDayBlockedDates: fullDay, partialDayBlockedDates: partialOnly, dayMarkers: markers };
+  }, [blocks, connectionColors]);
 
   const cells = buildMonthGrid(viewYear, viewMonth);
   const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
@@ -194,7 +225,7 @@ export function AvailabilityClient({
         source: "manual",
         note: noteToSave.trim() || null,
       })
-      .select("id, start_date, end_date, source, note")
+      .select("id, start_date, end_date, source, note, connection_id")
       .single();
     if (error) { setError(error.message); return; }
     if (data) {
@@ -220,13 +251,13 @@ export function AvailabilityClient({
     const [{ data: nextBlocks }, { data: nextConns }] = await Promise.all([
       supabase
         .from("unavailability_blocks")
-        .select("id, start_date, end_date, source, note")
+        .select("id, start_date, end_date, source, note, connection_id")
         .eq("musician_profile_id", musicianId)
         .gte("end_date", today)
         .order("start_date", { ascending: true }),
       supabase
         .from("calendar_connections")
-        .select("id, kind, label, ical_url, last_synced_at, last_error")
+        .select("id, kind, label, ical_url, meta, last_synced_at, last_error")
         .eq("musician_profile_id", musicianId)
         .order("created_at", { ascending: true }),
     ]);
@@ -267,6 +298,22 @@ export function AvailabilityClient({
     setBusyConn(null);
     if (!result.ok) setError(result.error);
     await refreshFromServer();
+  }
+
+  async function handleColorChange(connectionId: string, color: string) {
+    const previous = connections;
+    setConnections(connections.map(connection => {
+      if (connection.id !== connectionId) return connection;
+      const meta = connection.meta && typeof connection.meta === "object" && !Array.isArray(connection.meta)
+        ? connection.meta
+        : {};
+      return { ...connection, meta: { ...meta, color } };
+    }));
+    const result = await updateCalendarColor(connectionId, color);
+    if (!result.ok) {
+      setConnections(previous);
+      setError(result.error);
+    }
   }
 
   return (
@@ -384,14 +431,41 @@ export function AvailabilityClient({
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {connections.map(c => (
+            {connections.map((c, index) => {
+              const selectedColor = connectionColor(c, index);
+              return (
               <div key={c.id} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "12px 14px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)" }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--sm-fg-1)" }}>{c.label}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: selectedColor, flexShrink: 0 }} />
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--sm-fg-1)" }}>{c.label}</div>
+                  </div>
                   <div style={{ fontSize: 12, color: c.last_error ? "var(--sm-status-danger, #b82105)" : "var(--sm-fg-4)", marginTop: 2 }}>
                     {c.last_error
                       ? `Sync failed: ${c.last_error}`
                       : `Synced ${timeAgo(c.last_synced_at)}`}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }}>
+                    {IMPORTED_CALENDAR_COLORS.map(color => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => handleColorChange(c.id, color)}
+                        aria-label={`Use ${color} for ${c.label}`}
+                        aria-pressed={selectedColor === color}
+                        title={`Use ${color}`}
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: "50%",
+                          border: selectedColor === color ? "2px solid var(--sm-fg-1)" : "1px solid var(--sm-border-subtle)",
+                          background: color,
+                          cursor: "pointer",
+                          padding: 0,
+                          boxShadow: selectedColor === color ? "0 0 0 2px var(--sm-bg-1), 0 0 0 4px color-mix(in srgb, var(--sm-fg-1) 18%, transparent)" : "none",
+                        }}
+                      />
+                    ))}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
@@ -412,7 +486,8 @@ export function AvailabilityClient({
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -440,14 +515,18 @@ export function AvailabilityClient({
               const blocked = isFullBlocked || isPartialBlocked;
               const isToday = iso === todayStr;
               const past = iso < todayStr;
+              const markersForDate = dayMarkers.get(iso) ?? [];
+              const primaryMarker = markersForDate[0];
 
               let cellBackground = "var(--sm-bg-1)";
               let cellBorder = isToday ? "1.5px solid var(--sm-accent)" : "1px solid var(--sm-border-subtle)";
-              if (isFullBlocked) {
-                cellBackground = "rgba(228,123,2,0.1)";
-              } else if (isPartialBlocked) {
-                cellBackground = "rgba(228,123,2,0.04)";
-                cellBorder = "1px dashed var(--sm-accent)";
+              if (primaryMarker) {
+                cellBackground = isFullBlocked
+                  ? `color-mix(in srgb, ${primaryMarker.color} 13%, var(--sm-bg-1))`
+                  : `color-mix(in srgb, ${primaryMarker.color} 6%, var(--sm-bg-1))`;
+                cellBorder = isPartialBlocked && !isFullBlocked
+                  ? `1px dashed ${primaryMarker.color}`
+                  : `1px solid ${primaryMarker.color}`;
               }
 
               return (
@@ -460,26 +539,46 @@ export function AvailabilityClient({
                     border: cellBorder,
                     borderRadius: "var(--sm-radius-sm)",
                     background: cellBackground,
-                    color: past ? "var(--sm-fg-4)" : blocked ? "var(--sm-accent)" : "var(--sm-fg-1)",
+                    color: past ? "var(--sm-fg-4)" : blocked ? (primaryMarker?.color ?? "var(--sm-accent)") : "var(--sm-fg-1)",
                     fontWeight: blocked ? 600 : 400,
                     fontSize: 13.5,
                     cursor: past ? "not-allowed" : "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
+                    position: "relative",
                     opacity: past ? 0.5 : 1,
                   }}
                   title={isFullBlocked ? "Blocked — click for details" : isPartialBlocked ? "Partially blocked — click for details" : past ? "Past" : "Click to block this day"}
                 >
                   {d.getDate()}
+                  {markersForDate.length > 0 && (
+                    <span aria-hidden="true" style={{ position: "absolute", left: 5, right: 5, bottom: 4, display: "flex", justifyContent: "center", gap: 2 }}>
+                      {markersForDate.slice(0, 4).map((marker, markerIndex) => (
+                        <span
+                          key={`${marker.color}-${markerIndex}`}
+                          style={{
+                            width: 5,
+                            height: 5,
+                            borderRadius: "50%",
+                            background: marker.color,
+                            opacity: marker.partial ? 0.65 : 1,
+                          }}
+                        />
+                      ))}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
           <div style={{ display: "flex", gap: 16, marginTop: 14, fontSize: 12, color: "var(--sm-fg-3)" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 12, height: 12, borderRadius: 3, background: "rgba(228,123,2,0.1)", border: "1px solid var(--sm-accent)" }} /> Blocked
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: `color-mix(in srgb, ${SUNDAY_MUSICIAN_CALENDAR_COLOR} 13%, var(--sm-bg-1))`, border: `1px solid ${SUNDAY_MUSICIAN_CALENDAR_COLOR}` }} /> Sunday Musician
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 12, height: 12, borderRadius: 3, background: "rgba(228,123,2,0.04)", border: "1px dashed var(--sm-accent)" }} /> Partial
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: `color-mix(in srgb, ${IMPORTED_CALENDAR_COLORS[0]} 13%, var(--sm-bg-1))`, border: `1px solid ${IMPORTED_CALENDAR_COLORS[0]}` }} /> Imported
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, border: `1px dashed ${IMPORTED_CALENDAR_COLORS[0]}` }} /> Partial
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 12, height: 12, borderRadius: 3, border: "1.5px solid var(--sm-accent)" }} /> Today

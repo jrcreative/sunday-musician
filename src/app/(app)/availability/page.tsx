@@ -48,13 +48,13 @@ export default async function AvailabilityPage() {
   const [{ data: blocks }, { data: connections }] = await Promise.all([
     supabase
       .from("unavailability_blocks")
-      .select("id, start_date, end_date, source, note")
+      .select("id, start_date, end_date, source, note, connection_id")
       .eq("musician_profile_id", mp.id)
       .gte("end_date", today)
       .order("start_date", { ascending: true }),
     supabase
       .from("calendar_connections")
-      .select("id, kind, label, ical_url, last_synced_at, last_error")
+      .select("id, kind, label, ical_url, meta, last_synced_at, last_error")
       .eq("musician_profile_id", mp.id)
       .order("created_at", { ascending: true }),
   ]);
