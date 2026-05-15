@@ -62,6 +62,7 @@ export function FindMusiciansClient({
   const [useCustomOrigin, setUseCustomOrigin] = useState(false);
   const [originSearch, setOriginSearch] = useState("");
   const [customOrigin, setCustomOrigin] = useState<VerifiedAddressValue | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const activeOrigin = useMemo(() => {
     if (useCustomOrigin && customOrigin) {
@@ -162,10 +163,25 @@ export function FindMusiciansClient({
 
   return (
     <div className="page">
+      <div className="sm-find-mobile-bar">
+        <button type="button" className="sm-find-filter-pill" onClick={() => setFiltersOpen(true)}>
+          Filters
+          {activeFilterCount > 0 && <span>{activeFilterCount}</span>}
+        </button>
+        <div className="sm-find-mobile-count">
+          <strong>{filtered.length}</strong> {filtered.length === 1 ? "musician" : "musicians"}
+        </div>
+      </div>
+      {filtersOpen && <button type="button" className="sm-find-filter-backdrop" aria-label="Close filters" onClick={() => setFiltersOpen(false)} />}
       <div className="sm-split sm-split--with-rail">
 
         {/* Filter sidebar */}
-        <aside className="sm-find-filters" style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22, background: "var(--sm-bg-1)" }}>
+        <aside className={`sm-find-filters ${filtersOpen ? "sm-find-filters--open" : ""}`} style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22, background: "var(--sm-bg-1)" }}>
+          <div className="sm-find-filter-sheet-header">
+            <button type="button" onClick={() => setFiltersOpen(false)} aria-label="Close filters">×</button>
+            <div>Filters</div>
+            <button type="button" onClick={clearAll} disabled={activeFilterCount === 0}>Reset</button>
+          </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)" }}>
               Filters
@@ -260,6 +276,11 @@ export function FindMusiciansClient({
               </p>
             )}
           </FilterSection>
+          <div className="sm-find-filter-sheet-actions">
+            <button type="button" className="btn btn--primary" onClick={() => setFiltersOpen(false)}>
+              Show {filtered.length} {filtered.length === 1 ? "musician" : "musicians"}
+            </button>
+          </div>
         </aside>
 
         {/* Results */}
