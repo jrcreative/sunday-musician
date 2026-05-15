@@ -398,18 +398,13 @@ export default async function DashboardPage() {
   }
 
   const now = new Date().getTime();
-  // Only show accepted (non-cancelled) bookings; sort upcoming ones first (nearest date at top),
-  // then past completed ones (most recent past first).
+  // Only show upcoming, non-cancelled bookings in the dashboard preview.
   const dashboardBookings = [...allBookings]
-    .filter(b => !b.cancelledAt)
+    .filter(b => !b.cancelledAt && b.serviceDate && bookingDateTime(b.serviceDate) >= now)
     .sort((a, b) => {
       const aTime = bookingDateTime(a.serviceDate);
       const bTime = bookingDateTime(b.serviceDate);
-      const aUpcoming = aTime >= now;
-      const bUpcoming = bTime >= now;
-      if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
-      if (aUpcoming && bUpcoming) return aTime - bTime;
-      return bTime - aTime;
+      return aTime - bTime;
     });
 
   // Conversations in progress are request threads with no terminal proposal
@@ -495,12 +490,12 @@ export default async function DashboardPage() {
         )}
 
         {/* Stats */}
-        <div className="sm-row-3" style={{ marginBottom: 40 }}>
+        <div className="sm-row-3 sm-dashboard-stat-row" style={{ marginBottom: 40 }}>
           {stats.map(s => (
-            <div key={s.label} style={{ padding: "20px 22px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--sm-fg-3)", marginBottom: 8 }}>{s.label}</div>
-              <div style={{ fontSize: 30, fontWeight: 700, color: "var(--sm-fg-1)", lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
-              <div style={{ fontSize: 12, color: "var(--sm-fg-4)" }}>{s.sub}</div>
+            <div key={s.label} className="sm-dashboard-stat-card" style={{ padding: "20px 22px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
+              <div className="sm-dashboard-stat-label" style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--sm-fg-3)", marginBottom: 8 }}>{s.label}</div>
+              <div className="sm-dashboard-stat-value" style={{ fontSize: 30, fontWeight: 700, color: "var(--sm-fg-1)", lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
+              <div className="sm-dashboard-stat-sub" style={{ fontSize: 12, color: "var(--sm-fg-4)" }}>{s.sub}</div>
             </div>
           ))}
         </div>
@@ -511,7 +506,7 @@ export default async function DashboardPage() {
           viewAllHref="/requests"
           viewAllLabel="View all bookings"
           empty={dashboardBookings.length === 0}
-          emptyMessage="When you accept a church's terms, your confirmed bookings will appear here."
+          emptyMessage="Your upcoming accepted bookings will appear here."
           emptyAction={{ href: "/open-requests", label: "Browse open requests" }}
         >
           {dashboardBookings.map((b, idx) => {
