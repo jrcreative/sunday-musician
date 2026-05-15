@@ -346,7 +346,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             </div>
 
             {/* Details grid */}
-            <div className="sm-row-2" style={{ gap: "24px 40px", marginBottom: 32 }}>
+            <div className="sm-row-2 sm-request-detail-grid" style={{ gap: "24px 40px", marginBottom: 32 }}>
               <div style={{ padding: "16px 18px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
                 <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Instruments needed</h3>
                 {request.instruments_needed.length > 0 ? (
@@ -428,7 +428,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                   Confirmed musician
                 </h3>
                 {acceptedBooking?.musician_profiles ? (
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "18px 20px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
+                  <div className="sm-request-person-card" style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "18px 20px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
                     <Avatar
                       src={acceptedBooking.musician_profiles.profiles?.avatar_url}
                       name={acceptedBooking.musician_profiles.profiles?.display_name ?? "Musician"}
@@ -459,7 +459,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                         </span>
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <div className="sm-request-card-actions" style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                       <Link href={`/musicians/${acceptedBooking.musician_profiles.id}`} className="btn btn--ghost btn--sm">Profile</Link>
                       <Link href={`/messages/${acceptedBooking.thread_id}`} className="btn btn--primary btn--sm">Message</Link>
                     </div>
@@ -530,7 +530,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                         blockedOnServiceDate: unavailableMusicianIdsForRequest.has(mp.id),
                       }) : null;
                       return (
-                        <div key={app.id} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "16px 18px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
+                        <div key={app.id} className="sm-request-person-card" style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "16px 18px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
                           <Avatar src={mp?.profiles?.avatar_url} name={name} size={44} colorIndex={i} />
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 600, fontSize: 15, color: "var(--sm-fg-1)", marginBottom: 2 }}>{name}</div>
@@ -550,7 +550,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                             )}
                             {app.message && <p style={{ fontSize: 13.5, color: "var(--sm-fg-2)", margin: "8px 0 0", lineHeight: 1.5 }}>{app.message}</p>}
                           </div>
-                          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                          <div className="sm-request-card-actions" style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                             <Link href={`/musicians/${mp?.id}`} className="btn btn--ghost btn--sm">Profile</Link>
                             <Link href={`/messages?musician=${mp?.id}`} className="btn btn--primary btn--sm">Message</Link>
                           </div>
@@ -588,7 +588,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                             ? `$${match.fee_min}-${match.fee_max}`
                             : "Fee not set";
                         return (
-                          <div key={match.id} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "16px 18px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
+                          <div key={match.id} className="sm-request-person-card" style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "16px 18px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)" }}>
                             <Avatar src={match.avatar_url} name={match.display_name} size={44} colorIndex={i + 3} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
@@ -621,7 +621,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                                 <span>{match.matchedInstruments.join(", ")}</span>
                               </div>
                             </div>
-                            <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "flex-start" }}>
+                            <div className="sm-request-card-actions" style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "flex-start" }}>
                               <Link href={`/musicians/${match.id}`} className="btn btn--ghost btn--sm">Profile</Link>
                               {display === "open" && (
                                 <InvitePotentialMatchButton requestId={request.id} musicianProfileId={match.id} />

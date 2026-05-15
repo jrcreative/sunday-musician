@@ -411,6 +411,59 @@
 }
 
 @media (max-width: 768px) {
+  .sm-request-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .sm-request-detail-grid > div {
+    min-width: 0;
+    padding: 12px !important;
+  }
+
+  .sm-request-detail-grid h3 {
+    font-size: 9.5px !important;
+    line-height: 1.15 !important;
+    margin-bottom: 8px !important;
+  }
+
+  .sm-request-detail-grid .chip {
+    font-size: 10.5px;
+    padding: 2px 6px;
+  }
+
+  .sm-request-person-card {
+    display: grid !important;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 12px !important;
+    padding: 14px !important;
+  }
+
+  .sm-request-person-card > :first-child {
+    grid-column: 1;
+  }
+
+  .sm-request-person-card > :nth-child(2) {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .sm-request-card-actions {
+    grid-column: 1 / -1;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px !important;
+    width: 100%;
+  }
+
+  .sm-request-card-actions .btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 768px) {
   .page {
     padding: 16px 16px calc(64px + env(safe-area-inset-bottom));
     max-width: 100vw;
