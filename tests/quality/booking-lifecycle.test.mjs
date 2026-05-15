@@ -36,6 +36,7 @@ test("musician dashboard keeps conversations, open requests, and bookings distin
   assert.match(source, /latestProposalByThreadId/, "conversation state should use the latest proposal status");
   assert.match(source, /resolvedProposalStatuses/, "accepted or declined proposal threads should not stay in progress");
   assert.match(source, /const dashboardBookings = \[\.\.\.allBookings\][\s\S]*?\.sort/, "my bookings should be based on all accepted booking rows");
+  assert.match(source, /!b\.cancelledAt && b\.serviceDate && bookingDateTime\(b\.serviceDate\) >= now/, "dashboard bookings should only show upcoming, non-cancelled bookings");
   assert.doesNotMatch(source, /dashboardBookings[\s\S]{0,500}\.slice\(0,\s*4\)/, "my bookings must not be capped to four rows");
 });
 

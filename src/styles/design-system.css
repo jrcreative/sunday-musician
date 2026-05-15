@@ -247,6 +247,37 @@
 }
 
 @media (max-width: 768px) {
+  .sm-dashboard-stat-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .sm-dashboard-stat-card {
+    min-width: 0;
+    padding: 10px 8px !important;
+  }
+
+  .sm-dashboard-stat-label {
+    font-size: 8.5px !important;
+    letter-spacing: .035em !important;
+    line-height: 1.15 !important;
+    margin-bottom: 6px !important;
+    overflow-wrap: anywhere;
+  }
+
+  .sm-dashboard-stat-value {
+    font-size: 22px !important;
+    margin-bottom: 3px !important;
+  }
+
+  .sm-dashboard-stat-sub {
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 768px) {
   .page {
     padding: 16px 16px calc(64px + env(safe-area-inset-bottom));
     max-width: 100vw;
