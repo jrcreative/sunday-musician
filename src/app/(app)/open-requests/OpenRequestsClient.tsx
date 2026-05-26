@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { OpenRequest, MusicianMeta } from "./page";
-import { INSTRUMENT_OPTIONS, instrumentsOverlap, uniqueInstruments } from "@/lib/instruments";
+import { INSTRUMENT_OPTIONS, instrumentsIncludeAll, instrumentsOverlap, uniqueInstruments } from "@/lib/instruments";
 import { distanceMiles } from "@/lib/locations/distance";
 import { scoreServiceReadiness, type ServiceReadinessScore } from "@/lib/matches/readiness";
 import { formatServiceTimeRange } from "@/lib/requests/time";
@@ -78,7 +78,7 @@ export function OpenRequestsClient({
   const filtered = useMemo(() => {
     return scored.filter(r => {
       if (instrFilter.length > 0) {
-        if (!instrumentsOverlap(instrFilter, r.instruments_needed)) return false;
+        if (!instrumentsIncludeAll(instrFilter, r.instruments_needed)) return false;
       }
       if (dateFilter) {
         if (r.service_date !== dateFilter) return false;

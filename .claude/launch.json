@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "sunday-musician",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "3001"],
-      "port": 3001
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["/Users/indevvermini/claude/sunday-musician/.claude/start-preview.js"],
+      "port": 3000
     }
   ]
 }
