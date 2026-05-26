@@ -69,6 +69,24 @@ async function ensureBookingForAcceptedProposal({
 
   if (!request) return { booking: null, error: "Request not found" };
 
+  // Guard against overbooking: check that the musician has no other active
+  // booking on this date before we attempt the insert. This produces a clear
+  // user-facing message; the DB partial-unique index is a hard safety net.
+  if (request.service_date) {
+    const { data: conflictingBooking } = await admin
+      .from("bookings")
+      .select("id")
+      .eq("musician_profile_id", thread.musician_profile_id)
+      .eq("service_date", request.service_date)
+      .is("cancelled_at", null)
+      .neq("thread_id", thread.id) // same thread = idempotent retry, not a conflict
+      .maybeSingle() as unknown as { data: { id: string } | null };
+
+    if (conflictingBooking) {
+      return { booking: null, error: "You already have a confirmed booking on this date. Please cancel it before accepting another." };
+    }
+  }
+
   const { data: existingBooking } = await admin
     .from("bookings")
     .select("id, service_date")

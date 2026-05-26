@@ -23,10 +23,27 @@ const workSans = Work_Sans({
   variable: "--font-work-sans",
 });
 
+const siteUrl = process.env.SITE_URL ?? "https://app.sundaymusician.com";
+
 export const metadata: Metadata = {
   title: "Sunday Musician",
-  description: "Connecting worship musicians with churches",
+  description: "Find and book worship musicians for your church service — or discover opportunities as a musician.",
+  metadataBase: new URL(siteUrl),
   icons: { icon: "/assets/sm-logo-icon.svg" },
+  openGraph: {
+    title: "Sunday Musician",
+    description: "Find and book worship musicians for your church service — or discover opportunities as a musician.",
+    url: siteUrl,
+    siteName: "Sunday Musician",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Sunday Musician" }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sunday Musician",
+    description: "Find and book worship musicians for your church service — or discover opportunities as a musician.",
+    images: ["/opengraph-image"],
+  },
 };
 
 export const viewport: Viewport = {
@@ -39,7 +56,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`h-full ${sourceSans.variable} ${workSans.variable}`}>
+    <html lang="en" className={`${sourceSans.variable} ${workSans.variable}`}>
       <head>
         <script
           type="text/javascript"
@@ -52,7 +69,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         {children}
         <Analytics />
         <SpeedInsights />
