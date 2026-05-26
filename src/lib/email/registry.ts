@@ -177,6 +177,22 @@ export const EMAIL_EVENTS = {
       { name: "REVIEW_URL", description: "Absolute link to the review page." },
     ],
   },
+  cardExpiringReminder: {
+    key: "payment.card_expiring",
+    label: "Card expiring reminder",
+    description: "Sent to a church when their payment card is expiring within 30 days.",
+    subject: "Your payment card is expiring soon",
+    category: "payment",
+    suggestedTemplateName: "card-expiring-reminder",
+    templateEnv: "RESEND_TEMPLATE_CARD_EXPIRING_REMINDER",
+    tags: [
+      { name: "RECIPIENT_NAME", description: "The church contact display name." },
+      { name: "CARD_LAST4", description: "Last 4 digits of the expiring card." },
+      { name: "EXP_MONTH", description: "Card expiry month (MM)." },
+      { name: "EXP_YEAR", description: "Card expiry year (YYYY)." },
+      { name: "BILLING_URL", description: "Absolute link to the billing settings page." },
+    ],
+  },
 } as const;
 
 export function configuredTemplateId(event: { templateEnv: string }) {

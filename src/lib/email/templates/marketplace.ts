@@ -1,9 +1,17 @@
 import type { EmailMessage } from "../send";
+import { appUrl } from "@/lib/app-url";
 
-const FOOT = `
-<p style="font-size:12px;color:#888;margin-top:32px;">
-You're receiving this because you have a Sunday Musician account.
+// CAN-SPAM compliant footer: includes physical mailing address and a link to
+// manage email preferences. Rendered in every outgoing email.
+function foot() {
+  const notifUrl = appUrl("/profile/notifications");
+  return `
+<p style="font-size:11px;color:#aaa;margin-top:32px;border-top:1px solid #e8e6e1;padding-top:16px;line-height:1.6;">
+  You're receiving this because you have a Sunday Musician account.<br/>
+  <a href="${notifUrl}" style="color:#888;text-decoration:underline;">Manage email preferences</a><br/>
+  Sunday Musician · 623 N 47th Ave · Ridgefield, WA 98642
 </p>`;
+}
 
 function escapeHtml(value: string) {
   return value
@@ -19,12 +27,14 @@ function shell(body: string, ctaHref?: string, ctaLabel?: string) {
 <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e8e6e1;border-radius:6px;padding:32px;">
 ${body}
 ${ctaHref && ctaLabel ? `<p style="margin-top:24px;"><a href="${escapeHtml(ctaHref)}" style="display:inline-block;background:#e47b02;color:#fff;text-decoration:none;padding:12px 22px;border-radius:4px;font-weight:600;">${escapeHtml(ctaLabel)}</a></p>` : ""}
-${FOOT}
+${foot()}
 </div></body></html>`;
 }
 
 function plain(lines: string[], ctaHref?: string) {
-  return lines.join("\n\n") + (ctaHref ? `\n\n${ctaHref}` : "");
+  const notifUrl = appUrl("/profile/notifications");
+  const footer = `\n\n---\nManage email preferences: ${notifUrl}\nSunday Musician · 623 N 47th Ave · Ridgefield, WA 98642`;
+  return lines.join("\n\n") + (ctaHref ? `\n\n${ctaHref}` : "") + footer;
 }
 
 function fmtDate(d: string) {
@@ -205,5 +215,33 @@ export function paymentFailedEmail(ctx: PaymentFailedContext): EmailMessage {
     `Error: ${ctx.errorMessage}`,
     `${cta}:`,
   ], ctx.actionUrl);
+  return { to: ctx.to, subject, html, text };
+}
+
+export type CardExpiringContext = {
+  to: string;
+  recipientName: string;
+  cardLast4: string;
+  expMonth: number;
+  expYear: number;
+  billingUrl: string;
+};
+
+export function cardExpiringEmail(ctx: CardExpiringContext): EmailMessage {
+  const subject = "Your payment card is expiring soon";
+  const expLabel = `${String(ctx.expMonth).padStart(2, "0")}/${ctx.expYear}`;
+  const html = shell(
+    `<h2 style="margin:0 0 16px;font-size:20px;">Your card is expiring soon</h2>
+<p>Hi ${escapeHtml(ctx.recipientName)} — your card ending in <strong>${escapeHtml(ctx.cardLast4)}</strong> expires <strong>${escapeHtml(expLabel)}</strong>.</p>
+<p>To avoid a failed payment on your next service booking, please update your card on file before it expires.</p>`,
+    ctx.billingUrl,
+    "Update billing"
+  );
+  const text = plain([
+    `Your payment card is expiring soon.`,
+    `Hi ${ctx.recipientName} — your card ending in ${ctx.cardLast4} expires ${expLabel}.`,
+    `Please update your card on file to avoid failed payments.`,
+    `Update billing:`,
+  ], ctx.billingUrl);
   return { to: ctx.to, subject, html, text };
 }
