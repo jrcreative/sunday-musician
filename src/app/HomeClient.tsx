@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Avatar } from "@/components/Avatar";
-import { INSTRUMENT_OPTIONS, instrumentsOverlap } from "@/lib/instruments";
+import { INSTRUMENT_OPTIONS, instrumentsIncludeAll } from "@/lib/instruments";
 
 type Musician = {
   id: string;
@@ -37,7 +37,7 @@ export function HomeClient({ musicians }: { musicians: Musician[] }) {
         ) return false;
       }
       if (selectedInstruments.length > 0) {
-        if (!instrumentsOverlap(selectedInstruments, m.instruments)) return false;
+        if (!instrumentsIncludeAll(selectedInstruments, [m.primary_instrument, ...(m.instruments ?? [])].filter(Boolean))) return false;
       }
       if (availableOnly && !m.available) return false;
       return true;

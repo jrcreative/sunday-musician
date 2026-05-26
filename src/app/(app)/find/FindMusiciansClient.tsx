@@ -113,7 +113,7 @@ export function FindMusiciansClient({
         if (!nameMatch && !instrMatch) return false;
       }
       if (selectedInstruments.length > 0) {
-        if (!instrumentsIncludeAll(selectedInstruments, [m.primary_instrument, ...m.instruments].filter(Boolean))) return false;
+        if (!instrumentsIncludeAll(selectedInstruments, [m.primary_instrument, ...(m.instruments ?? [])].filter(Boolean))) return false;
       }
       if (dateNeeded) {
         const ranges = blocksByMusician.get(m.id) ?? [];

@@ -48,7 +48,7 @@ test("potential match logic is centralized and keeps ranking priorities explicit
   assert.match(readiness, /reliabilityPoints/, "readiness should account for reliability");
   assert.match(readiness, /profilePaymentPoints/, "readiness should account for profile and payment readiness");
   assert.match(instruments, /instrumentsIncludeAll[\s\S]*required\.every/, "multi-select instrument filters need AND semantics");
-  assert.match(findPage, /instrumentsIncludeAll\(selectedInstruments, \[m\.primary_instrument, \.\.\.m\.instruments\]/, "find filters should narrow when more instruments are selected");
+  assert.match(findPage, /instrumentsIncludeAll\(selectedInstruments, \[m\.primary_instrument, \.\.\.\(m\.instruments/, "find filters should narrow when more instruments are selected");
   assert.doesNotMatch(findPage, /instrumentsOverlap\(selectedInstruments/, "find filters should not use OR semantics for selected instruments");
 });
 

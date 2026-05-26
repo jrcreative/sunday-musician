@@ -506,8 +506,10 @@ export default async function DashboardPage() {
           viewAllHref="/requests"
           viewAllLabel="View all bookings"
           empty={dashboardBookings.length === 0}
-          emptyMessage="Your upcoming accepted bookings will appear here."
-          emptyAction={{ href: "/open-requests", label: "Browse open requests" }}
+          emptyMessage={liveBookings.length > 0 ? "No upcoming bookings — all caught up!" : "Your upcoming accepted bookings will appear here."}
+          emptyAction={liveBookings.length > 0
+            ? { href: "/requests", label: "View booking history" }
+            : { href: "/open-requests", label: "Browse open requests" }}
         >
           {dashboardBookings.map((b, idx) => {
             const d = b.serviceDate ? new Date(b.serviceDate + "T12:00:00") : null;
