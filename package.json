@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "prebuild": "npm run lint && npm run test:quality",
+    "typecheck": "tsc --noEmit",
+    "prebuild": "npm run typecheck && npm run lint && npm run test:quality",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -30,13 +31,11 @@
   },
   "devDependencies": {
     "@netlify/functions": "^5.2.0",
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.5",
-    "tailwindcss": "^4",
     "typescript": "^5"
   }
 }

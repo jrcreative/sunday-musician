@@ -152,6 +152,35 @@ export const POST = withJsonErrors(async (req: Request) => {
   const kind = body?.kind === "proposal" ? "proposal" : "text";
   if (!threadId) return NextResponse.json({ error: "threadId required" }, { status: 400 });
 
+  // Input length limits — keep storage reasonable and surface clear errors.
+  const MAX_BODY_LENGTH = 5000;
+  const MAX_PROPOSAL_NOTES_LENGTH = 1000;
+  const MAX_FEE_DOLLARS = 50_000;
+
+  if (kind === "text") {
+    const rawBody = typeof body?.body === "string" ? body.body.trim() : "";
+    if (!rawBody) return NextResponse.json({ error: "Message body required" }, { status: 400 });
+    if (rawBody.length > MAX_BODY_LENGTH) {
+      return NextResponse.json({ error: `Message is too long (max ${MAX_BODY_LENGTH} characters)` }, { status: 400 });
+    }
+  }
+
+  if (kind === "proposal") {
+    const proposalNotes = body?.proposal?.notes ?? "";
+    if (proposalNotes.length > MAX_PROPOSAL_NOTES_LENGTH) {
+      return NextResponse.json({ error: `Proposal notes are too long (max ${MAX_PROPOSAL_NOTES_LENGTH} characters)` }, { status: 400 });
+    }
+    const fee = body?.proposal?.fee;
+    if (fee != null) {
+      if (!Number.isFinite(Number(fee)) || Number(fee) <= 0) {
+        return NextResponse.json({ error: "Fee must be a positive number" }, { status: 400 });
+      }
+      if (Number(fee) > MAX_FEE_DOLLARS) {
+        return NextResponse.json({ error: `Fee cannot exceed $${MAX_FEE_DOLLARS.toLocaleString()}` }, { status: 400 });
+      }
+    }
+  }
+
   const insert: Database["public"]["Tables"]["messages"]["Insert"] = kind === "proposal"
     ? {
       thread_id: threadId,
@@ -167,9 +196,6 @@ export const POST = withJsonErrors(async (req: Request) => {
       kind,
       body: typeof body?.body === "string" ? body.body.trim() : "",
     };
-  if (kind === "text" && !insert.body) {
-    return NextResponse.json({ error: "Message body required" }, { status: 400 });
-  }
 
   const supabase = await createClient();
   const { data: message, error } = await supabase
