@@ -15,9 +15,15 @@ import {
 } from "@/lib/requests/status";
 import { matchingInstruments, uniqueInstruments } from "@/lib/instruments";
 import { scoreServiceReadiness } from "@/lib/matches/readiness";
+import { inferTimeZoneForUsLocation } from "@/lib/locations/timezone";
 
-function greeting() {
-  const h = new Date().getHours();
+function greeting(timeZone?: string | null) {
+  const h = Number(new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    hour12: false,
+    hourCycle: "h23",
+    timeZone: timeZone ?? undefined,
+  }).format(new Date()));
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
@@ -27,6 +33,10 @@ function bookingDateTime(serviceDate: string | null) {
   return serviceDate ? new Date(serviceDate + "T12:00:00").getTime() : Number.POSITIVE_INFINITY;
 }
 
+function firstWord(value: string | null | undefined, fallback = "there") {
+  return value?.trim().split(/\s+/)[0] || fallback;
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -34,12 +44,16 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   const isChurch = profile?.role === "church";
-  const firstName = profile?.display_name?.split(" ")[0] ?? "there";
+  const firstName = firstWord(profile?.display_name);
 
   // ── Church dashboard ─────────────────────────────────────────────────────
   if (isChurch) {
     const { data: churchProfile } = await supabase
       .from("church_profiles").select("*").eq("profile_id", user.id).single();
+    const contactFirstName = churchProfile?.contact_name
+      ? firstWord(churchProfile.contact_name)
+      : churchProfile?.church_name ?? profile?.display_name ?? "there";
+    const churchTimeZone = inferTimeZoneForUsLocation({ state: churchProfile?.state, lng: churchProfile?.lng });
 
     const { data: requests } = churchProfile
       ? await supabase.from("service_requests").select("*").eq("church_profile_id", churchProfile.id).order("service_date").limit(5)
@@ -52,6 +66,41 @@ export default async function DashboardPage() {
     }));
     const openCount = decoratedRequests.filter(r => r._display === "open").length;
     const filledCount = decoratedRequests.filter(r => r._display === "filled").length;
+
+    type ChurchConversationRow = {
+      id: string;
+      updated_at: string;
+      last_message_at: string | null;
+      last_message_preview: string | null;
+      unread_count_church: number;
+      service_requests: { title: string; service_date: string | null } | null;
+      musician_profiles: { profiles: { display_name: string | null } | null } | null;
+    };
+
+    const { data: conversationRows } = churchProfile
+      ? await supabase
+          .from("threads")
+          .select(`
+            id, updated_at, last_message_at, last_message_preview, unread_count_church,
+            service_requests ( title, service_date ),
+            musician_profiles ( profiles ( display_name ) )
+          `)
+          .eq("church_profile_id", churchProfile.id)
+          .is("archived_at", null)
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .order("updated_at", { ascending: false })
+          .limit(3) as unknown as { data: ChurchConversationRow[] | null }
+      : { data: [] };
+
+    const openConversations = (conversationRows ?? []).map(t => ({
+      id: t.id,
+      updatedAt: t.last_message_at ?? t.updated_at,
+      preview: t.last_message_preview ?? "Open conversation",
+      unread: t.unread_count_church,
+      musicianName: t.musician_profiles?.profiles?.display_name ?? "Musician",
+      requestTitle: t.service_requests?.title ?? "Request",
+      serviceDate: t.service_requests?.service_date ?? null,
+    }));
 
     // Card-on-file expiry warning. We surface this on the dashboard (not
     // just /profile/billing) because a missed expiry would silently fail
@@ -98,10 +147,10 @@ export default async function DashboardPage() {
 
           <div style={{ marginBottom: 28 }}>
             <div className="sm-eyebrow" style={{ marginBottom: 8 }}>
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: churchTimeZone ?? undefined })}
             </div>
             <h2 style={{ fontSize: 32, fontWeight: 700, margin: "0 0 6px", letterSpacing: "-0.01em" }}>
-              {greeting()}, {firstName}.
+              {greeting(churchTimeZone)}, {contactFirstName}.
             </h2>
             <p style={{ color: "var(--sm-fg-3)", fontSize: 17, margin: 0 }}>
               {openCount > 0 ? `You have ${openCount} open ${openCount === 1 ? "request" : "requests"}.` : "No open requests right now."}
@@ -122,6 +171,38 @@ export default async function DashboardPage() {
                   </div>
                 ))}
               </div>
+
+              {openConversations.length > 0 && (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 14px" }}>
+                    Open conversations
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
+                    {openConversations.map(t => {
+                      const d = t.serviceDate ? new Date(t.serviceDate + "T12:00:00") : null;
+                      return (
+                        <Link key={t.id} href={`/messages/${t.id}`} style={{ textDecoration: "none" }}>
+                          <div className="sm-list-card" style={{ padding: "18px 20px", border: t.unread > 0 ? "2px solid var(--sm-accent)" : "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: t.unread > 0 ? "color-mix(in srgb, var(--sm-accent) 5%, var(--sm-bg-1))" : "var(--sm-bg-1)" }}>
+                            <div className="sm-list-card__main">
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                <div style={{ fontSize: 16, fontWeight: 600, color: "var(--sm-fg-1)" }}>{t.musicianName}</div>
+                                {t.unread > 0 && <span className="chip chip--accent" style={{ fontSize: 10 }}>{t.unread > 99 ? "99+" : t.unread} new</span>}
+                              </div>
+                              <div style={{ fontSize: 13.5, color: "var(--sm-fg-3)", marginBottom: 3 }}>
+                                {t.requestTitle}{d ? ` · ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
+                              </div>
+                              <div style={{ fontSize: 13, color: t.unread > 0 ? "var(--sm-fg-2)" : "var(--sm-fg-3)", fontWeight: t.unread > 0 ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {t.preview}
+                              </div>
+                            </div>
+                            <span className="chip chip--accent" style={{ whiteSpace: "nowrap" }}>Open</span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
 
               <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 14px" }}>
                 Active requests

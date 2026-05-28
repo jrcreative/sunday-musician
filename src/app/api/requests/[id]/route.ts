@@ -3,6 +3,7 @@ import { requireActiveUser } from "@/lib/api/active-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uniqueInstruments } from "@/lib/instruments";
 import { verifyUsAddress, type VerifiedAddress } from "@/lib/locations/verification";
+import { inferTimeZoneForUsLocation } from "@/lib/locations/timezone";
 import { normalizeServiceTimeForInput } from "@/lib/requests/time";
 
 type RequestPayload = {
@@ -54,7 +55,7 @@ export async function PATCH(
 
   const { data: churchProfile, error: churchErr } = await admin
     .from("church_profiles")
-    .select("id")
+    .select("id, state, lng")
     .eq("profile_id", active.user.id)
     .maybeSingle();
   if (churchErr || !churchProfile || churchProfile.id !== request.church_profile_id) {
@@ -75,6 +76,9 @@ export async function PATCH(
     }
     alternateLocation = verifiedLocation.address;
   }
+  const serviceTimezone = useChurchLocation
+    ? inferTimeZoneForUsLocation({ state: churchProfile.state, lng: churchProfile.lng })
+    : inferTimeZoneForUsLocation({ state: alternateLocation?.state, lng: alternateLocation?.lng });
 
   const fields = {
     title: body.title || "Untitled request",
@@ -82,7 +86,7 @@ export async function PATCH(
     service_date: body.service_date,
     service_time: normalizeServiceTimeForInput(body.service_time) || null,
     service_end_time: normalizeServiceTimeForInput(body.service_end_time) || null,
-    service_timezone: body.service_timezone?.trim() || null,
+    service_timezone: serviceTimezone ?? (body.service_timezone?.trim() || null),
     location: useChurchLocation ? null : alternateLocation?.formattedAddress ?? null,
     use_church_location: useChurchLocation,
     location_address: useChurchLocation ? null : body.location_address?.trim() || null,

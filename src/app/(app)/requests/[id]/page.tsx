@@ -93,7 +93,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const display = requestDisplayStatus(request.status, request.service_date);
   const isFilled = display === "filled";
   const d = new Date(request.service_date + "T12:00:00");
-  const serviceTimeLabel = formatServiceTimeRange(request.service_time, request.service_end_time);
+  const serviceTimeLabel = formatServiceTimeRange(request.service_time, request.service_end_time, request.service_timezone, request.service_date);
   const serviceLocation = request.use_church_location
     ? [request.church_profiles?.city, request.church_profiles?.state].filter(Boolean).join(", ")
     : request.location_formatted_address ?? [request.location_city, request.location_state].filter(Boolean).join(", ");

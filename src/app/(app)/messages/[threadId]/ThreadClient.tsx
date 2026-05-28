@@ -75,6 +75,10 @@ export function ThreadClient({
   const [sendingProposal, setSendingProposal] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [currentArchivedAt, setCurrentArchivedAt] = useState<string | null>(archivedAt);
+  const [currentArchiveReason, setCurrentArchiveReason] = useState<string | null>(archiveReason);
+  const [reopening, setReopening] = useState(false);
+  const [reopenError, setReopenError] = useState<string | null>(null);
   const [cancelledAt, setCancelledAt] = useState<string | null>(bookingCancelledAt);
   const [cancelPolicy, setCancelPolicy] = useState<CancellationPolicy | null>(bookingCancellationPolicy);
   const [cancelPolicyLabel, setCancelPolicyLabel] = useState<string | null>(bookingCancellationPolicyLabel);
@@ -150,20 +154,24 @@ export function ThreadClient({
 
   const isConfirmed = latestProposal?.proposal_status === "accepted";
   const hasAnyProposal = useMemo(() => messages.some(m => m.kind === "proposal"), [messages]);
-  const isArchived = !!archivedAt;
+  const isArchived = !!currentArchivedAt;
+  const canReopenConversation = isArchived && (
+    currentArchiveReason === "stale" ||
+    (!!bookingId && !cancelledAt)
+  );
   // Churches must lead with a proposal — text composer locked until they send one.
   const churchMustProposeFirst = isChurchSide && !hasAnyProposal;
   const composerLocked = isArchived || churchMustProposeFirst;
   const unreadCount = unreadMessageIds.size;
-  const archiveLabel = archiveReason === "request_filled"
+  const archiveLabel = currentArchiveReason === "request_filled"
     ? "Request was filled by another musician"
-    : archiveReason === "request_cancelled"
+    : currentArchiveReason === "request_cancelled"
       ? "The church cancelled this request"
-      : archiveReason === "request_closed"
+      : currentArchiveReason === "request_closed"
         ? "Request was closed"
-        : archiveReason === "past_service"
+        : currentArchiveReason === "past_service"
           ? "Service date has passed"
-          : archiveReason === "stale"
+          : currentArchiveReason === "stale"
             ? "Inactive for 21 days"
             : "Archived";
 
@@ -310,6 +318,24 @@ export function ThreadClient({
     }
   }
 
+  async function reopenConversation() {
+    if (reopening || !canReopenConversation) return;
+    setReopening(true);
+    setReopenError(null);
+    try {
+      const res = await fetch(`/api/messages/${threadId}/reopen`, { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReopenError(json.error ?? "Could not reopen conversation");
+        return;
+      }
+      setCurrentArchivedAt(null);
+      setCurrentArchiveReason(null);
+    } finally {
+      setReopening(false);
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }
@@ -433,7 +459,7 @@ export function ThreadClient({
           </div>
         )}
 
-        {acceptError && (
+        {(acceptError || reopenError) && (
           <div style={{
             borderTop: "1px solid rgba(197,48,48,0.2)",
             padding: "10px 18px",
@@ -442,9 +468,12 @@ export function ThreadClient({
             fontSize: 13.5,
             display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
           }}>
-            <span>{acceptError}</span>
+            <span>{acceptError ?? reopenError}</span>
             <button
-              onClick={() => setAcceptError(null)}
+              onClick={() => {
+                setAcceptError(null);
+                setReopenError(null);
+              }}
               aria-label="Dismiss"
               style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
             >×</button>
@@ -454,9 +483,21 @@ export function ThreadClient({
         {/* Composer / lock banner */}
         {composerLocked ? (
           <div style={{ borderTop: "1px solid var(--sm-border-subtle)", padding: "14px 18px", background: "var(--sm-bg-2)", textAlign: "center", color: "var(--sm-fg-3)", fontSize: 13.5, lineHeight: 1.5 }}>
-            {isArchived
-              ? `This conversation is archived — ${archiveLabel.toLowerCase()}. You can read it but not send new messages.`
-              : "Send a proposal to start the conversation. Use the panel on the right to set the date and fee."}
+            <div>
+              {isArchived
+                ? `This conversation is archived — ${archiveLabel.toLowerCase()}. You can read it but not send new messages.`
+                : "Send a proposal to start the conversation. Use the panel on the right to set the date and fee."}
+            </div>
+            {canReopenConversation && (
+              <button
+                className="btn btn--sm"
+                onClick={reopenConversation}
+                disabled={reopening}
+                style={{ marginTop: 10 }}
+              >
+                {reopening ? "Reopening..." : "Reopen conversation"}
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ borderTop: "1px solid var(--sm-border-subtle)", padding: "10px 14px", background: "var(--sm-bg-1)", display: "flex", gap: 10, alignItems: "flex-end" }}>
@@ -502,7 +543,7 @@ export function ThreadClient({
             <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
               <Row label="Date" value={fmtShortDate(requestInfo.service_date)} />
               {(requestInfo.service_time || requestInfo.service_end_time) && (
-                <Row label="Time" value={formatServiceTimeRange(requestInfo.service_time, requestInfo.service_end_time)} />
+                <Row label="Time" value={formatServiceTimeRange(requestInfo.service_time, requestInfo.service_end_time, requestInfo.service_timezone, requestInfo.service_date)} />
               )}
               {requestInfo.instruments_needed.length > 0 && (
                 <Row label="Instruments" value={requestInfo.instruments_needed.join(", ")} />
@@ -820,7 +861,7 @@ function ProposalBubble({
             </button>
           )}
           {accepted && (
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--sm-status-success)" }}>✓ You accepted</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--sm-status-success)" }}>✓ Accepted</span>
           )}
           {pending && isMe && (
             <span style={{ fontSize: 12.5, color: "var(--sm-fg-4)" }}>Awaiting response…</span>

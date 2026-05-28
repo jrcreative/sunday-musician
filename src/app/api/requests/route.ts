@@ -6,6 +6,7 @@ import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
 import { requestCreatedChurchEmail } from "@/lib/email/templates/requests";
 import { uniqueInstruments } from "@/lib/instruments";
 import { verifyUsAddress, type VerifiedAddress } from "@/lib/locations/verification";
+import { inferTimeZoneForUsLocation } from "@/lib/locations/timezone";
 import { normalizeServiceTimeForInput } from "@/lib/requests/time";
 
 type RequestPayload = {
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: churchProfile, error: churchErr } = await admin
     .from("church_profiles")
-    .select("id, church_name")
+    .select("id, church_name, state, lng")
     .eq("profile_id", active.user.id)
     .maybeSingle();
 
@@ -76,6 +77,9 @@ export async function POST(req: Request) {
     }
     alternateLocation = verifiedLocation.address;
   }
+  const serviceTimezone = useChurchLocation
+    ? inferTimeZoneForUsLocation({ state: churchProfile.state, lng: churchProfile.lng })
+    : inferTimeZoneForUsLocation({ state: alternateLocation?.state, lng: alternateLocation?.lng });
 
   const fields = {
     church_profile_id: churchProfile.id,
@@ -84,7 +88,7 @@ export async function POST(req: Request) {
     service_date: body.service_date,
     service_time: normalizeServiceTimeForInput(body.service_time) || null,
     service_end_time: normalizeServiceTimeForInput(body.service_end_time) || null,
-    service_timezone: body.service_timezone?.trim() || null,
+    service_timezone: serviceTimezone ?? (body.service_timezone?.trim() || null),
     location: useChurchLocation ? null : alternateLocation?.formattedAddress ?? null,
     use_church_location: useChurchLocation,
     location_address: useChurchLocation ? null : body.location_address?.trim() || null,
