@@ -24,12 +24,34 @@ export function formatServiceTime(time?: string | null): string {
   return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
 }
 
-export function formatServiceTimeRange(startTime?: string | null, endTime?: string | null): string {
+export function formatTimeZoneLabel(timeZone?: string | null, serviceDate?: string | null): string {
+  if (!timeZone) return "";
+
+  try {
+    const date = serviceDate ? new Date(`${serviceDate}T12:00:00Z`) : new Date();
+    const part = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      timeZoneName: "short",
+    }).formatToParts(date).find(p => p.type === "timeZoneName");
+    return part?.value ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function formatServiceTimeRange(
+  startTime?: string | null,
+  endTime?: string | null,
+  timeZone?: string | null,
+  serviceDate?: string | null,
+): string {
   const start = formatServiceTime(startTime);
   const end = formatServiceTime(endTime);
+  const zone = formatTimeZoneLabel(timeZone, serviceDate);
+  const suffix = zone ? ` ${zone}` : "";
 
-  if (start && end) return `${start} - ${end}`;
-  return start || end;
+  if (start && end) return `${start} - ${end}${suffix}`;
+  return start ? `${start}${suffix}` : end ? `${end}${suffix}` : "";
 }
 
 export function getBrowserTimeZone(): string | null {

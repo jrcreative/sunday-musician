@@ -106,7 +106,7 @@ export function RequestsClient({ requests, isChurch }: { requests: Request[]; is
                         <div style={{ fontSize: 15.5, fontWeight: 600, margin: "0 0 5px", color: "var(--sm-fg-1)" }}>{r.title}</div>
                         <div className="sm-list-card__meta" style={{ fontSize: 13.5, color: "var(--sm-fg-3)", display: "flex", gap: 14, flexWrap: "wrap" }}>
                           <span>{r.service_type}</span>
-                          {(r.service_time || r.service_end_time) && <span>· {formatServiceTimeRange(r.service_time, r.service_end_time)}</span>}
+                          {(r.service_time || r.service_end_time) && <span>· {formatServiceTimeRange(r.service_time, r.service_end_time, r.service_timezone, r.service_date)}</span>}
                           {r.offered_fee != null && <span>· ${r.offered_fee} {r.fee_type.toLowerCase()}</span>}
                           {r.location && <span>· {r.location}</span>}
                         </div>
