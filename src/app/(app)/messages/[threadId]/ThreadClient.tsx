@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cancellationPolicyFor, cancellationPolicyLine, type CancellationPolicy } from "@/lib/disputes/policy";
+import { formatRehearsalSummary } from "@/lib/requests/rehearsals";
 import { formatServiceTimeRange } from "@/lib/requests/time";
 import type { RequestInfo } from "./page";
 
@@ -548,7 +549,7 @@ export function ThreadClient({
               {requestInfo.instruments_needed.length > 0 && (
                 <Row label="Instruments" value={requestInfo.instruments_needed.join(", ")} />
               )}
-              <Row label="Rehearsals" value={requestInfo.rehearsals} />
+              <Row label="Rehearsals" value={formatRehearsalSummary(requestInfo.rehearsals)} />
             </dl>
           </div>
         )}

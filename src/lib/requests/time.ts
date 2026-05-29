@@ -53,7 +53,3 @@ export function formatServiceTimeRange(
   if (start && end) return `${start} - ${end}${suffix}`;
   return start ? `${start}${suffix}` : end ? `${end}${suffix}` : "";
 }
-
-export function getBrowserTimeZone(): string | null {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
-}

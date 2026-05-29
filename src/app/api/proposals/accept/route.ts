@@ -46,6 +46,17 @@ function ignoreDuplicate(error: { code?: string; message?: string } | null) {
   return error;
 }
 
+function isOverbookingError(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  const message = error.message?.toLowerCase() ?? "";
+  return error.code === "23505" && (
+    message.includes("bookings_musician_date_uniq") ||
+    message.includes("musician_profile_id, service_date")
+  );
+}
+
+const OVERBOOKING_MESSAGE = "You already have a confirmed booking on this date. Please cancel it before accepting another.";
+
 async function ensureBookingForAcceptedProposal({
   admin,
   thread,
@@ -83,7 +94,7 @@ async function ensureBookingForAcceptedProposal({
       .maybeSingle() as unknown as { data: { id: string } | null };
 
     if (conflictingBooking) {
-      return { booking: null, error: "You already have a confirmed booking on this date. Please cancel it before accepting another." };
+      return { booking: null, error: OVERBOOKING_MESSAGE };
     }
   }
 
@@ -108,6 +119,8 @@ async function ensureBookingForAcceptedProposal({
       })
       .select("id, service_date")
       .maybeSingle() as unknown as { data: BookingForPayment | null; error: { code?: string; message?: string } | null };
+
+    if (isOverbookingError(insertErr)) return { booking: null, error: OVERBOOKING_MESSAGE };
 
     const realInsertErr = ignoreDuplicate(insertErr);
     if (realInsertErr) return { booking: null, error: realInsertErr.message ?? "Could not create booking" };
@@ -323,6 +336,9 @@ export const POST = withJsonErrors(async (req: Request) => {
       .eq("id", messageId)
       .eq("proposal_status", "pending");
     if (updateErr) {
+      if (isOverbookingError(updateErr)) {
+        return NextResponse.json({ error: OVERBOOKING_MESSAGE, code: "musician_overbooked" }, { status: 409 });
+      }
       return NextResponse.json({ error: updateErr.message }, { status: 500 });
     }
   }

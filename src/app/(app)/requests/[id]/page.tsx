@@ -4,6 +4,7 @@ import { Avatar } from "@/components/Avatar";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CancelRequestButton } from "./CancelRequestButton";
+import { CancelBookingButton } from "./CancelBookingButton";
 import { InvitePotentialMatchButton } from "./InvitePotentialMatchButton";
 import { buildPotentialMatches, type PotentialMatch } from "@/lib/matches/potential";
 import { scoreServiceReadiness } from "@/lib/matches/readiness";
@@ -13,6 +14,7 @@ import {
   requestDisplayStatus,
 } from "@/lib/requests/status";
 import { scoreRequestQuality } from "@/lib/requests/quality";
+import { decodeRehearsalString, formatRehearsalDate, formatRehearsalSummary, formatRehearsalTimeRange } from "@/lib/requests/rehearsals";
 import { formatServiceTimeRange } from "@/lib/requests/time";
 import { RequestQualityCard } from "../RequestQualityCard";
 
@@ -94,6 +96,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const isFilled = display === "filled";
   const d = new Date(request.service_date + "T12:00:00");
   const serviceTimeLabel = formatServiceTimeRange(request.service_time, request.service_end_time, request.service_timezone, request.service_date);
+  const rehearsalDetails = decodeRehearsalString(request.rehearsals);
+  const rehearsalSummary = formatRehearsalSummary(request.rehearsals);
   const serviceLocation = request.use_church_location
     ? [request.church_profiles?.city, request.church_profiles?.state].filter(Boolean).join(", ")
     : request.location_formatted_address ?? [request.location_city, request.location_state].filter(Boolean).join(", ");
@@ -366,7 +370,32 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 <h3 style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--sm-fg-3)", margin: "0 0 10px" }}>Rehearsal schedule</h3>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                   <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--sm-accent)", marginTop: 7, flexShrink: 0 }} />
-                  <p style={{ margin: 0, fontSize: 15.5, color: "var(--sm-fg-1)", fontWeight: 600, lineHeight: 1.45, whiteSpace: "pre-line" }}>{request.rehearsals}</p>
+                  {rehearsalDetails.hasRehearsal ? (
+                    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+                      {(rehearsalDetails.rehearsalDate || rehearsalDetails.rehearsalStartTime || rehearsalDetails.rehearsalEndTime) ? (
+                        <>
+                          <div style={{ display: "grid", gridTemplateColumns: "52px minmax(0, 1fr)", gap: 8, alignItems: "baseline" }}>
+                            <span style={{ fontSize: 12, color: "var(--sm-fg-3)", fontWeight: 600 }}>Date</span>
+                            <span style={{ fontSize: 15, color: "var(--sm-fg-1)", fontWeight: 650 }}>{formatRehearsalDate(rehearsalDetails.rehearsalDate)}</span>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "52px minmax(0, 1fr)", gap: 8, alignItems: "baseline" }}>
+                            <span style={{ fontSize: 12, color: "var(--sm-fg-3)", fontWeight: 600 }}>Time</span>
+                            <span style={{ fontSize: 15, color: "var(--sm-fg-1)", fontWeight: 650 }}>{formatRehearsalTimeRange(rehearsalDetails.rehearsalStartTime, rehearsalDetails.rehearsalEndTime)}</span>
+                          </div>
+                          {rehearsalDetails.rehearsalNotes && (
+                            <div style={{ display: "grid", gridTemplateColumns: "52px minmax(0, 1fr)", gap: 8, alignItems: "baseline" }}>
+                              <span style={{ fontSize: 12, color: "var(--sm-fg-3)", fontWeight: 600 }}>Notes</span>
+                              <span style={{ fontSize: 14.5, color: "var(--sm-fg-2)", fontWeight: 500, lineHeight: 1.4, whiteSpace: "pre-line" }}>{rehearsalDetails.rehearsalNotes}</span>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p style={{ margin: 0, fontSize: 15.5, color: "var(--sm-fg-1)", fontWeight: 600, lineHeight: 1.45, whiteSpace: "pre-line" }}>{rehearsalSummary}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: 15.5, color: "var(--sm-fg-1)", fontWeight: 600, lineHeight: 1.45 }}>{rehearsalSummary}</p>
+                  )}
                 </div>
               </div>
 
@@ -466,6 +495,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                     <div className="sm-request-card-actions" style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                       <Link href={`/musicians/${acceptedBooking.musician_profiles.id}`} className="btn btn--ghost btn--sm">Profile</Link>
                       <Link href={`/messages/${acceptedBooking.thread_id}`} className="btn btn--primary btn--sm">Message</Link>
+                      <CancelBookingButton bookingId={acceptedBooking.id} requestTitle={request.title} />
                     </div>
                   </div>
                 ) : (

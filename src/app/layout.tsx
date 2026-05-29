@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Source_Sans_3, Work_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import Script from "next/script";
 import "./globals.css";
 
 // Self-hosted via next/font — eliminates render-blocking Google Fonts CSS
@@ -56,21 +57,16 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${sourceSans.variable} ${workSans.variable}`}>
-      <head>
-        <script
-          type="text/javascript"
-          dangerouslySetInnerHTML={{
-            __html: `(function(k) {
-        let s=document.createElement('script');s.defer=true;
-        s.src="https://cdn.feedbucket.app/assets/feedbucket.js";
-        s.dataset.feedbucket=k;document.head.appendChild(s);
-    })('yHUicpcTyCstQ9Wj3YcB')`,
-          }}
-        />
-      </head>
+    <html lang="en-us" className={`${sourceSans.variable} ${workSans.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
         {children}
+        <Script id="feedbucket" strategy="afterInteractive">
+          {`(function(k) {
+            let s=document.createElement('script');s.defer=true;
+            s.src="https://cdn.feedbucket.app/assets/feedbucket.js";
+            s.dataset.feedbucket=k;document.head.appendChild(s);
+          })('yHUicpcTyCstQ9Wj3YcB')`}
+        </Script>
         <Analytics />
         <SpeedInsights />
       </body>

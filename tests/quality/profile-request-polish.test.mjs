@@ -23,7 +23,8 @@ test("request detail page presents rehearsal details as a styled schedule card",
   assert.match(source, /Rehearsal schedule/, "request detail should label rehearsal timing clearly");
   assert.match(source, /color-mix\(in srgb, var\(--sm-accent\) 5%, var\(--sm-bg-1\)\)/, "rehearsal schedule should have a warm highlighted card style");
   assert.match(source, /whiteSpace: "pre-line"/, "rehearsal text should preserve line breaks");
-  assert.match(source, /\{request\.rehearsals\}/, "rehearsal card should render the request rehearsal details");
+  assert.match(source, /decodeRehearsalString\(request\.rehearsals\)/, "rehearsal card should decode structured rehearsal details");
+  assert.match(source, /formatRehearsalTimeRange/, "rehearsal card should present human-readable time ranges");
 });
 
 test("request detail page has mobile-safe detail grid and person cards", () => {
