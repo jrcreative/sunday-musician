@@ -46,9 +46,7 @@ export default async function DashboardPage() {
   if (isChurch) {
     const { data: churchProfile } = await supabase
       .from("church_profiles").select("*").eq("profile_id", user.id).single();
-    const contactFirstName = churchProfile?.contact_name
-      ? firstWord(churchProfile.contact_name)
-      : churchProfile?.church_name ?? profile?.display_name ?? "there";
+    const contactFirstName = firstWord(churchProfile?.contact_name ?? profile?.display_name);
     const churchTimeZone = inferTimeZoneForUsLocation({ state: churchProfile?.state, lng: churchProfile?.lng });
 
     const { data: requests } = churchProfile
@@ -83,6 +81,7 @@ export default async function DashboardPage() {
           `)
           .eq("church_profile_id", churchProfile.id)
           .is("archived_at", null)
+          .order("unread_count_church", { ascending: false })
           .order("last_message_at", { ascending: false, nullsFirst: false })
           .order("updated_at", { ascending: false })
           .limit(3) as unknown as { data: ChurchConversationRow[] | null }

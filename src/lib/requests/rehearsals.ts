@@ -27,7 +27,9 @@ export function decodeRehearsalString(raw: string | null | undefined): Rehearsal
   if (!value || value.startsWith("None")) {
     return { hasRehearsal: false, rehearsalDate: "", rehearsalStartTime: "", rehearsalEndTime: "", rehearsalNotes: "" };
   }
-  if (!value.includes("REHEARSAL_DATE:") && !value.includes("REHEARSAL_START:")) {
+  const hasStructuredFields = ["REHEARSAL_DATE:", "REHEARSAL_START:", "REHEARSAL_END:", "NOTES:"]
+    .some(key => value.includes(key));
+  if (!hasStructuredFields) {
     return { hasRehearsal: true, rehearsalDate: "", rehearsalStartTime: "", rehearsalEndTime: "", rehearsalNotes: value };
   }
   const get = (key: string) => {
@@ -48,8 +50,7 @@ export function formatRehearsalDate(date: string): string {
   const parsed = new Date(`${date}T12:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return date;
   return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
+    month: "long",
     day: "numeric",
     year: "numeric",
     timeZone: "UTC",
@@ -68,7 +69,7 @@ export function formatRehearsalTime(time: string): string {
 }
 
 export function formatRehearsalTimeRange(start: string, end: string): string {
-  if (start && end) return `${formatRehearsalTime(start)} – ${formatRehearsalTime(end)}`;
+  if (start && end) return `${formatRehearsalTime(start)} - ${formatRehearsalTime(end)}`;
   if (start) return `Starts at ${formatRehearsalTime(start)}`;
   if (end) return `Ends at ${formatRehearsalTime(end)}`;
   return "Time TBD";
