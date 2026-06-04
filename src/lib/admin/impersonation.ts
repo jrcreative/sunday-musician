@@ -28,7 +28,6 @@ function decode(input: string) {
 
 function signature(payload: string) {
   const key = secret();
-  if (!key) throw new Error("Impersonation signing secret is not configured");
   return createHmac("sha256", key).update(payload).digest("base64url");
 }
 
