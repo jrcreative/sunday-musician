@@ -27,8 +27,12 @@ export function decodeRehearsalString(raw: string | null | undefined): Rehearsal
   if (!value || value.startsWith("None")) {
     return { hasRehearsal: false, rehearsalDate: "", rehearsalStartTime: "", rehearsalEndTime: "", rehearsalNotes: "" };
   }
+  // Use startsWith (not includes) so that legacy free-text entries that happen
+  // to contain the substring "NOTES:" mid-sentence aren't misclassified as
+  // structured data. encodeRehearsalString always emits REHEARSAL_DATE: or
+  // REHEARSAL_START: as the first token, so startsWith is an exact discriminator.
   const hasStructuredFields = ["REHEARSAL_DATE:", "REHEARSAL_START:", "REHEARSAL_END:", "NOTES:"]
-    .some(key => value.includes(key));
+    .some(key => value.startsWith(key));
   if (!hasStructuredFields) {
     return { hasRehearsal: true, rehearsalDate: "", rehearsalStartTime: "", rehearsalEndTime: "", rehearsalNotes: value };
   }

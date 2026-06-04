@@ -20,7 +20,9 @@ export const dynamic = "force-dynamic";
 // The user must have re-authenticated within their current session for
 // this to succeed (Supabase enforces that for sensitive ops).
 export const POST = withJsonErrors(async () => {
-  const supabase = await createClient();
+  // bypassImpersonation ensures this can only be triggered by the real
+  // session owner — not by an admin who happens to be impersonating them.
+  const supabase = await createClient({ bypassImpersonation: true });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

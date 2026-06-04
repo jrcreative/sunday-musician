@@ -426,7 +426,7 @@ export function ThreadClient({
                     <div style={{
                       maxWidth: "68%", padding: "10px 14px", borderRadius: 8,
                       fontSize: 14.5, lineHeight: 1.5, wordBreak: "break-word",
-                      background: isMe ? "var(--sm-fg-1)" : isUnread ? "rgba(228,123,2,0.045)" : "var(--sm-bg-1)",
+                      background: isMe ? "var(--sm-accent)" : isUnread ? "rgba(228,123,2,0.045)" : "var(--sm-bg-1)",
                       color: isMe ? "white" : "var(--sm-fg-1)",
                       border: isMe ? "none" : isUnread ? "1px solid rgba(228,123,2,0.18)" : "1px solid var(--sm-border-subtle)",
                       borderBottomRightRadius: isMe ? 3 : 8,

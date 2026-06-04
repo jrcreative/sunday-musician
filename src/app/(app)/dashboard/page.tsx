@@ -459,7 +459,6 @@ export default async function DashboardPage() {
     const [
       { data: upcomingRows, error: bookingsError },
       { data: statsRows },
-      { data: threadRows },
     ] = await Promise.all([
       admin
         .from("bookings")
@@ -478,16 +477,12 @@ export default async function DashboardPage() {
         .select("thread_id, service_date, fee")
         .eq("musician_profile_id", mp.id)
         .is("cancelled_at", null) as unknown as Promise<{ data: BookingStatsRow[] | null }>,
-      admin
-        .from("bookings")
-        .select("thread_id")
-        .eq("musician_profile_id", mp.id)
-        .is("cancelled_at", null) as unknown as Promise<{ data: { thread_id: string }[] | null }>,
     ]);
     if (bookingsError) console.error("[dashboard] bookings fetch failed:", bookingsError.message);
 
     liveBookingStats = statsRows ?? [];
-    bookedThreadIds = new Set((threadRows ?? []).map(row => row.thread_id));
+    // thread_id is already present in statsRows — no need for a third query
+    bookedThreadIds = new Set(liveBookingStats.map(r => r.thread_id));
     dashboardBookings = (upcomingRows ?? []).map(r => ({
       bookingId: r.id,
       threadId: r.thread_id,
@@ -544,7 +539,12 @@ export default async function DashboardPage() {
   }
 
   const totalEarned = liveBookingStats.reduce((s, b) => s + (b.fee ?? 0), 0);
-  const upcomingCount = liveBookingStats.filter(b => b.service_date && new Date(b.service_date + "T12:00:00") >= new Date()).length;
+  // Use a plain date-string comparison (YYYY-MM-DD >= today) so the count
+  // stays consistent with the displayed list, which also uses .gte(today).
+  // A noon-UTC cutoff would drop today's bookings from the counter in the
+  // afternoon while they're still visible in the list below.
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+  const upcomingCount = liveBookingStats.filter(b => b.service_date && b.service_date >= todayDateStr).length;
   const profileCompleteness = musicianCompleteness(mp);
 
   const stats = [
