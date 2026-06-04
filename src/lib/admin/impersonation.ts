@@ -10,7 +10,12 @@ export type AdminImpersonationPayload = {
 };
 
 function secret() {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
+  // Must be the private service role key — never a public/anon key.
+  // The public key is shipped to every browser, so using it as an HMAC
+  // signing secret would let anyone forge admin impersonation tokens.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required to sign impersonation tokens");
+  return key;
 }
 
 function encode(input: string) {
@@ -39,7 +44,9 @@ export function createAdminImpersonationToken(input: { adminId: string; targetId
 
 export function verifyAdminImpersonationToken(token?: string | null): AdminImpersonationPayload | null {
   if (!token) return null;
-  const [encodedPayload, providedSignature] = token.split(".");
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [encodedPayload, providedSignature] = parts;
   if (!encodedPayload || !providedSignature) return null;
 
   const expectedSignature = signature(encodedPayload);

@@ -28,7 +28,9 @@ async function fetchPaged<T>(query: (from: number, to: number) => PromiseLike<{
 // included where they participate in the thread, mirroring what the UI
 // already shows them.
 export const GET = withJsonErrors(async () => {
-  const supabase = await createClient();
+  // bypassImpersonation: export must reflect the real session user's own data,
+  // not an admin's impersonation target (which would silently leak private data).
+  const supabase = await createClient({ bypassImpersonation: true });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
