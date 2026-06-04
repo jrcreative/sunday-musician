@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 import { AvatarUploader } from "./AvatarUploader";
 import { VerifiedAddressInput, type VerifiedAddressValue } from "@/components/VerifiedAddressInput";
+import { inferTimeZoneForUsLocation } from "@/lib/locations/timezone";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ChurchProfile = Database["public"]["Tables"]["church_profiles"]["Row"];
@@ -86,7 +87,18 @@ export function ChurchProfileForm({
     setError(null);
     setSaved(false);
     const supabase = createClient();
-    const [{ error: profErr }, { error: cpErr }] = await Promise.all([
+    const inferredTimeZone = inferTimeZoneForUsLocation({
+      state: verifiedAddress?.state ?? stateVal,
+      lng: verifiedAddress?.lng ?? null,
+    });
+    const syncRequestTimeZones = cp?.id && inferredTimeZone
+      ? supabase
+          .from("service_requests")
+          .update({ service_timezone: inferredTimeZone })
+          .eq("church_profile_id", cp.id)
+          .eq("use_church_location", true)
+      : Promise.resolve({ error: null });
+    const [{ error: profErr }, { error: cpErr }, { error: tzErr }] = await Promise.all([
       supabase.from("profiles").update({ display_name: churchName }).eq("id", profile.id),
       supabase.from("church_profiles").update({
         church_name: churchName,
@@ -109,8 +121,9 @@ export function ChurchProfileForm({
         worship_theology: worshipTheology || null,
         additional_worship_values: additionalValues || null,
       }).eq("profile_id", profile.id),
+      syncRequestTimeZones,
     ]);
-    if (profErr || cpErr) setError((profErr ?? cpErr)!.message);
+    if (profErr || cpErr || tzErr) setError((profErr ?? cpErr ?? tzErr)!.message);
     else setSaved(true);
     setSaving(false);
   }

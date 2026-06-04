@@ -41,7 +41,7 @@ export default async function FindPage() {
 
   const { data: musicians } = await supabase
     .from("musician_profiles")
-    .select(`*, profiles(display_name, avatar_url)`)
+    .select("id, profile_id, city, state, lat, lng, instruments, primary_instrument, is_volunteer, fee_min, fee_max, travel_radius_miles, bio, rating, review_count, available, profiles(display_name, avatar_url)")
     .order("rating", { ascending: false })
     .limit(100);
 

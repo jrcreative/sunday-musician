@@ -7,7 +7,7 @@ export async function requireAdmin(): Promise<
   | { ok: true; actor: { id: string; email: string } }
   | { ok: false; response: Response }
 > {
-  const supabase = await createClient();
+  const supabase = await createClient({ bypassImpersonation: true });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };

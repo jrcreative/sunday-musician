@@ -224,6 +224,15 @@ function UserDrawer({
     }
   }
 
+  async function viewAsUser() {
+    const result = await call("view-as", "/api/admin/impersonation", {
+      targetProfileId: user.id,
+    }) as { redirectTo?: string } | null;
+    if (result) {
+      window.location.assign(result.redirectTo ?? "/dashboard");
+    }
+  }
+
   return (
     <>
       <div className="drawer-scrim" onClick={onClose} aria-hidden />
@@ -260,6 +269,12 @@ function UserDrawer({
           </dl>
 
           <div className="section-h">Actions</div>
+
+          <DrawerAction title="View platform as this user" description="Opens the app with this user's role, dashboard, requests, messages, and profile context.">
+              <button className="btn btn--primary btn--sm" disabled={!!pending} onClick={viewAsUser}>
+                {pending === "view-as" ? "Opening..." : "View as user"}
+              </button>
+          </DrawerAction>
 
           <DrawerAction title="Send password reset" description={`Emails a reset link to ${user.email}.`}>
               <button className="btn btn--sm" disabled={!!pending} onClick={resetPassword}>

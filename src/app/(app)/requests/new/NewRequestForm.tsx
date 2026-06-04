@@ -4,7 +4,8 @@ import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
 import { scoreRequestQuality } from "@/lib/requests/quality";
-import { formatServiceTimeRange, getBrowserTimeZone, normalizeServiceTimeForInput } from "@/lib/requests/time";
+import { decodeRehearsalString, encodeRehearsalString, formatRehearsalSummary } from "@/lib/requests/rehearsals";
+import { formatServiceTimeRange, normalizeServiceTimeForInput } from "@/lib/requests/time";
 import { RequestQualityCard } from "../RequestQualityCard";
 import { VerifiedAddressInput, type VerifiedAddressValue } from "@/components/VerifiedAddressInput";
 
@@ -96,52 +97,6 @@ type ChurchLocation = {
   formatted_address: string | null;
   address_verified_at: string | null;
 } | null;
-
-/**
- * Encodes structured rehearsal date/time into the rehearsals string field.
- * Format: "REHEARSAL_DATE:<date>|REHEARSAL_START:<start>|REHEARSAL_END:<end>|NOTES:<notes>"
- * or "None" when there is no rehearsal.
- */
-function encodeRehearsalString(hasRehearsal: boolean, date: string, start: string, end: string, notes: string): string {
-  if (!hasRehearsal) return "None — show up Sunday morning";
-  const parts: string[] = [];
-  if (date) parts.push(`REHEARSAL_DATE:${date}`);
-  if (start) parts.push(`REHEARSAL_START:${start}`);
-  if (end) parts.push(`REHEARSAL_END:${end}`);
-  if (notes.trim()) parts.push(`NOTES:${notes.trim()}`);
-  return parts.length ? parts.join("|") : "Rehearsal — details TBD";
-}
-
-/**
- * Parses a rehearsals string back into structured fields.
- */
-function decodeRehearsalString(raw: string | null | undefined): {
-  hasRehearsal: boolean;
-  rehearsalDate: string;
-  rehearsalStartTime: string;
-  rehearsalEndTime: string;
-  rehearsalNotes: string;
-} {
-  const s = raw ?? "";
-  if (!s || s.startsWith("None")) {
-    return { hasRehearsal: false, rehearsalDate: "", rehearsalStartTime: "", rehearsalEndTime: "", rehearsalNotes: "" };
-  }
-  if (!s.includes("REHEARSAL_DATE:") && !s.includes("REHEARSAL_START:")) {
-    // Legacy free-text entry — preserve as notes
-    return { hasRehearsal: true, rehearsalDate: "", rehearsalStartTime: "", rehearsalEndTime: "", rehearsalNotes: s };
-  }
-  const get = (key: string) => {
-    const match = s.match(new RegExp(`${key}:([^|]*)`));
-    return match ? match[1].trim() : "";
-  };
-  return {
-    hasRehearsal: true,
-    rehearsalDate: get("REHEARSAL_DATE"),
-    rehearsalStartTime: get("REHEARSAL_START"),
-    rehearsalEndTime: get("REHEARSAL_END"),
-    rehearsalNotes: get("NOTES"),
-  };
-}
 
 export function NewRequestForm({
   existingRequest,
@@ -280,7 +235,6 @@ export function NewRequestForm({
         service_date: data.date,
         service_time: normalizeServiceTimeForInput(data.time) || null,
         service_end_time: normalizeServiceTimeForInput(data.endTime) || null,
-        service_timezone: getBrowserTimeZone(),
         location: data.useChurchLocation ? null : (data.locationFormattedAddress || data.locationAddress || null),
         use_church_location: data.useChurchLocation,
         location_address: data.useChurchLocation ? null : data.locationAddress || null,
@@ -554,13 +508,7 @@ export function NewRequestForm({
           {data.hasRehearsal && (
             <div style={{ marginTop: 16, padding: "12px 16px", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", fontSize: 13.5, color: "var(--sm-fg-2)" }}>
               <strong style={{ fontWeight: 600 }}>Rehearsal:</strong>{" "}
-              {[
-                data.rehearsalDate,
-                data.rehearsalStartTime && data.rehearsalEndTime
-                  ? `${data.rehearsalStartTime} – ${data.rehearsalEndTime}`
-                  : data.rehearsalStartTime || data.rehearsalEndTime || "",
-                data.rehearsalNotes,
-              ].filter(Boolean).join(" · ") || "Date and time set in service details."}
+              {formatRehearsalSummary(encodeRehearsalString(data.hasRehearsal, data.rehearsalDate, data.rehearsalStartTime, data.rehearsalEndTime, data.rehearsalNotes))}
               {" "}<button type="button" className="btn btn--ghost btn--sm" style={{ verticalAlign: "middle" }} onClick={() => setStep(0)}>Edit</button>
             </div>
           )}
@@ -674,15 +622,7 @@ export function NewRequestForm({
                 ["Title", data.title || <em style={{ color: "var(--sm-fg-4)" }}>untitled</em>],
                 ["Type", data.serviceType],
                 ["Date & time", data.date ? `${data.date} at ${formatServiceTimeRange(data.time, data.endTime)}` : <em style={{ color: "var(--sm-fg-4)" }}>not set</em>],
-                ["Rehearsal", data.hasRehearsal ? (
-                  [
-                    data.rehearsalDate || "date TBD",
-                    data.rehearsalStartTime && data.rehearsalEndTime
-                      ? `${data.rehearsalStartTime} – ${data.rehearsalEndTime}`
-                      : data.rehearsalStartTime ? `from ${data.rehearsalStartTime}` : data.rehearsalEndTime ? `until ${data.rehearsalEndTime}` : "",
-                    data.rehearsalNotes,
-                  ].filter(Boolean).join(" · ")
-                ) : "None"],
+                ["Rehearsal", formatRehearsalSummary(encodeRehearsalString(data.hasRehearsal, data.rehearsalDate, data.rehearsalStartTime, data.rehearsalEndTime, data.rehearsalNotes))],
                 ["Location", data.useChurchLocation ? "Church address" : (data.locationFormattedAddress || <em style={{ color: "var(--sm-fg-4)" }}>alternate location not verified</em>)],
               ],
             },

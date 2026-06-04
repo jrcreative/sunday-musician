@@ -13,7 +13,7 @@ function addOneDay(dateStr: string): string {
   return formatDate(d.toISOString().slice(0, 10));
 }
 
-export async function GET(req: Request, { params }: { params: Promise<{ musicianId: string }> }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ musicianId: string }> }) {
   const { musicianId } = await params;
 
   const admin = createAdminClient();

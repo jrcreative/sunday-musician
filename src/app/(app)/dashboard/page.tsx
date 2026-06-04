@@ -29,10 +29,6 @@ function greeting(timeZone?: string | null) {
   return "Good evening";
 }
 
-function bookingDateTime(serviceDate: string | null) {
-  return serviceDate ? new Date(serviceDate + "T12:00:00").getTime() : Number.POSITIVE_INFINITY;
-}
-
 function firstWord(value: string | null | undefined, fallback = "there") {
   return value?.trim().split(/\s+/)[0] || fallback;
 }
@@ -50,9 +46,7 @@ export default async function DashboardPage() {
   if (isChurch) {
     const { data: churchProfile } = await supabase
       .from("church_profiles").select("*").eq("profile_id", user.id).single();
-    const contactFirstName = churchProfile?.contact_name
-      ? firstWord(churchProfile.contact_name)
-      : churchProfile?.church_name ?? profile?.display_name ?? "there";
+    const contactFirstName = firstWord(churchProfile?.contact_name ?? profile?.display_name);
     const churchTimeZone = inferTimeZoneForUsLocation({ state: churchProfile?.state, lng: churchProfile?.lng });
 
     const { data: requests } = churchProfile
@@ -87,6 +81,7 @@ export default async function DashboardPage() {
           `)
           .eq("church_profile_id", churchProfile.id)
           .is("archived_at", null)
+          .order("unread_count_church", { ascending: false })
           .order("last_message_at", { ascending: false, nullsFirst: false })
           .order("updated_at", { ascending: false })
           .limit(3) as unknown as { data: ChurchConversationRow[] | null }
@@ -448,22 +443,52 @@ export default async function DashboardPage() {
     service_requests: { title: string } | null;
   };
 
-  let allBookings: DashboardBooking[] = [];
+  type BookingStatsRow = {
+    thread_id: string;
+    service_date: string | null;
+    fee: number | null;
+  };
+
+  let dashboardBookings: DashboardBooking[] = [];
+  let liveBookingStats: BookingStatsRow[] = [];
+  let bookedThreadIds = new Set<string>();
 
   if (mp) {
     const admin = createAdminClient();
-    const { data: rows, error: bookingsError } = await admin
-      .from("bookings")
-      .select(`
-        id, thread_id, service_date, fee, fee_type, accepted_at, cancelled_at, cancellation_policy_label, dispute_review_required,
-        church_profiles ( church_name ),
-        service_requests ( title )
-      `)
-      .eq("musician_profile_id", mp.id)
-      .order("service_date", { ascending: false, nullsFirst: false }) as unknown as { data: BookingRow[] | null; error: { message: string } | null };
+    const todayForBookings = new Date().toISOString().slice(0, 10);
+    const [
+      { data: upcomingRows, error: bookingsError },
+      { data: statsRows },
+      { data: threadRows },
+    ] = await Promise.all([
+      admin
+        .from("bookings")
+        .select(`
+          id, thread_id, service_date, fee, fee_type, accepted_at, cancelled_at, cancellation_policy_label, dispute_review_required,
+          church_profiles ( church_name ),
+          service_requests ( title )
+        `)
+        .eq("musician_profile_id", mp.id)
+        .is("cancelled_at", null)
+        .gte("service_date", todayForBookings)
+        .order("service_date", { ascending: true, nullsFirst: false })
+        .limit(5) as unknown as Promise<{ data: BookingRow[] | null; error: { message: string } | null }>,
+      admin
+        .from("bookings")
+        .select("thread_id, service_date, fee")
+        .eq("musician_profile_id", mp.id)
+        .is("cancelled_at", null) as unknown as Promise<{ data: BookingStatsRow[] | null }>,
+      admin
+        .from("bookings")
+        .select("thread_id")
+        .eq("musician_profile_id", mp.id)
+        .is("cancelled_at", null) as unknown as Promise<{ data: { thread_id: string }[] | null }>,
+    ]);
     if (bookingsError) console.error("[dashboard] bookings fetch failed:", bookingsError.message);
 
-    allBookings = (rows ?? []).map(r => ({
+    liveBookingStats = statsRows ?? [];
+    bookedThreadIds = new Set((threadRows ?? []).map(row => row.thread_id));
+    dashboardBookings = (upcomingRows ?? []).map(r => ({
       bookingId: r.id,
       threadId: r.thread_id,
       churchName: r.church_profiles?.church_name ?? "Church",
@@ -478,23 +503,12 @@ export default async function DashboardPage() {
     }));
   }
 
-  const now = new Date().getTime();
-  // Only show upcoming, non-cancelled bookings in the dashboard preview.
-  const dashboardBookings = [...allBookings]
-    .filter(b => !b.cancelledAt && b.serviceDate && bookingDateTime(b.serviceDate) >= now)
-    .sort((a, b) => {
-      const aTime = bookingDateTime(a.serviceDate);
-      const bTime = bookingDateTime(b.serviceDate);
-      return aTime - bTime;
-    });
-
   // Conversations in progress are request threads with no terminal proposal
   // outcome and no booking. A thread with no proposal yet still counts as a
   // started conversation, so it should leave "Open requests for you".
   let activeConversations: ConversationThreadRow[] = [];
 
   if (mp) {
-    const bookedThreadIds = new Set(allBookings.map(b => b.threadId));
     const candidateThreadIds = conversationThreads
       .filter(t => !t.archived_at)
       .filter(t => !bookedThreadIds.has(t.id))
@@ -529,13 +543,12 @@ export default async function DashboardPage() {
     }
   }
 
-  const liveBookings = allBookings.filter(b => !b.cancelledAt);
-  const totalEarned = liveBookings.reduce((s, b) => s + (b.fee ?? 0), 0);
-  const upcomingCount = liveBookings.filter(b => b.serviceDate && new Date(b.serviceDate + "T12:00:00") >= new Date()).length;
+  const totalEarned = liveBookingStats.reduce((s, b) => s + (b.fee ?? 0), 0);
+  const upcomingCount = liveBookingStats.filter(b => b.service_date && new Date(b.service_date + "T12:00:00") >= new Date()).length;
   const profileCompleteness = musicianCompleteness(mp);
 
   const stats = [
-    { label: "Confirmed bookings", value: liveBookings.length.toString(), sub: "all time" },
+    { label: "Confirmed bookings", value: liveBookingStats.length.toString(), sub: "all time" },
     { label: "Total earned", value: totalEarned > 0 ? `$${totalEarned.toLocaleString()}` : "—", sub: "from agreements" },
     { label: "Upcoming", value: upcomingCount.toString(), sub: upcomingCount === 1 ? "service booked" : "services booked" },
   ];
@@ -587,8 +600,8 @@ export default async function DashboardPage() {
           viewAllHref="/requests"
           viewAllLabel="View all bookings"
           empty={dashboardBookings.length === 0}
-          emptyMessage={liveBookings.length > 0 ? "No upcoming bookings — all caught up!" : "Your upcoming accepted bookings will appear here."}
-          emptyAction={liveBookings.length > 0
+          emptyMessage={liveBookingStats.length > 0 ? "No upcoming bookings — all caught up!" : "Your upcoming accepted bookings will appear here."}
+          emptyAction={liveBookingStats.length > 0
             ? { href: "/requests", label: "View booking history" }
             : { href: "/open-requests", label: "Browse open requests" }}
         >

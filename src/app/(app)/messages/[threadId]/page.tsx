@@ -24,38 +24,47 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) notFound();
 
-  const { data: thread } = await supabase.from("threads").select("*").eq("id", threadId).single();
+  const { data: thread } = await supabase
+    .from("threads")
+    .select("id, request_id, church_profile_id, musician_profile_id, archived_at, archive_reason, last_read_at_church, last_read_at_musician, unread_count_church, unread_count_musician")
+    .eq("id", threadId)
+    .single();
   if (!thread) notFound();
 
-  const { data: messages } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("thread_id", threadId)
-    .order("created_at", { ascending: true });
-
-  const { data: myCp } = await supabase
-    .from("church_profiles").select("id").eq("profile_id", user.id).maybeSingle();
+  const [
+    { data: messages },
+    { data: myCp },
+    { data: booking },
+    { data: req },
+  ] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("id, thread_id, sender_profile_id, kind, body, proposal, proposal_status, created_at")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("church_profiles").select("id").eq("profile_id", user.id).maybeSingle(),
+    supabase
+      .from("bookings")
+      .select("id, cancelled_at, service_date, cancellation_policy, cancellation_policy_label, dispute_review_required")
+      .eq("thread_id", threadId)
+      .maybeSingle(),
+    thread.request_id
+      ? supabase
+          .from("service_requests")
+          .select("id, title, service_date, service_time, service_end_time, service_timezone, offered_fee, fee_type, instruments_needed, rehearsals, status")
+          .eq("id", thread.request_id)
+          .single()
+      : Promise.resolve({ data: null }),
+  ]);
   const isChurchSide = myCp?.id === thread.church_profile_id;
 
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("id, cancelled_at, service_date, cancellation_policy, cancellation_policy_label, dispute_review_required")
-    .eq("thread_id", threadId)
-    .maybeSingle();
   const storedPolicy = booking?.cancellation_policy;
   const bookingPolicy = storedPolicy && typeof storedPolicy === "object" && !Array.isArray(storedPolicy) && Object.keys(storedPolicy).length > 0
     ? storedPolicy as unknown as CancellationPolicy
     : null;
 
-  let requestInfo: RequestInfo | null = null;
-  if (thread.request_id) {
-    const { data: req } = await supabase
-      .from("service_requests")
-      .select("id, title, service_date, service_time, service_end_time, service_timezone, offered_fee, fee_type, instruments_needed, rehearsals, status")
-      .eq("id", thread.request_id)
-      .single();
-    if (req) requestInfo = req as RequestInfo;
-  }
+  const requestInfo = req ? req as RequestInfo : null;
 
   let otherName = "Musician";
   if (isChurchSide) {

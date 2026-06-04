@@ -15,7 +15,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
+  const supabase = await createClient({ bypassImpersonation: true });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 

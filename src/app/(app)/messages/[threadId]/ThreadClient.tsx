@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cancellationPolicyFor, cancellationPolicyLine, type CancellationPolicy } from "@/lib/disputes/policy";
+import { formatRehearsalSummary } from "@/lib/requests/rehearsals";
 import { formatServiceTimeRange } from "@/lib/requests/time";
 import type { RequestInfo } from "./page";
 
@@ -548,7 +549,7 @@ export function ThreadClient({
               {requestInfo.instruments_needed.length > 0 && (
                 <Row label="Instruments" value={requestInfo.instruments_needed.join(", ")} />
               )}
-              <Row label="Rehearsals" value={requestInfo.rehearsals} />
+              <Row label="Rehearsals" value={formatRehearsalSummary(requestInfo.rehearsals)} />
             </dl>
           </div>
         )}
@@ -817,7 +818,7 @@ function ProposalBubble({
       }}>
         <div style={{ padding: "9px 14px 8px", background: accepted ? "rgba(22,163,74,0.06)" : superseded ? "var(--sm-bg-2)" : "rgba(228,123,2,0.06)", borderBottom: `1px solid ${accepted ? "rgba(22,163,74,0.15)" : superseded ? "var(--sm-border-subtle)" : "rgba(228,123,2,0.15)"}`, display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 13.5, fontWeight: 700, color: accepted ? "var(--sm-status-success)" : superseded ? "var(--sm-fg-4)" : "var(--sm-accent)" }}>
-            {accepted ? "✓ Church's terms accepted" : superseded ? "Proposal" : "📋 Church's Proposal"}
+            {accepted ? "✓ Accepted" : superseded ? "Proposal" : "📋 Church's Proposal"}
           </span>
           {isMe && (
             <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--sm-fg-4)" }}>

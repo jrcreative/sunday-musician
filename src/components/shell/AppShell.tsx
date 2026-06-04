@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import type { Database } from "@/lib/supabase/types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type ShellImpersonation = {
+  target: {
+    display_name: string;
+    email: string;
+  };
+};
 
 // Wraps the app layout with mobile-drawer affordances. Owns the open state
 // for the sidebar; pages dispatch `sm:toggle-sidebar` from the Topbar
@@ -14,14 +20,18 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export function AppShell({
   profile,
   userId,
+  impersonation,
   children,
 }: {
   profile: Profile | null;
   userId: string;
+  impersonation: ShellImpersonation | null;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   // Close on route change. Using the "store previous prop" pattern (a render-
   // phase setState gated by inequality) instead of an effect — avoids the
@@ -56,6 +66,22 @@ export function AppShell({
     }
   }, [open]);
 
+  async function stopImpersonating() {
+    if (stopping) return;
+    setStopping(true);
+    try {
+      const res = await fetch("/api/admin/impersonation/stop", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        window.location.assign(json.redirectTo ?? "/admin/users");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setStopping(false);
+    }
+  }
+
   return (
     <div className={`sm-app${open ? " sidebar-open" : ""}`}>
       <Sidebar profile={profile} userId={userId} />
@@ -65,6 +91,34 @@ export function AppShell({
         aria-hidden="true"
       />
       <main className="main sm-main">
+        {impersonation && (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+            padding: "9px 16px",
+            borderBottom: "1px solid rgba(184,33,5,0.22)",
+            background: "rgba(184,33,5,0.07)",
+            color: "var(--sm-status-error, #b82105)",
+            fontSize: 13,
+            lineHeight: 1.35,
+          }}>
+            <div style={{ minWidth: 0 }}>
+              Viewing as <strong>{impersonation.target.display_name}</strong>
+              <span style={{ color: "var(--sm-fg-3)" }}> · {impersonation.target.email}</span>
+            </div>
+            <button
+              type="button"
+              className="btn btn--sm"
+              onClick={stopImpersonating}
+              disabled={stopping}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              {stopping ? "Stopping..." : "Stop viewing"}
+            </button>
+          </div>
+        )}
         {children}
       </main>
     </div>
