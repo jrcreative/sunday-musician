@@ -177,8 +177,8 @@ export default async function DashboardPage() {
                       const d = t.serviceDate ? new Date(t.serviceDate + "T12:00:00") : null;
                       return (
                         <Link key={t.id} href={`/messages/${t.id}`} style={{ textDecoration: "none" }}>
-                          <div className="sm-list-card" style={{ padding: "18px 20px", border: t.unread > 0 ? "2px solid var(--sm-accent)" : "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: t.unread > 0 ? "color-mix(in srgb, var(--sm-accent) 5%, var(--sm-bg-1))" : "var(--sm-bg-1)" }}>
-                            <div className="sm-list-card__main">
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "18px 20px", border: t.unread > 0 ? "2px solid var(--sm-accent)" : "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: t.unread > 0 ? "color-mix(in srgb, var(--sm-accent) 5%, var(--sm-bg-1))" : "var(--sm-bg-1)" }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                                 <div style={{ fontSize: 16, fontWeight: 600, color: "var(--sm-fg-1)" }}>{t.musicianName}</div>
                                 {t.unread > 0 && <span className="chip chip--accent" style={{ fontSize: 10 }}>{t.unread > 99 ? "99+" : t.unread} new</span>}
@@ -190,7 +190,7 @@ export default async function DashboardPage() {
                                 {t.preview}
                               </div>
                             </div>
-                            <span className="chip chip--accent" style={{ whiteSpace: "nowrap" }}>Open</span>
+                            <span className="chip chip--accent" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>Open</span>
                           </div>
                         </Link>
                       );

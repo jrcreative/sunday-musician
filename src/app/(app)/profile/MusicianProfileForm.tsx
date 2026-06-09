@@ -198,7 +198,10 @@ export function MusicianProfileForm({
           <input id="displayName" className="input" value={displayName} onChange={e => setDisplayName(e.target.value)} required />
         </div>
         <div className="field">
-          <label className="label" htmlFor="bio">Bio</label>
+          <label className="label" htmlFor="bio" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            Bio
+            <span title="Introduce yourself in 2–3 sentences. Highlight your most significant accomplishments — bands you've toured with, albums you've recorded, or notable churches you've served. Keep it concise; churches read many profiles." style={{ cursor: "help", fontSize: 13, color: "var(--sm-fg-4)", lineHeight: 1 }}>ⓘ</span>
+          </label>
           <textarea id="bio" className="textarea" rows={4} value={bio} onChange={e => setBio(e.target.value)} placeholder="Tell churches about yourself and your heart for worship…" />
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
