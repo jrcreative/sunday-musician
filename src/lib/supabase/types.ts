@@ -144,6 +144,12 @@ export type Database = {
           is_volunteer: boolean;
           fee_min: number;
           fee_max: number;
+          years_in_ministry: number | null;
+          church_size_tags: string[];
+          paid_previously: boolean | null;
+          practice_time_needed: string | null;
+          lead_time_preference: string | null;
+          music_format_tags: string[];
           bio: string;
           denomination_tags: string[];
           profile_videos: Json;
