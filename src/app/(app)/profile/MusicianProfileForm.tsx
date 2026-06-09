@@ -9,7 +9,7 @@ import { VerifiedAddressInput, type VerifiedAddressValue } from "@/components/Ve
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type MusicianProfile = Database["public"]["Tables"]["musician_profiles"]["Row"];
-type InstrumentEntry = { instrument: string; skill: string };
+type InstrumentEntry = { instrument: string; skill: string; isVolunteer?: boolean; feeMin?: number; feeMax?: number };
 type VideoEntry = { url: string; title: string; description: string };
 const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced", "Professional"];
 const TRAVEL_OPTIONS = [
@@ -71,9 +71,6 @@ export function MusicianProfileForm({
   });
   const [experienceNotes, setExperienceNotes] = useState(mp?.experience_notes ?? "");
   const [gearNotes, setGearNotes] = useState(mp?.gear_notes ?? "");
-  const [isVolunteer, setIsVolunteer] = useState(mp?.is_volunteer ?? false);
-  const [feeMin, setFeeMin] = useState(mp?.fee_min ?? 0);
-  const [feeMax, setFeeMax] = useState(mp?.fee_max ?? 0);
   const [city, setCity] = useState(mp?.city ?? "");
   const [stateVal, setStateVal] = useState(mp?.state ?? "");
   const [address, setAddress] = useState(mp?.address ?? "");
@@ -99,9 +96,9 @@ export function MusicianProfileForm({
   const [error, setError] = useState<string | null>(null);
 
   function addInstrument() {
-    setInstruments(prev => [...prev, { instrument: "", skill: "Intermediate" }]);
+    setInstruments(prev => [...prev, { instrument: "", skill: "Intermediate", isVolunteer: true, feeMin: 0, feeMax: 0 }]);
   }
-  function updateInstrument(i: number, field: keyof InstrumentEntry, val: string) {
+  function updateInstrument(i: number, field: keyof InstrumentEntry, val: string | boolean | number) {
     setInstruments(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: val } : e));
   }
   function removeInstrument(i: number) {
@@ -141,6 +138,10 @@ export function MusicianProfileForm({
     setSaved(false);
     const supabase = createClient();
     const instrumentsArr = uniqueInstruments(instruments.map(e => e.instrument));
+    const paidInstruments = instruments.filter(e => e.instrument && !(e.isVolunteer ?? true));
+    const globalIsVolunteer = paidInstruments.length === 0;
+    const globalFeeMin = paidInstruments.length > 0 ? Math.min(...paidInstruments.map(e => e.feeMin ?? 0)) : 0;
+    const globalFeeMax = paidInstruments.length > 0 ? Math.max(...paidInstruments.map(e => e.feeMax ?? 0)) : 0;
     const profileVideos = videos
       .map(video => ({
         url: video.url.trim(),
@@ -158,9 +159,9 @@ export function MusicianProfileForm({
         primary_instrument: instrumentsArr[0] ?? "",
         experience_notes: experienceNotes,
         gear_notes: gearNotes,
-        is_volunteer: isVolunteer,
-        fee_min: isVolunteer ? 0 : feeMin,
-        fee_max: isVolunteer ? 0 : feeMax,
+        is_volunteer: globalIsVolunteer,
+        fee_min: globalFeeMin,
+        fee_max: globalFeeMax,
         city,
         state: stateVal,
         address: address || null,
@@ -211,18 +212,40 @@ export function MusicianProfileForm({
       </Section>
 
       <Section title="Instruments">
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {instruments.map((entry, i) => (
-            <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <select className="select" value={entry.instrument} onChange={e => updateInstrument(i, "instrument", e.target.value)} style={{ flex: 1 }}>
-                <option value="">Select instrument…</option>
-                {INSTRUMENT_OPTIONS.map(inst => <option key={inst}>{inst}</option>)}
-              </select>
-              <select className="select" value={entry.skill} onChange={e => updateInstrument(i, "skill", e.target.value)} style={{ width: 150 }}>
-                {SKILL_LEVELS.map(s => <option key={s}>{s}</option>)}
-              </select>
-              <button type="button" onClick={() => removeInstrument(i)} aria-label="Remove"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--sm-fg-4)", fontSize: 22, lineHeight: 1, padding: "0 4px", flexShrink: 0 }}>×</button>
+            <div key={i} style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: "12px 14px", background: "var(--sm-bg-1)" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <select className="select" value={entry.instrument} onChange={e => updateInstrument(i, "instrument", e.target.value)} style={{ flex: 1 }}>
+                  <option value="">Select instrument…</option>
+                  {INSTRUMENT_OPTIONS.map(inst => <option key={inst}>{inst}</option>)}
+                </select>
+                <select className="select" value={entry.skill} onChange={e => updateInstrument(i, "skill", e.target.value)} style={{ width: 150 }}>
+                  {SKILL_LEVELS.map(s => <option key={s}>{s}</option>)}
+                </select>
+                <button type="button" onClick={() => removeInstrument(i)} aria-label="Remove"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--sm-fg-4)", fontSize: 22, lineHeight: 1, padding: "0 4px", flexShrink: 0 }}>×</button>
+              </div>
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--sm-border-subtle)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", fontSize: 13.5 }}>
+                  <input type="checkbox" checked={entry.isVolunteer ?? true} onChange={e => updateInstrument(i, "isVolunteer", e.target.checked)} />
+                  Open to volunteering (no pay required)
+                </label>
+                {!(entry.isVolunteer ?? true) && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <label className="label" style={{ fontSize: 12 }}>Min fee ($ / service)</label>
+                      <input type="number" className="input" min={0} value={entry.feeMin ?? 0}
+                        onChange={e => updateInstrument(i, "feeMin", Number(e.target.value))} placeholder="0" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label className="label" style={{ fontSize: 12 }}>Max fee ($ / service)</label>
+                      <input type="number" className="input" min={0} value={entry.feeMax ?? 0}
+                        onChange={e => updateInstrument(i, "feeMax", Number(e.target.value))} placeholder="500" />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
           <button type="button" onClick={addInstrument} className="btn btn--ghost btn--sm" style={{ alignSelf: "flex-start", marginTop: 4 }}>
@@ -253,7 +276,7 @@ export function MusicianProfileForm({
         </div>
       </Section>
 
-      <Section title="Experience & pay">
+      <Section title="Experience">
         <div className="field">
           <label className="label" htmlFor="experienceNotes">Experience</label>
           <textarea
@@ -276,24 +299,6 @@ export function MusicianProfileForm({
             placeholder="Describe your guitar rig, pedalboard, amp/modeler, keyboard, drum setup, or anything the church should provide."
           />
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", margin: "16px 0 0" }}>
-          <input type="checkbox" checked={isVolunteer} onChange={e => setIsVolunteer(e.target.checked)} />
-          <span style={{ fontSize: 14.5 }}>I&apos;m open to volunteering (no pay required)</span>
-        </label>
-        {!isVolunteer && (
-          <div className="sm-row-2" style={{ marginTop: 16 }}>
-            <div className="field">
-              <label className="label" htmlFor="feeMin">Minimum fee ($ / service)</label>
-              <input id="feeMin" type="number" className="input" min={0} value={feeMin}
-                onChange={e => setFeeMin(Number(e.target.value))} placeholder="0" />
-            </div>
-            <div className="field">
-              <label className="label" htmlFor="feeMax">Maximum fee ($ / service)</label>
-              <input id="feeMax" type="number" className="input" min={0} value={feeMax}
-                onChange={e => setFeeMax(Number(e.target.value))} placeholder="500" />
-            </div>
-          </div>
-        )}
       </Section>
 
       <Section title="Location & travel">
