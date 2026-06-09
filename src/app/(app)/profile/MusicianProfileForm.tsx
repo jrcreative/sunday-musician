@@ -28,6 +28,27 @@ const DENOMINATION_OPTIONS = [
   "Assembly of God",
 ];
 const OPEN_ANY_DENOMINATION = DENOMINATION_OPTIONS[0];
+const MUSICAL_FORMAT_OPTIONS = [
+  "Vocals Only",
+  "Piano / Organ Centric",
+  "Acoustic Guitar Centric",
+  "Based on volunteer availability",
+  "Rock Band Configuration",
+  "Full band including aux instruments, horns, strings, etc",
+];
+const CHURCH_SIZE_OPTIONS = ["0–150", "150–500", "500–1000", "1000+"];
+const PRACTICE_TIME_OPTIONS = [
+  "Just the service (no separate rehearsal needed)",
+  "1 run-through or sound check",
+  "1 full rehearsal",
+  "2 or more rehearsals",
+];
+const LEAD_TIME_OPTIONS = [
+  "Same week is fine",
+  "1–2 weeks notice",
+  "2–4 weeks notice",
+  "A month or more",
+];
 
 function videoEntriesFromProfile(mp: MusicianProfile | null): VideoEntry[] {
   const profileVideos = mp?.profile_videos;
@@ -77,7 +98,15 @@ export function MusicianProfileForm({
   const [zip, setZip] = useState(mp?.zip ?? "");
   const [addressSearch, setAddressSearch] = useState(mp?.formatted_address ?? [mp?.address, mp?.city, mp?.state, mp?.zip].filter(Boolean).join(", "));
   const [travelRadius, setTravelRadius] = useState(mp?.travel_radius_miles ?? 25);
-  const [denominationTags, setDenominationTags] = useState<string[]>(mp?.denomination_tags ?? []);
+  const [denominationTags, setDenominationTags] = useState<string[]>(
+    mp?.denomination_tags?.length ? mp.denomination_tags : [OPEN_ANY_DENOMINATION]
+  );
+  const [musicFormatTags, setMusicFormatTags] = useState<string[]>(mp?.music_format_tags ?? []);
+  const [yearsInMinistry, setYearsInMinistry] = useState<number | "">(mp?.years_in_ministry ?? "");
+  const [churchSizeTags, setChurchSizeTags] = useState<string[]>(mp?.church_size_tags ?? []);
+  const [paidPreviously, setPaidPreviously] = useState<boolean | null>(mp?.paid_previously ?? null);
+  const [practiceTimeNeeded, setPracticeTimeNeeded] = useState(mp?.practice_time_needed ?? "");
+  const [leadTimePreference, setLeadTimePreference] = useState(mp?.lead_time_preference ?? "");
   const [videos, setVideos] = useState<VideoEntry[]>(() => videoEntriesFromProfile(mp));
   const [verifiedAddress, setVerifiedAddress] = useState<VerifiedAddressValue | null>(() => {
     if (!mp?.address_verified_at || mp.lat == null || mp.lng == null) return null;
@@ -110,6 +139,12 @@ export function MusicianProfileForm({
       if (tag === OPEN_ANY_DENOMINATION) return [tag];
       return [...prev.filter(t => t !== OPEN_ANY_DENOMINATION), tag];
     });
+  }
+  function toggleMusicFormat(tag: string) {
+    setMusicFormatTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  }
+  function toggleChurchSize(size: string) {
+    setChurchSizeTags(prev => prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]);
   }
   function addVideo() {
     setVideos(prev => [...prev, { url: "", title: "", description: "" }]);
@@ -172,6 +207,12 @@ export function MusicianProfileForm({
         address_verified_at: verifiedAddress ? new Date().toISOString() : null,
         travel_radius_miles: travelRadius,
         denomination_tags: denominationTags,
+        music_format_tags: musicFormatTags,
+        years_in_ministry: yearsInMinistry === "" ? null : yearsInMinistry,
+        church_size_tags: churchSizeTags,
+        paid_previously: paidPreviously,
+        practice_time_needed: practiceTimeNeeded || null,
+        lead_time_preference: leadTimePreference || null,
         profile_videos: profileVideos,
         youtube_links: profileVideos.map(video => video.url),
       }).eq("profile_id", profile.id),
@@ -258,35 +299,111 @@ export function MusicianProfileForm({
       </Section>
 
       <Section title="Comfortable serving">
-        <p style={{ fontSize: 13.5, color: "var(--sm-fg-3)", margin: "0 0 12px" }}>Select denominations / traditions you&apos;re comfortable leading worship in.</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {DENOMINATION_OPTIONS.map(tag => {
-            const active = denominationTags.includes(tag);
-            return (
-              <button key={tag} type="button" onClick={() => toggleDenomination(tag)} style={{
-                border: `1.5px solid ${active ? "var(--sm-accent)" : "var(--sm-border-subtle)"}`,
-                borderRadius: "var(--sm-radius-sm)", padding: "5px 12px",
-                background: active ? "rgba(228,123,2,0.07)" : "var(--sm-bg-1)",
-                cursor: "pointer", fontSize: 13.5,
-                color: active ? "var(--sm-accent)" : "var(--sm-fg-2)",
-                fontWeight: active ? 600 : 400,
-              }}>{tag}</button>
-            );
-          })}
+        <div className="field">
+          <label className="label">Denomination / tradition</label>
+          <p style={{ fontSize: 13.5, color: "var(--sm-fg-3)", margin: "0 0 10px" }}>Select denominations / traditions you&apos;re comfortable leading worship in.</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {DENOMINATION_OPTIONS.map(tag => {
+              const active = denominationTags.includes(tag);
+              return (
+                <button key={tag} type="button" onClick={() => toggleDenomination(tag)} style={{
+                  border: `1.5px solid ${active ? "var(--sm-accent)" : "var(--sm-border-subtle)"}`,
+                  borderRadius: "var(--sm-radius-sm)", padding: "5px 12px",
+                  background: active ? "rgba(228,123,2,0.07)" : "var(--sm-bg-1)",
+                  cursor: "pointer", fontSize: 13.5,
+                  color: active ? "var(--sm-accent)" : "var(--sm-fg-2)",
+                  fontWeight: active ? 600 : 400,
+                }}>{tag}</button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="field" style={{ marginTop: 20 }}>
+          <label className="label">Musical formats</label>
+          <p style={{ fontSize: 13.5, color: "var(--sm-fg-3)", margin: "0 0 10px" }}>Select the worship service formats you&apos;re comfortable playing in.</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {MUSICAL_FORMAT_OPTIONS.map(tag => {
+              const active = musicFormatTags.includes(tag);
+              return (
+                <button key={tag} type="button" onClick={() => toggleMusicFormat(tag)} style={{
+                  border: `1.5px solid ${active ? "var(--sm-accent)" : "var(--sm-border-subtle)"}`,
+                  borderRadius: "var(--sm-radius-sm)", padding: "5px 12px",
+                  background: active ? "rgba(228,123,2,0.07)" : "var(--sm-bg-1)",
+                  cursor: "pointer", fontSize: 13.5,
+                  color: active ? "var(--sm-accent)" : "var(--sm-fg-2)",
+                  fontWeight: active ? 600 : 400,
+                }}>{tag}</button>
+              );
+            })}
+          </div>
         </div>
       </Section>
 
       <Section title="Experience">
-        <div className="field">
-          <label className="label" htmlFor="experienceNotes">Experience</label>
-          <textarea
-            id="experienceNotes"
-            className="textarea"
-            rows={5}
-            value={experienceNotes}
-            onChange={e => setExperienceNotes(e.target.value)}
-            placeholder="Share your church, worship-leading, Sunday service, touring, studio, chart, click, or in-ear experience."
-          />
+        <div className="sm-row-2">
+          <div className="field">
+            <label className="label" htmlFor="yearsInMinistry">Years in worship ministry</label>
+            <input
+              id="yearsInMinistry"
+              type="number"
+              className="input"
+              min={0}
+              max={60}
+              value={yearsInMinistry}
+              onChange={e => setYearsInMinistry(e.target.value === "" ? "" : Number(e.target.value))}
+              placeholder="0"
+            />
+          </div>
+          <div className="field">
+            <label className="label">Paid to play in church before?</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+              {[{ val: true, label: "Yes" }, { val: false, label: "No" }].map(opt => (
+                <button key={String(opt.val)} type="button" onClick={() => setPaidPreviously(opt.val)} style={{
+                  border: `1.5px solid ${paidPreviously === opt.val ? "var(--sm-accent)" : "var(--sm-border-subtle)"}`,
+                  borderRadius: "var(--sm-radius-sm)", padding: "7px 18px",
+                  background: paidPreviously === opt.val ? "rgba(228,123,2,0.07)" : "var(--sm-bg-1)",
+                  cursor: "pointer", fontSize: 13.5,
+                  color: paidPreviously === opt.val ? "var(--sm-accent)" : "var(--sm-fg-2)",
+                  fontWeight: paidPreviously === opt.val ? 600 : 400,
+                }}>{opt.label}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="field" style={{ marginTop: 16 }}>
+          <label className="label">Church sizes served</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+            {CHURCH_SIZE_OPTIONS.map(size => {
+              const active = churchSizeTags.includes(size);
+              return (
+                <button key={size} type="button" onClick={() => toggleChurchSize(size)} style={{
+                  border: `1.5px solid ${active ? "var(--sm-accent)" : "var(--sm-border-subtle)"}`,
+                  borderRadius: "var(--sm-radius-sm)", padding: "5px 14px",
+                  background: active ? "rgba(228,123,2,0.07)" : "var(--sm-bg-1)",
+                  cursor: "pointer", fontSize: 13.5,
+                  color: active ? "var(--sm-accent)" : "var(--sm-fg-2)",
+                  fontWeight: active ? 600 : 400,
+                }}>{size}</button>
+              );
+            })}
+          </div>
+          <p className="help" style={{ marginTop: 6 }}>Average weekly attendance</p>
+        </div>
+        <div className="sm-row-2" style={{ marginTop: 16 }}>
+          <div className="field">
+            <label className="label" htmlFor="practiceTime">Practice time needed</label>
+            <select id="practiceTime" className="select" value={practiceTimeNeeded} onChange={e => setPracticeTimeNeeded(e.target.value)}>
+              <option value="">Select…</option>
+              {PRACTICE_TIME_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label className="label" htmlFor="leadTime">Lead time preference</label>
+            <select id="leadTime" className="select" value={leadTimePreference} onChange={e => setLeadTimePreference(e.target.value)}>
+              <option value="">Select…</option>
+              {LEAD_TIME_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
         </div>
         <div className="field" style={{ marginTop: 16 }}>
           <label className="label" htmlFor="gearNotes">Gear / setup</label>

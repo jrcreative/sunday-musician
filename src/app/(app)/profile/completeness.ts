@@ -11,6 +11,9 @@ export type MusicianCompletenessProfile = {
   denomination_tags: string[];
   experience_notes: string;
   gear_notes: string;
+  years_in_ministry: number | null;
+  church_size_tags: string[];
+  music_format_tags: string[];
 } | null;
 
 export type ChurchCompletenessProfile = {
@@ -33,7 +36,8 @@ export function musicianCompleteness(mp: MusicianCompletenessProfile) {
     { label: "primary instrument", ok: !!mp.primary_instrument },
     { label: "instruments list", ok: mp.instruments.length > 0 },
     { label: "bio (40+ chars)", ok: mp.bio.trim().length >= 40 },
-    { label: "experience", ok: mp.experience_notes.trim().length >= 40 },
+    { label: "experience", ok: (mp.years_in_ministry != null && mp.years_in_ministry >= 0) || mp.experience_notes.trim().length >= 40 },
+    { label: "music formats", ok: mp.music_format_tags.length > 0 },
     { label: "gear / setup", ok: mp.gear_notes.trim().length >= 20 },
     { label: "fee range", ok: mp.is_volunteer || (mp.fee_min > 0 && mp.fee_max > 0) },
     { label: "travel radius", ok: mp.travel_radius_miles > 0 },
