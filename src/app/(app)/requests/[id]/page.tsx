@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CancelRequestButton } from "./CancelRequestButton";
 import { CancelBookingButton } from "./CancelBookingButton";
 import { InvitePotentialMatchButton } from "./InvitePotentialMatchButton";
+import { DismissPotentialMatchButton } from "./DismissPotentialMatchButton";
 import { buildPotentialMatches, type PotentialMatch } from "@/lib/matches/potential";
 import { scoreServiceReadiness } from "@/lib/matches/readiness";
 import {
@@ -151,7 +152,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         .order("created_at", { ascending: false }) as unknown as { data: ApplicationRow[] | null; error: unknown };
       applications = data;
 
-      const [{ data: threads }, { data: blocks }, { data: musicians }] = await Promise.all([
+      const [{ data: threads }, { data: blocks }, { data: musicians }, { data: dismissals }] = await Promise.all([
         supabase
           .from("threads")
           .select("musician_profile_id")
@@ -177,12 +178,17 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             }> | null;
             error: unknown;
           }>,
+        supabase
+          .from("request_match_dismissals")
+          .select("musician_profile_id")
+          .eq("request_id", id) as unknown as Promise<{ data: { musician_profile_id: string }[] | null; error: unknown }>,
       ]);
 
       const contactedMusicianIds = new Set([
         ...(applications ?? []).map(app => app.musician_profile_id),
         ...(threads ?? []).map(thread => thread.musician_profile_id),
       ]);
+      const dismissedMusicianIds = new Set((dismissals ?? []).map(d => d.musician_profile_id));
       const unavailableMusicianIds = new Set((blocks ?? []).map(block => block.musician_profile_id));
       unavailableMusicianIdsForRequest = unavailableMusicianIds;
       applications = (applications ?? []).sort((a, b) => {
@@ -270,7 +276,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         return bScore - aScore;
       });
       potentialMatches = buildPotentialMatches({
-        musicians: musicians ?? [],
+        musicians: (musicians ?? []).filter(m => !dismissedMusicianIds.has(m.id)),
         instrumentsNeeded: request.instruments_needed,
         serviceCoords,
         serviceCoordsVerified,
@@ -659,7 +665,10 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                             <div className="sm-request-card-actions" style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "flex-start" }}>
                               <Link href={`/musicians/${match.id}`} className="btn btn--ghost btn--sm">Profile</Link>
                               {display === "open" && (
-                                <InvitePotentialMatchButton requestId={request.id} musicianProfileId={match.id} />
+                                <>
+                                  <DismissPotentialMatchButton requestId={request.id} musicianProfileId={match.id} />
+                                  <InvitePotentialMatchButton requestId={request.id} musicianProfileId={match.id} />
+                                </>
                               )}
                             </div>
                           </div>

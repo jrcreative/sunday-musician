@@ -559,6 +559,22 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["unavailability_blocks"]["Insert"]>;
         Relationships: [];
       };
+      request_match_dismissals: {
+        Row: {
+          id: string;
+          request_id: string;
+          musician_profile_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          request_id: string;
+          musician_profile_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["request_match_dismissals"]["Insert"]>;
+        Relationships: [];
+      };
       calendar_connections: {
         Row: {
           id: string;
