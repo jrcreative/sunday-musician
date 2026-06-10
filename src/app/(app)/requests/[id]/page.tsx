@@ -163,13 +163,14 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           .gte("end_date", request.service_date) as unknown as Promise<{ data: { musician_profile_id: string; start_date: string; end_date: string }[] | null; error: unknown }>,
         supabase
           .from("musician_profiles")
-          .select("id, profile_id, city, state, lat, lng, address_verified_at, instruments, primary_instrument, experience_notes, gear_notes, is_volunteer, fee_min, fee_max, bio, denomination_tags, rating, review_count, available, travel_radius_miles, profiles(display_name, avatar_url, verified)")
+          .select("id, profile_id, city, state, lat, lng, address_verified_at, instruments, primary_instrument, experience_notes, gear_notes, years_in_ministry, church_size_tags, music_format_tags, is_volunteer, fee_min, fee_max, bio, denomination_tags, rating, review_count, available, travel_radius_miles, profiles(display_name, avatar_url, verified)")
           .eq("available", true)
           .limit(150) as unknown as Promise<{
             data: Array<{
               id: string; profile_id: string; city: string; state: string; lat: number | null; lng: number | null;
               address_verified_at: string | null;
               instruments: string[]; primary_instrument: string; experience_notes: string; gear_notes: string;
+              years_in_ministry: number | null; church_size_tags: string[]; music_format_tags: string[];
               is_volunteer: boolean; fee_min: number; fee_max: number; bio: string; denomination_tags: string[];
               rating: number; review_count: number; available: boolean; travel_radius_miles: number;
               profiles: { display_name: string; avatar_url: string | null; verified: boolean } | null;

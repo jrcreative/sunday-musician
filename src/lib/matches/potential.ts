@@ -16,6 +16,9 @@ export type PotentialMatchInput = {
   primary_instrument: string;
   experience_notes: string;
   gear_notes: string;
+  years_in_ministry: number | null;
+  church_size_tags: string[];
+  music_format_tags: string[];
   is_volunteer: boolean;
   fee_min: number;
   fee_max: number;
@@ -122,6 +125,9 @@ export function buildPotentialMatches({
         denomination_tags: m.denomination_tags ?? [],
         experience_notes: m.experience_notes,
         gear_notes: m.gear_notes,
+        years_in_ministry: m.years_in_ministry,
+        church_size_tags: m.church_size_tags ?? [],
+        music_format_tags: m.music_format_tags ?? [],
       }).percent;
       const readiness = scoreServiceReadiness({
         serviceType,
@@ -154,6 +160,9 @@ export function buildPotentialMatches({
         denominationTags: m.denomination_tags ?? [],
         experienceNotes: m.experience_notes,
         gearNotes: m.gear_notes,
+        yearsInMinistry: m.years_in_ministry,
+        churchSizeTags: m.church_size_tags ?? [],
+        musicFormatTags: m.music_format_tags ?? [],
         isVolunteer: m.is_volunteer,
         feeMin: m.fee_min,
         feeMax: m.fee_max,
@@ -194,6 +203,9 @@ export function buildPotentialMatches({
       primary_instrument: m.primary_instrument,
       experience_notes: m.experience_notes,
       gear_notes: m.gear_notes,
+      years_in_ministry: m.years_in_ministry,
+      church_size_tags: m.church_size_tags,
+      music_format_tags: m.music_format_tags,
       is_volunteer: m.is_volunteer,
       fee_min: m.fee_min,
       fee_max: m.fee_max,

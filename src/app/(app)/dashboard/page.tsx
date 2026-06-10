@@ -245,7 +245,7 @@ export default async function DashboardPage() {
   // ── Musician dashboard ────────────────────────────────────────────────────
   const { data: mp, error: mpError } = await supabase
     .from("musician_profiles")
-    .select("id, instruments, city, state, lat, lng, bio, primary_instrument, fee_min, fee_max, is_volunteer, travel_radius_miles, denomination_tags, experience_notes, gear_notes, available, rating, review_count, profiles(display_name)")
+    .select("id, instruments, city, state, lat, lng, bio, primary_instrument, fee_min, fee_max, is_volunteer, travel_radius_miles, denomination_tags, experience_notes, gear_notes, years_in_ministry, church_size_tags, music_format_tags, available, rating, review_count, profiles(display_name)")
     .eq("profile_id", user.id)
     .maybeSingle() as unknown as {
       data: {
@@ -264,6 +264,9 @@ export default async function DashboardPage() {
         denomination_tags: string[];
         experience_notes: string;
         gear_notes: string;
+        years_in_ministry: number | null;
+        church_size_tags: string[];
+        music_format_tags: string[];
         available: boolean;
         rating: number;
         review_count: number;
