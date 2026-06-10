@@ -67,7 +67,7 @@ export function OpenRequestsClient({
         rating: musicianMeta.rating,
         reviewCount: musicianMeta.review_count,
         paymentReady: musicianMeta.payment_ready,
-      }),
+      }, "musician"),
     })).sort((a, b) =>
       b.readiness.percent - a.readiness.percent ||
       a.service_date.localeCompare(b.service_date) ||

@@ -401,7 +401,7 @@ export default async function DashboardPage() {
         rating: mp?.rating,
         reviewCount: mp?.review_count,
         paymentReady,
-      });
+      }, "musician");
 
       return { ...r, matchedInstrs, readiness };
     })
