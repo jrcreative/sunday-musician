@@ -218,6 +218,43 @@ export function paymentFailedEmail(ctx: PaymentFailedContext): EmailMessage {
   return { to: ctx.to, subject, html, text };
 }
 
+export type PaymentCapturedContext = {
+  to: string;
+  recipientName: string;
+  requestTitle: string;
+  serviceDate: string;
+  amountCents: number;
+  actionUrl: string;
+  recipientRole: "church" | "musician";
+};
+
+export function paymentCapturedEmail(ctx: PaymentCapturedContext): EmailMessage {
+  const subject = ctx.recipientRole === "church"
+    ? `Payment complete for ${ctx.requestTitle}`
+    : `You've been paid for ${ctx.requestTitle}`;
+  const dateLabel = fmtDate(ctx.serviceDate);
+  const heading = ctx.recipientRole === "church" ? "Payment complete" : "You've been paid";
+  const roleCopy = ctx.recipientRole === "church"
+    ? `Your payment of ${money(ctx.amountCents)} for this service went through. The musician's payout is on its way.`
+    : `${money(ctx.amountCents)} is on its way to your bank account via Stripe. Payouts typically arrive within 2 business days.`;
+  const html = shell(
+    `<h2 style="margin:0 0 16px;font-size:20px;">${escapeHtml(heading)}</h2>
+<p>Hi ${escapeHtml(ctx.recipientName)} — ${escapeHtml(roleCopy)}</p>
+<p style="font-size:14px;color:#555;margin-bottom:0;">Request: ${escapeHtml(ctx.requestTitle)}<br/>Date: ${escapeHtml(dateLabel)}<br/>Amount: ${escapeHtml(money(ctx.amountCents))}</p>`,
+    ctx.actionUrl,
+    "View booking"
+  );
+  const text = plain([
+    `${heading}.`,
+    roleCopy,
+    `Request: ${ctx.requestTitle}`,
+    `Date: ${dateLabel}`,
+    `Amount: ${money(ctx.amountCents)}`,
+    `View booking:`,
+  ], ctx.actionUrl);
+  return { to: ctx.to, subject, html, text };
+}
+
 export type CardExpiringContext = {
   to: string;
   recipientName: string;

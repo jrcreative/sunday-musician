@@ -116,6 +116,22 @@ export const EMAIL_EVENTS = {
       { name: "ACTION_URL", description: "Absolute link for follow-up." },
     ],
   },
+  paymentCaptured: {
+    key: "payment.captured",
+    label: "Payment captured",
+    description: "Sent to the church (receipt) and musician (payout notice) when the event-day payment succeeds.",
+    subject: "Payment complete for {{REQUEST_TITLE}}",
+    category: "payment",
+    suggestedTemplateName: "payment-captured",
+    templateEnv: "RESEND_TEMPLATE_PAYMENT_CAPTURED",
+    tags: [
+      { name: "RECIPIENT_NAME", description: "The recipient display name." },
+      { name: "REQUEST_TITLE", description: "The request title." },
+      { name: "SERVICE_DATE", description: "The booking service date as YYYY-MM-DD." },
+      { name: "AMOUNT", description: "Formatted amount — total charged for churches, payout for musicians." },
+      { name: "ACTION_URL", description: "Absolute link to the booking conversation." },
+    ],
+  },
   musicianOnboarding: {
     key: "musician.onboarding",
     label: "Musician onboarding",

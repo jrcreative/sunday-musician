@@ -22,5 +22,28 @@ test("every cron route requires the bearer secret", () => {
     assert.match(source, /Bearer \$\{secret\}/, `${job} must compare the full bearer token`);
     assert.match(source, /status: 401/, `${job} must reject unauthorized callers`);
     assert.match(source, /dynamic = "force-dynamic"/, `${job} must opt out of static rendering`);
+    assert.match(source, /export async function GET/, `${job} must export GET — Vercel cron invokes with GET`);
+  }
+});
+
+// Crons only run if vercel.json schedules them. A cron route that exists but
+// isn't scheduled silently never runs in production.
+test("every cron route is scheduled in vercel.json", () => {
+  const jobs = readdirSync(cronDir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name);
+
+  const config = JSON.parse(read("vercel.json"));
+  const scheduledPaths = new Set((config.crons ?? []).map(c => c.path));
+
+  for (const job of jobs) {
+    assert.ok(
+      scheduledPaths.has(`/api/cron/${job}`),
+      `vercel.json must schedule /api/cron/${job} or it never runs in production`,
+    );
+  }
+
+  for (const cron of config.crons ?? []) {
+    assert.match(cron.schedule ?? "", /^(\S+\s+){4}\S+$/, `${cron.path} must have a five-field cron schedule`);
   }
 });

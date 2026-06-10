@@ -41,3 +41,20 @@ test("stripe webhook verifies signatures and cannot clobber terminal payment sta
   const guards = source.match(/\.in\("status", \["scheduled", "capturing"\]\)/g) ?? [];
   assert.ok(guards.length >= 2, "succeeded and failed handlers must both guard on non-terminal status so redeliveries stay idempotent");
 });
+
+test("successful captures notify the church and musician by email", () => {
+  const cron = read("src/app/api/cron/capture-payments/route.ts");
+  assert.match(cron, /sendPaymentCapturedEmails\(admin, pmt\.id\)/, "the capture cron must send success emails after marking captured");
+
+  const webhook = read("src/app/api/stripe/webhook/route.ts");
+  assert.match(webhook, /sendPaymentCapturedEmails/, "the webhook succeeded handler must send success emails when it transitions the row");
+  assert.match(webhook, /updated && updated\.length > 0/, "the webhook must only email when its update actually transitioned the payment");
+
+  const helper = read("src/lib/email/events/payment-captured.ts");
+  assert.match(helper, /\.eq\("status", "captured"\)/, "the helper must only email for payments actually in the captured state");
+  assert.match(helper, /dedupeKey: `\$\{event\.key\}:\$\{payment\.id\}:\$\{recipient\.role\}:\$\{recipient\.profileId\}`/, "per-recipient dedupe keys keep cron and webhook paths from double-sending");
+  assert.match(helper, /payment\.charge_total - payment\.application_fee_amount/, "the musician's email must show their payout, not the church's charge total");
+
+  const registry = read("src/lib/email/registry.ts");
+  assert.match(registry, /key: "payment\.captured"/, "the payment.captured event must be registered");
+});
