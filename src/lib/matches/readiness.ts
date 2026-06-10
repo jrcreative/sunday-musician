@@ -17,6 +17,9 @@ export type ServiceReadinessMusician = {
   denominationTags?: string[] | null;
   experienceNotes?: string | null;
   gearNotes?: string | null;
+  yearsInMinistry?: number | null;
+  churchSizeTags?: string[] | null;
+  musicFormatTags?: string[] | null;
   isVolunteer?: boolean | null;
   feeMin?: number | null;
   feeMax?: number | null;
@@ -125,6 +128,9 @@ function profilePercentFor(musician: ServiceReadinessMusician) {
     denomination_tags: musician.denominationTags ?? [],
     experience_notes: musician.experienceNotes ?? "",
     gear_notes: musician.gearNotes ?? "",
+    years_in_ministry: musician.yearsInMinistry ?? null,
+    church_size_tags: musician.churchSizeTags ?? [],
+    music_format_tags: musician.musicFormatTags ?? [],
   }).percent;
 }
 
