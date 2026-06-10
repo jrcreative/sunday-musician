@@ -328,7 +328,11 @@ export function FindMusiciansClient({
               {filtered.map(m => {
                 const name = m.profiles?.display_name ?? "Musician";
                 const idx = m.id.charCodeAt(0) % 6;
-                const feeLabel = m.is_volunteer ? "Volunteer" : `$${m.fee_min}–$${m.fee_max}`;
+                const feeLabel = m.is_volunteer
+                  ? "Volunteer"
+                  : m.fee_min === m.fee_max
+                    ? `$${m.fee_min} / service`
+                    : `From $${m.fee_min}`;
                 return (
                   <Link key={m.id} href={`/musicians/${m.id}`} style={{ textDecoration: "none" }}>
                     <div style={{

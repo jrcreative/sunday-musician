@@ -94,6 +94,7 @@ function styleScore(request: ServiceReadinessRequest, musician: ServiceReadiness
     return {
       points: 7,
       strength: clean(request.serviceType) ? `is open to ${request.serviceType} services` : undefined,
+      musicianStrength: undefined,
       concern: undefined,
     };
   }
@@ -108,8 +109,8 @@ function styleScore(request: ServiceReadinessRequest, musician: ServiceReadiness
   ].join(" ").toLowerCase();
   const matched = targetWords.find(word => musicianText.includes(word));
   return matched
-    ? { points: 10, strength: `accepts ${matched} services`, concern: undefined }
-    : { points: 4, strength: undefined, concern: `No clear ${targetWords[0]} service fit listed.` };
+    ? { points: 10, strength: `accepts ${matched} services`, musicianStrength: `matches the ${matched} style you play`, concern: undefined }
+    : { points: 4, strength: undefined, musicianStrength: undefined, concern: `No clear ${targetWords[0]} service fit listed.` };
 }
 
 function profilePercentFor(musician: ServiceReadinessMusician) {
@@ -134,9 +135,14 @@ function profilePercentFor(musician: ServiceReadinessMusician) {
   }).percent;
 }
 
+// The explanation reads differently depending on who's looking: churches see
+// why the musician fits their request; musicians see why the request fits them.
+export type ServiceReadinessPerspective = "church" | "musician";
+
 export function scoreServiceReadiness(
   request: ServiceReadinessRequest,
   musician: ServiceReadinessMusician,
+  perspective: ServiceReadinessPerspective = "church",
 ): ServiceReadinessScore {
   const requestQuality = scoreRequestQuality(request);
   const matchedInstruments = matchingInstruments(
@@ -199,17 +205,30 @@ export function scoreServiceReadiness(
     profilePercent < 60 ? "Profile details are still thin." : "",
     !paymentReady ? "Payment or fee readiness is not clear." : "",
   ]);
-  const explanationBits = strengths.slice(0, 4);
   const label = grade(percent);
+
+  // Musician-facing bits describe the request, not the musician.
+  const musicianBits = unique([
+    availabilityPoints >= 20 ? "falls on a date your calendar is open" : "",
+    matchedInstruments.length > 0 ? `needs ${matchedInstruments.join(", ")}, which you play` : "",
+    distance != null && withinTravelRadius ? `is ${Math.round(distance)} miles from you` : "",
+    distance == null && withinTravelRadius && request.serviceState ? `is in ${request.serviceState}` : "",
+    style.musicianStrength ?? "",
+    Number.parseFloat(String(request.offeredFee ?? "")) > 0 ? `offers $${request.offeredFee}` : "",
+  ]);
+  const explanationBits = (perspective === "musician" ? musicianBits : strengths).slice(0, 4);
+  const explanation = explanationBits.length === 0
+    ? `${label} based on the available request and musician details.`
+    : perspective === "musician"
+      ? `${label} because this request ${listSentence(explanationBits)}.`
+      : `${label} because ${musician.displayName} ${listSentence(explanationBits)}.`;
 
   return {
     percent,
     musicianPercent,
     requestPercent: requestQuality.percent,
     label,
-    explanation: explanationBits.length > 0
-      ? `${label} because ${musician.displayName} ${listSentence(explanationBits)}.`
-      : `${label} based on the available request and musician details.`,
+    explanation,
     strengths,
     concerns,
     matchedInstruments,
