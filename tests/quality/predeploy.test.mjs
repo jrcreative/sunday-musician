@@ -11,6 +11,7 @@ test("predeploy runs lint, quality tests, and production build", () => {
 
   assert.match(prebuild, /npm run lint/, "prebuild must run lint before production builds");
   assert.match(prebuild, /npm run test:quality/, "prebuild must run quality tests before production builds");
+  assert.match(prebuild, /npm run test:unit/, "prebuild must run unit tests before production builds");
   assert.match(predeploy, /npm run build/, "predeploy must run the production build");
 });
 
