@@ -8,11 +8,12 @@
   "scripts": {
     "dev": "next dev",
     "typecheck": "tsc --noEmit",
-    "prebuild": "npm run typecheck && npm run lint && npm run test:quality",
+    "prebuild": "npm run typecheck && npm run lint && npm run test:quality && npm run test:unit",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test:quality": "node --test tests/quality/*.test.mjs",
+    "test:unit": "find src -name '*.test.ts' -print0 | xargs -0 tsx --test",
     "predeploy": "npm run build"
   },
   "dependencies": {
@@ -35,6 +36,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.5",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }
