@@ -5,6 +5,14 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 
 type VideoEntry = { url: string; title: string; description: string };
+type InstrumentDetail = { instrument: string; skill: string; isVolunteer?: boolean; feeMin?: number };
+
+function instrumentDetailsFromRow(raw: unknown): InstrumentDetail[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((e): e is InstrumentDetail =>
+    !!e && typeof e === "object" && typeof (e as Record<string, unknown>).instrument === "string"
+  );
+}
 
 function youtubeEmbedUrl(rawUrl: string) {
   try {
@@ -55,7 +63,7 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
   type MusicianRow = {
     id: string; profile_id: string; city: string; state: string;
     instruments: string[]; primary_instrument: string;
-    fee_min: number; fee_max: number; bio: string; denomination_tags: string[];
+    fee_min: number; fee_max: number; instruments_detail: unknown; bio: string; denomination_tags: string[];
     experience_notes: string; gear_notes: string; youtube_links: string[]; profile_videos: unknown;
     rating: number; review_count: number; available: boolean;
     profiles: { display_name: string; avatar_url: string | null } | null;
@@ -270,10 +278,39 @@ export default async function MusicianProfilePage({ params }: { params: Promise<
           {/* Aside */}
           <aside style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: 22, position: "sticky", top: 90 }}>
             <dl style={{ margin: 0 }}>
-              <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Typical fee</dt>
-              <dd style={{ margin: "0 0 16px", fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>
-                ${musician.fee_min}–${musician.fee_max} <span style={{ fontWeight: 400, color: "var(--sm-fg-3)", fontSize: 13 }}>/ service</span>
-              </dd>
+              {(() => {
+                const details = instrumentDetailsFromRow(musician.instruments_detail).filter(d => d.instrument);
+                if (details.length > 0) {
+                  return (
+                    <>
+                      <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 10 }}>Rates</dt>
+                      <dd style={{ margin: "0 0 16px" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                          {details.map((d, i) => (
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14 }}>
+                              <span style={{ color: "var(--sm-fg-2)" }}>{d.instrument}</span>
+                              <span style={{ color: (d.isVolunteer ?? true) ? "var(--sm-status-success)" : "var(--sm-fg-1)", fontWeight: 500, marginLeft: 12, flexShrink: 0 }}>
+                                {(d.isVolunteer ?? true) ? "Volunteer" : `$${d.feeMin ?? 0}`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </dd>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 4 }}>Typical fee</dt>
+                    <dd style={{ margin: "0 0 16px", fontSize: 14.5, color: "var(--sm-fg-1)", fontWeight: 500 }}>
+                      {musician.fee_min === 0 && musician.fee_max === 0
+                        ? <span style={{ color: "var(--sm-status-success)" }}>Volunteer</span>
+                        : <>{musician.fee_min === musician.fee_max ? `$${musician.fee_min}` : `$${musician.fee_min}–$${musician.fee_max}`} <span style={{ fontWeight: 400, color: "var(--sm-fg-3)", fontSize: 13 }}>/ service</span></>
+                      }
+                    </dd>
+                  </>
+                );
+              })()}
               {musician.denomination_tags?.length > 0 && (
                 <>
                   <dt style={{ fontSize: 12, color: "var(--sm-fg-3)", textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600, marginBottom: 8 }}>Denominations / traditions</dt>

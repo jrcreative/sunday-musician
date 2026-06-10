@@ -9,7 +9,7 @@ import { VerifiedAddressInput, type VerifiedAddressValue } from "@/components/Ve
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type MusicianProfile = Database["public"]["Tables"]["musician_profiles"]["Row"];
-type InstrumentEntry = { instrument: string; skill: string; isVolunteer?: boolean; feeMin?: number; feeMax?: number };
+type InstrumentEntry = { instrument: string; skill: string; isVolunteer?: boolean; feeMin?: number };
 type VideoEntry = { url: string; title: string; description: string };
 const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced", "Professional"];
 const TRAVEL_OPTIONS = [
@@ -125,7 +125,7 @@ export function MusicianProfileForm({
   const [error, setError] = useState<string | null>(null);
 
   function addInstrument() {
-    setInstruments(prev => [...prev, { instrument: "", skill: "Intermediate", isVolunteer: true, feeMin: 0, feeMax: 0 }]);
+    setInstruments(prev => [...prev, { instrument: "", skill: "Intermediate", isVolunteer: true, feeMin: 0 }]);
   }
   function updateInstrument(i: number, field: keyof InstrumentEntry, val: string | boolean | number) {
     setInstruments(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: val } : e));
@@ -176,7 +176,7 @@ export function MusicianProfileForm({
     const paidInstruments = instruments.filter(e => e.instrument && !(e.isVolunteer ?? true));
     const globalIsVolunteer = paidInstruments.length === 0;
     const globalFeeMin = paidInstruments.length > 0 ? Math.min(...paidInstruments.map(e => e.feeMin ?? 0)) : 0;
-    const globalFeeMax = paidInstruments.length > 0 ? Math.max(...paidInstruments.map(e => e.feeMax ?? 0)) : 0;
+    const globalFeeMax = paidInstruments.length > 0 ? Math.max(...paidInstruments.map(e => e.feeMin ?? 0)) : 0;
     const profileVideos = videos
       .map(video => ({
         url: video.url.trim(),
@@ -273,17 +273,10 @@ export function MusicianProfileForm({
                   Open to volunteering (no pay required)
                 </label>
                 {!(entry.isVolunteer ?? true) && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <div style={{ flex: 1 }}>
-                      <label className="label" style={{ fontSize: 12 }}>Min fee ($ / service)</label>
-                      <input type="number" className="input" min={0} value={entry.feeMin ?? 0}
-                        onChange={e => updateInstrument(i, "feeMin", Number(e.target.value))} placeholder="0" />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label className="label" style={{ fontSize: 12 }}>Max fee ($ / service)</label>
-                      <input type="number" className="input" min={0} value={entry.feeMax ?? 0}
-                        onChange={e => updateInstrument(i, "feeMax", Number(e.target.value))} placeholder="500" />
-                    </div>
+                  <div style={{ marginTop: 10, maxWidth: 200 }}>
+                    <label className="label" style={{ fontSize: 12 }}>Fee ($ / service)</label>
+                    <input type="number" className="input" min={0} value={entry.feeMin ?? 0}
+                      onChange={e => updateInstrument(i, "feeMin", Number(e.target.value))} placeholder="0" />
                   </div>
                 )}
               </div>
