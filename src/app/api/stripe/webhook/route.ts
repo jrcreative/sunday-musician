@@ -2,16 +2,19 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendPaymentCapturedEmails } from "@/lib/email/events/payment-captured";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Stripe webhook receiver. Configure the endpoint in Stripe to send:
+// Stripe webhook receiver. The endpoint in Stripe is configured to send:
 //   - account.updated                 (Connect onboarding progress)
 //   - account.application.deauthorized
-//   - payment_intent.succeeded        (cron's PIs are off_session; this confirms async actions like 3DS)
-//   - payment_intent.payment_failed
-//   - payment_method.detached         (card removed at Stripe; clear our row)
+//
+// Handlers for payment_intent.succeeded / payment_failed and
+// payment_method.detached are kept as defense in depth — the capture cron
+// confirms synchronously, but if those events are ever registered the
+// handlers reconcile state and (on success) send the captured emails.
 //
 // All handlers are idempotent — Stripe may redeliver.
 
@@ -61,7 +64,7 @@ export async function POST(req: Request) {
       const pi = event.data.object as Stripe.PaymentIntent;
       const paymentId = pi.metadata?.payment_id;
       if (paymentId) {
-        await admin
+        const { data: updated } = await admin
           .from("payments")
           .update({
             status: "captured",
@@ -70,7 +73,13 @@ export async function POST(req: Request) {
             captured_at: new Date().toISOString(),
           })
           .eq("id", paymentId)
-          .in("status", ["scheduled", "capturing"]);
+          .in("status", ["scheduled", "capturing"])
+          .select("id");
+        // Only email when this event actually transitioned the row; the
+        // dedupe key also guards against double-sends if the cron got there first.
+        if (updated && updated.length > 0) {
+          await sendPaymentCapturedEmails(admin, paymentId);
+        }
       }
       break;
     }

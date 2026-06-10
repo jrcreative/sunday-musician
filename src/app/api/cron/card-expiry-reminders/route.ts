@@ -14,7 +14,16 @@ export const runtime = "nodejs";
 // Dedupe key: `card-expiry-{profileId}-{YYYY-MM}` — one email per church per
 // calendar month, regardless of how many times the cron runs.
 
+// Vercel cron invokes with GET; POST kept for manual triggering.
+export async function GET(req: Request) {
+  return handle(req);
+}
+
 export async function POST(req: Request) {
+  return handle(req);
+}
+
+async function handle(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
   if (req.headers.get("authorization") !== `Bearer ${secret}`) {

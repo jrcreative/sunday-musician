@@ -3,6 +3,7 @@ import { appUrl } from "@/lib/app-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTransactionalEmail } from "@/lib/email/delivery";
 import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
+import { sendPaymentCapturedEmails } from "@/lib/email/events/payment-captured";
 import { paymentFailedEmail } from "@/lib/email/templates/marketplace";
 import { stripe } from "@/lib/stripe/server";
 
@@ -211,6 +212,7 @@ export async function GET(req: Request) {
           })
           .eq("id", pmt.id);
         summary.captured += 1;
+        await sendPaymentCapturedEmails(admin, pmt.id);
       } else {
         await admin
           .from("payments")
