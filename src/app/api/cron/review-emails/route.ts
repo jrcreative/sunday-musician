@@ -10,8 +10,8 @@ import {
   reviewReleasedEmail,
 } from "@/lib/email/templates/reviews";
 
-// Daily sweep for review-related emails. Runs every cron tick (we run hourly
-// on Netlify; the queries are idempotent via the *_at tracking columns).
+// Daily sweep for review-related emails. Runs every cron tick (the queries
+// are idempotent via the *_at tracking columns).
 //
 // Three jobs, each independent:
 //   1. PROMPT — service is in the past, no prompt email sent yet, side hasn't submitted
