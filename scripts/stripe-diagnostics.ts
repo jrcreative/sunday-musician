@@ -89,11 +89,30 @@ async function main() {
   for (const pi of paymentIntents.data.slice(0, 5)) {
     console.log(`    PI ${pi.id} — ${pi.status} — $${(pi.amount / 100).toFixed(2)} — ${new Date(pi.created * 1000).toISOString().slice(0, 10)}`);
   }
-  if (webhooks.data.length === 0) {
-    warn("no webhook endpoints registered in this sandbox");
+  // Webhooks come in two flavors: classic v1 endpoints and Workbench-created
+  // v2 "event destinations". Our handler needs SNAPSHOT payloads with the v1
+  // event names — a thin/v2 destination signs and delivers fine, but every
+  // event falls through the handler's switch unrecognized.
+  const REQUIRED_WEBHOOK_EVENTS = ["account.updated", "account.application.deauthorized"];
+  const v2Destinations = await stripe.v2.core.eventDestinations.list({ limit: 20 });
+  if (webhooks.data.length === 0 && v2Destinations.data.length === 0) {
+    warn("no webhook endpoints or event destinations registered in this sandbox");
   }
   for (const wh of webhooks.data) {
-    console.log(`  webhook: ${wh.url} (${wh.status}) → ${wh.enabled_events.join(", ")}`);
+    console.log(`  webhook (v1): ${wh.url} (${wh.status}) → ${wh.enabled_events.join(", ")}`);
+    const missing = REQUIRED_WEBHOOK_EVENTS.filter(e => !wh.enabled_events.includes(e) && !wh.enabled_events.includes("*"));
+    if (missing.length > 0) warn(`  webhook is missing events our handler needs: ${missing.join(", ")}`);
+    else ok("  webhook sends the snapshot events our handler expects");
+  }
+  for (const dest of v2Destinations.data) {
+    console.log(`  event destination (v2): "${dest.name}" (${dest.status}, payload=${dest.event_payload}) → ${dest.enabled_events.join(", ")}`);
+    if (dest.event_payload === "thin") {
+      fail(`  destination "${dest.name}" uses THIN payloads with v2 event names — our handler only understands snapshot events (${REQUIRED_WEBHOOK_EVENTS.join(", ")}). Recreate it with the snapshot payload.`);
+    } else {
+      const missing = REQUIRED_WEBHOOK_EVENTS.filter(e => !dest.enabled_events.includes(e));
+      if (missing.length > 0) warn(`  destination "${dest.name}" is missing events our handler needs: ${missing.join(", ")}`);
+      else ok(`  destination "${dest.name}" sends the snapshot events our handler expects`);
+    }
   }
 
   // ── 4. What our database thinks exists ───────────────────────────────────
