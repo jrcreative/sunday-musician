@@ -7,5 +7,11 @@
       "runtimeArgs": ["/Users/indevvermini/claude/sunday-musician/.claude/start-preview.js"],
       "port": 3000
     }
+  ,{
+      "name": "repriso-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "4200", "/Users/jrcreative/LocalSites/repriso-web"],
+      "port": 4200
+    }
   ]
 }
