@@ -20,6 +20,7 @@ export type ChurchCompletenessProfile = {
   church_name: string;
   city: string;
   state: string;
+  address: string | null;
   capacity: number | null;
   service_count: number | null;
   musical_style: string | null;
@@ -29,42 +30,46 @@ export type ChurchCompletenessProfile = {
   contact_name: string | null;
 } | null;
 
-export function musicianCompleteness(mp: MusicianCompletenessProfile) {
-  if (!mp) return { percent: 0, missing: ["complete profile"] };
-  const checks: Array<{ label: string; ok: boolean }> = [
-    { label: "city / state", ok: !!mp.city && !!mp.state },
-    { label: "primary instrument", ok: !!mp.primary_instrument },
-    { label: "instruments list", ok: mp.instruments.length > 0 },
-    { label: "bio (40+ chars)", ok: mp.bio.trim().length >= 40 },
-    { label: "experience", ok: (mp.years_in_ministry != null && mp.years_in_ministry >= 0) || mp.experience_notes.trim().length >= 40 },
-    { label: "music formats", ok: mp.music_format_tags.length > 0 },
-    { label: "gear / setup", ok: mp.gear_notes.trim().length >= 20 },
-    { label: "fee range", ok: mp.is_volunteer || (mp.fee_min > 0 && mp.fee_max > 0) },
-    { label: "travel radius", ok: mp.travel_radius_miles > 0 },
-    { label: "denomination / tradition", ok: mp.denomination_tags.length > 0 },
+export function musicianCompleteness(mp: MusicianCompletenessProfile, paymentReady: boolean, hasAvailabilityBlocks: boolean) {
+  if (!mp) return { percent: 0, missing: ["complete profile"], requiredMissing: ["complete profile"] };
+  const checks: Array<{ label: string; ok: boolean; required: boolean }> = [
+    { label: "city / state", ok: !!mp.city && !!mp.state, required: true },
+    { label: "primary instrument", ok: !!mp.primary_instrument, required: true },
+    { label: "instruments list", ok: mp.instruments.length > 0, required: true },
+    { label: "bio (40+ chars)", ok: mp.bio.trim().length >= 40, required: false },
+    { label: "experience", ok: (mp.years_in_ministry != null && mp.years_in_ministry >= 0) || mp.experience_notes.trim().length >= 40, required: true },
+    { label: "music formats", ok: mp.music_format_tags.length > 0, required: false },
+    { label: "gear / setup", ok: mp.gear_notes.trim().length >= 20, required: false },
+    { label: "fee range", ok: mp.is_volunteer || (mp.fee_min > 0 && mp.fee_max > 0), required: true },
+    { label: "travel radius", ok: mp.travel_radius_miles > 0, required: true },
+    { label: "denomination / tradition", ok: mp.denomination_tags.length > 0, required: false },
+    { label: "availability set", ok: hasAvailabilityBlocks, required: false },
+    { label: "payment setup", ok: paymentReady, required: true },
   ];
   const ok = checks.filter(c => c.ok).length;
   return {
     percent: Math.round((ok / checks.length) * 100),
     missing: checks.filter(c => !c.ok).map(c => c.label),
+    requiredMissing: checks.filter(c => c.required && !c.ok).map(c => c.label),
   };
 }
 
 export function churchCompleteness(cp: ChurchCompletenessProfile) {
-  if (!cp) return { percent: 0, missing: ["complete profile"] };
-  const checks: Array<{ label: string; ok: boolean }> = [
-    { label: "church name", ok: !!cp.church_name },
-    { label: "city / state", ok: !!cp.city && !!cp.state },
-    { label: "contact person", ok: !!cp.contact_name },
-    { label: "denomination", ok: !!cp.denomination },
-    { label: "capacity", ok: !!cp.capacity },
-    { label: "service count", ok: !!cp.service_count },
-    { label: "musical style", ok: !!cp.musical_style },
-    { label: "worship theology", ok: !!cp.worship_theology },
+  if (!cp) return { percent: 0, missing: ["complete profile"], requiredMissing: ["complete profile"] };
+  const checks: Array<{ label: string; ok: boolean; required: boolean }> = [
+    { label: "church name", ok: !!cp.church_name, required: false },
+    { label: "address", ok: !!cp.address && !!cp.city && !!cp.state, required: true },
+    { label: "contact person", ok: !!cp.contact_name, required: false },
+    { label: "denomination", ok: !!cp.denomination, required: true },
+    { label: "capacity", ok: !!cp.capacity, required: false },
+    { label: "service count", ok: !!cp.service_count, required: false },
+    { label: "musical style", ok: !!cp.musical_style, required: false },
+    { label: "worship theology", ok: !!cp.worship_theology, required: false },
   ];
   const ok = checks.filter(c => c.ok).length;
   return {
     percent: Math.round((ok / checks.length) * 100),
     missing: checks.filter(c => !c.ok).map(c => c.label),
+    requiredMissing: checks.filter(c => c.required && !c.ok).map(c => c.label),
   };
 }

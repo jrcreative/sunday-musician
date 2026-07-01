@@ -128,7 +128,7 @@ export function buildPotentialMatches({
         years_in_ministry: m.years_in_ministry,
         church_size_tags: m.church_size_tags ?? [],
         music_format_tags: m.music_format_tags ?? [],
-      }).percent;
+      }, !!m.paymentReady, false).percent;
       const readiness = scoreServiceReadiness({
         serviceType,
         serviceStyle,

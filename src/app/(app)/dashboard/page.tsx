@@ -4,7 +4,7 @@ import { Topbar } from "@/components/shell/Topbar";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ProfileCompleteness } from "../profile/ProfileCompleteness";
-import { musicianCompleteness } from "../profile/completeness";
+import { churchCompleteness, musicianCompleteness } from "../profile/completeness";
 import {
   BOOKING_STATUS_CHIP,
   BOOKING_STATUS_LABEL,
@@ -48,6 +48,7 @@ export default async function DashboardPage() {
       .from("church_profiles").select("*").eq("profile_id", user.id).single();
     const contactFirstName = firstWord(churchProfile?.contact_name ?? profile?.display_name);
     const churchTimeZone = inferTimeZoneForUsLocation({ state: churchProfile?.state, lng: churchProfile?.lng });
+    const churchProfileCompleteness = churchCompleteness(churchProfile);
 
     const { data: requests } = churchProfile
       ? await supabase.from("service_requests").select("*").eq("church_profile_id", churchProfile.id).order("service_date").limit(5)
@@ -138,6 +139,17 @@ export default async function DashboardPage() {
             >
               <strong>Your card expires soon.</strong> Update it to keep upcoming bookings from failing →
             </Link>
+          )}
+
+          {churchProfileCompleteness.percent < 100 && (
+            <ProfileCompleteness
+              percent={churchProfileCompleteness.percent}
+              missing={churchProfileCompleteness.missing}
+              requiredMissing={churchProfileCompleteness.requiredMissing}
+              previewHref="/profile"
+              previewLabel="Complete your profile"
+              openInNewTab={false}
+            />
           )}
 
           <div style={{ marginBottom: 28 }}>
@@ -548,7 +560,7 @@ export default async function DashboardPage() {
   // afternoon while they're still visible in the list below.
   const todayDateStr = new Date().toISOString().slice(0, 10);
   const upcomingCount = liveBookingStats.filter(b => b.service_date && b.service_date >= todayDateStr).length;
-  const profileCompleteness = musicianCompleteness(mp);
+  const profileCompleteness = musicianCompleteness(mp, paymentReady, blockedRanges.length > 0);
 
   const stats = [
     { label: "Confirmed bookings", value: liveBookingStats.length.toString(), sub: "all time" },
@@ -580,6 +592,7 @@ export default async function DashboardPage() {
           <ProfileCompleteness
             percent={profileCompleteness.percent}
             missing={profileCompleteness.missing}
+            requiredMissing={profileCompleteness.requiredMissing}
             previewHref="/profile"
             previewLabel="Complete your profile"
             openInNewTab={false}
