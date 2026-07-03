@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) await sendMusicianOnboardingEmail(user.id);
+      if (user && next !== "/auth/reset-password") await sendMusicianOnboardingEmail(user.id);
       return NextResponse.redirect(`${origin}${next}`);
     }
   }
