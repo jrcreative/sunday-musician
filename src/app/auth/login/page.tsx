@@ -41,7 +41,12 @@ export default function LoginPage() {
             <input id="email" type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
           </div>
           <div className="field">
-            <label className="label" htmlFor="password">Password</label>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <label className="label" htmlFor="password">Password</label>
+              <Link href="/auth/forgot-password" style={{ color: "var(--sm-accent)", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+                Forgot password?
+              </Link>
+            </div>
             <input id="password" type="password" className="input" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
           </div>
           <button type="submit" className="btn btn--primary btn--lg" disabled={loading} style={{ marginTop: 4 }}>
