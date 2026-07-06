@@ -132,7 +132,7 @@ function profilePercentFor(musician: ServiceReadinessMusician) {
     years_in_ministry: musician.yearsInMinistry ?? null,
     church_size_tags: musician.churchSizeTags ?? [],
     music_format_tags: musician.musicFormatTags ?? [],
-  }).percent;
+  }, !!musician.paymentReady, false).percent;
 }
 
 // The explanation reads differently depending on who's looking: churches see

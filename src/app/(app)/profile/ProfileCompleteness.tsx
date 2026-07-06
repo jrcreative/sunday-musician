@@ -8,12 +8,14 @@
 export function ProfileCompleteness({
   percent,
   missing,
+  requiredMissing,
   previewHref,
   previewLabel,
   openInNewTab = true,
 }: {
   percent: number;
   missing: string[];
+  requiredMissing: string[];
   previewHref: string | null;
   previewLabel: string;
   openInNewTab?: boolean;
@@ -27,6 +29,18 @@ export function ProfileCompleteness({
       background: "var(--sm-bg-1)",
       marginBottom: 24,
     }}>
+      {requiredMissing.length > 0 && (
+        <div style={{
+          padding: "12px 16px",
+          border: "1px solid rgba(184,33,5,0.3)",
+          background: "rgba(184,33,5,0.06)",
+          borderRadius: "var(--sm-radius-sm)",
+          color: "var(--sm-status-error, #b82105)",
+          fontSize: 13.5, lineHeight: 1.5,
+        }}>
+          <strong>Required to get started:</strong> {requiredMissing.join(" · ")} — <a href="/profile" style={{ color: "inherit", fontWeight: 600 }}>Update your profile →</a>
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: "var(--sm-fg-2)" }}>
