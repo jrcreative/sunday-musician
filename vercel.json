@@ -1,6 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/sync-calendars", "schedule": "0 * * * *" },
+    { "path": "/api/cron/sync-calendars", "schedule": "0 4 * * *" },
     { "path": "/api/cron/archive-threads", "schedule": "0 3 * * *" },
     { "path": "/api/cron/capture-payments", "schedule": "0 13 * * *" },
     { "path": "/api/cron/review-emails", "schedule": "0 14 * * *" },

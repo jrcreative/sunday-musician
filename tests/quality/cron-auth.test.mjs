@@ -26,6 +26,12 @@ test("every cron route requires the bearer secret", () => {
   }
 });
 
+function runsMoreThanOncePerDay(schedule) {
+  const [minute, hour] = schedule.trim().split(/\s+/);
+  const multiValue = value => value === "*" || value.includes("/") || value.includes(",") || value.includes("-");
+  return multiValue(minute) || multiValue(hour);
+}
+
 // Crons only run if vercel.json schedules them. A cron route that exists but
 // isn't scheduled silently never runs in production.
 test("every cron route is scheduled in vercel.json", () => {
@@ -44,6 +50,12 @@ test("every cron route is scheduled in vercel.json", () => {
   }
 
   for (const cron of config.crons ?? []) {
-    assert.match(cron.schedule ?? "", /^(\S+\s+){4}\S+$/, `${cron.path} must have a five-field cron schedule`);
+    const schedule = cron.schedule ?? "";
+    assert.match(schedule, /^(\S+\s+){4}\S+$/, `${cron.path} must have a five-field cron schedule`);
+    assert.equal(
+      runsMoreThanOncePerDay(schedule),
+      false,
+      `${cron.path} must run at most once per day to stay on Vercel Hobby`,
+    );
   }
 });
