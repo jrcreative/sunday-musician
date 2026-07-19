@@ -15,6 +15,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -30,8 +31,31 @@ export default function SignupPage() {
       if (role === "musician") {
         await fetch("/api/email/musician-onboarding", { method: "POST" }).catch(() => null);
       }
-      window.location.href = "/dashboard";
+      setLoading(false);
+      setSubmitted(true);
     }
+  }
+
+  if (submitted) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--sm-bg-2)", padding: "24px" }}>
+        <div style={{ width: "100%", maxWidth: 460, background: "var(--sm-bg-1)", border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", padding: "40px 36px", textAlign: "center" }}>
+          <Image src="/assets/sm-logo-icon.svg" alt="Sunday Musician" width={48} height={48} style={{ margin: "0 auto 16px" }} />
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 10px" }}>Check your email</h1>
+          <p style={{ color: "var(--sm-fg-3)", fontSize: 14.5, margin: "0 0 6px", lineHeight: 1.5 }}>
+            We sent a confirmation link to <strong style={{ color: "var(--sm-fg-1)" }}>{email}</strong>.
+            Click it to activate your account.
+          </p>
+          <p style={{ color: "var(--sm-fg-3)", fontSize: 13, margin: "16px 0 0" }}>
+            Don&apos;t see it? Check your spam folder.
+          </p>
+          <p style={{ fontSize: 13.5, color: "var(--sm-fg-3)", marginTop: 24, marginBottom: 0 }}>
+            Already confirmed?{" "}
+            <Link href="/auth/login" style={{ color: "var(--sm-accent)", fontWeight: 600, textDecoration: "none" }}>Sign in</Link>
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

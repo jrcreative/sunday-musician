@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   title: "Sunday Musician",
   description: "Find and book worship musicians for your church service — or discover opportunities as a musician.",
   metadataBase: new URL(siteUrl),
-  icons: { icon: "/assets/sm-logo-icon.svg" },
+  icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml", sizes: "any" }] },
   openGraph: {
     title: "Sunday Musician",
     description: "Find and book worship musicians for your church service — or discover opportunities as a musician.",

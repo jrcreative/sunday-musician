@@ -43,6 +43,17 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && isAuthRoute) {
+    // An authenticated session with no matching profiles row is orphaned
+    // (e.g. test data was cleared without signing the user out). Bouncing
+    // it straight to /dashboard would just send it back here in a loop the
+    // next time it hits a route that redirects on a missing profile — sign
+    // it out instead so the login page loads normally.
+    const { data: profile } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
+    if (!profile) {
+      await supabase.auth.signOut();
+      return supabaseResponse;
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

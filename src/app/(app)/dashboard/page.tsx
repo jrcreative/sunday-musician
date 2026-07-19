@@ -4,7 +4,8 @@ import { Topbar } from "@/components/shell/Topbar";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ProfileCompleteness } from "../profile/ProfileCompleteness";
-import { musicianCompleteness } from "../profile/completeness";
+import { churchCompleteness, musicianCompleteness } from "../profile/completeness";
+import { OnboardingWizard } from "./OnboardingWizard";
 import {
   BOOKING_STATUS_CHIP,
   BOOKING_STATUS_LABEL,
@@ -39,6 +40,7 @@ export default async function DashboardPage() {
   if (!user) redirect("/auth/login");
 
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  if (!profile) redirect("/auth/login");
   const isChurch = profile?.role === "church";
   const firstName = firstWord(profile?.display_name);
 
@@ -48,6 +50,7 @@ export default async function DashboardPage() {
       .from("church_profiles").select("*").eq("profile_id", user.id).single();
     const contactFirstName = firstWord(churchProfile?.contact_name ?? profile?.display_name);
     const churchTimeZone = inferTimeZoneForUsLocation({ state: churchProfile?.state, lng: churchProfile?.lng });
+    const churchProfileCompleteness = churchCompleteness(churchProfile);
 
     const { data: requests } = churchProfile
       ? await supabase.from("service_requests").select("*").eq("church_profile_id", churchProfile.id).order("service_date").limit(5)
@@ -122,6 +125,9 @@ export default async function DashboardPage() {
           right={<Link href="/requests/new" className="btn btn--primary btn--sm">+ New request</Link>}
         />
         <div className="page page--wide">
+          {churchProfileCompleteness.percent < 100 && (
+            <OnboardingWizard role="church" profile={profile} churchProfile={churchProfile} />
+          )}
           {cardExpiringSoon && (
             <Link
               href="/profile/billing"
@@ -151,6 +157,16 @@ export default async function DashboardPage() {
               {openCount > 0 ? `You have ${openCount} open ${openCount === 1 ? "request" : "requests"}.` : "No open requests right now."}
             </p>
           </div>
+
+          {churchProfileCompleteness.percent < 100 && (
+            <ProfileCompleteness
+              percent={churchProfileCompleteness.percent}
+              missing={churchProfileCompleteness.missing}
+              previewHref="/profile"
+              previewLabel="Complete your profile"
+              openInNewTab={false}
+            />
+          )}
 
           <div>
             <div className="sm-row-3" style={{ marginBottom: 32 }}>
@@ -245,16 +261,18 @@ export default async function DashboardPage() {
   // ── Musician dashboard ────────────────────────────────────────────────────
   const { data: mp, error: mpError } = await supabase
     .from("musician_profiles")
-    .select("id, instruments, city, state, lat, lng, bio, primary_instrument, fee_min, fee_max, is_volunteer, travel_radius_miles, denomination_tags, experience_notes, gear_notes, years_in_ministry, church_size_tags, music_format_tags, available, rating, review_count, profiles(display_name)")
+    .select("id, instruments, instruments_detail, city, state, lat, lng, formatted_address, bio, primary_instrument, fee_min, fee_max, is_volunteer, travel_radius_miles, denomination_tags, experience_notes, gear_notes, years_in_ministry, church_size_tags, music_format_tags, available, rating, review_count, profiles(display_name)")
     .eq("profile_id", user.id)
     .maybeSingle() as unknown as {
       data: {
         id: string;
         instruments: string[];
+        instruments_detail: import("@/lib/supabase/types").Json;
         city: string;
         state: string;
         lat: number | null;
         lng: number | null;
+        formatted_address: string | null;
         bio: string;
         primary_instrument: string;
         fee_min: number;
@@ -576,6 +594,9 @@ export default async function DashboardPage() {
           </p>
         </div>
 
+        {profileCompleteness.percent < 100 && (
+          <OnboardingWizard role="musician" profile={profile} musicianProfile={mp} />
+        )}
         {profileCompleteness.percent < 100 && (
           <ProfileCompleteness
             percent={profileCompleteness.percent}

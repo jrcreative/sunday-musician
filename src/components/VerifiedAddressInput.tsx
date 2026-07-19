@@ -12,6 +12,35 @@ export type VerifiedAddressValue = {
   zip: string;
 };
 
+/** Verifies a free-text address via /api/locations/verify. Throws with a
+ *  user-facing message on failure so callers can render it directly. */
+export async function verifyAddressQuery(query: string): Promise<VerifiedAddressValue> {
+  const res = await fetch("/api/locations/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddressValue> & { error?: string };
+  if (
+    !res.ok ||
+    typeof payload.lat !== "number" ||
+    typeof payload.lng !== "number" ||
+    !payload.formattedAddress ||
+    !payload.streetAddress
+  ) {
+    throw new Error(payload.error ?? "Could not verify address");
+  }
+  return {
+    formattedAddress: payload.formattedAddress,
+    streetAddress: payload.streetAddress,
+    lat: payload.lat,
+    lng: payload.lng,
+    city: payload.city ?? "",
+    state: payload.state ?? "",
+    zip: payload.zip ?? "",
+  };
+}
+
 export function VerifiedAddressInput({
   id,
   label,
@@ -45,31 +74,7 @@ export function VerifiedAddressInput({
     setVerifying(true);
     setError(null);
     try {
-      const res = await fetch("/api/locations/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      });
-      const payload = await res.json().catch(() => ({})) as Partial<VerifiedAddressValue> & { error?: string };
-      if (
-        !res.ok ||
-        typeof payload.lat !== "number" ||
-        typeof payload.lng !== "number" ||
-        !payload.formattedAddress ||
-        !payload.streetAddress
-      ) {
-        throw new Error(payload.error ?? "Could not verify address");
-      }
-
-      const verified = {
-        formattedAddress: payload.formattedAddress,
-        streetAddress: payload.streetAddress,
-        lat: payload.lat,
-        lng: payload.lng,
-        city: payload.city ?? "",
-        state: payload.state ?? "",
-        zip: payload.zip ?? "",
-      };
+      const verified = await verifyAddressQuery(query);
       onVerified(verified);
       onValueChange(verified.formattedAddress);
     } catch (e) {

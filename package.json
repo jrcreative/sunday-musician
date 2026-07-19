@@ -14,6 +14,9 @@
     "lint": "eslint",
     "test:quality": "node --test tests/quality/*.test.mjs",
     "test:unit": "find src -name '*.test.ts' -print0 | xargs -0 tsx --test",
+    "data:clear-app": "node scripts/clear-app-data.mjs",
+    "data:check-clear": "node scripts/check-clear-data.mjs",
+    "auth:delete-users": "node scripts/delete-auth-users.mjs",
     "stripe:check": "tsx scripts/stripe-diagnostics.ts",
     "stripe:test-payment": "tsx scripts/stripe-test-payment.ts",
     "predeploy": "npm run build"
