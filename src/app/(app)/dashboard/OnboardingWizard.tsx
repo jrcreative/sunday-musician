@@ -14,6 +14,7 @@ import type { Database } from "@/lib/supabase/types";
 import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
 import { VerifiedAddressInput, verifyAddressQuery, type VerifiedAddressValue } from "@/components/VerifiedAddressInput";
 import { inferTimeZoneForUsLocation } from "@/lib/locations/timezone";
+import { WORSHIP_THEOLOGIES } from "@/lib/worship-theologies";
 
 type Profile = { id: string; display_name: string | null };
 type MusicianProfile = Pick<
@@ -59,7 +60,6 @@ const MUSIC_VALUES = [
   "Musical excellence is something we strive for",
   "We're known for our music",
 ];
-const WORSHIP_THEOLOGIES = ["Conservative", "Liturgical", "Charismatic"];
 
 function dismissKey(profileId: string) {
   return `sm-onboarding-dismissed:${profileId}`;
@@ -189,13 +189,14 @@ function Chips({ options, selected, onToggle }: {
   );
 }
 
-function RadioCards({ options, value, onChange }: {
+function RadioCards({ options, value, onChange, cols = 1 }: {
   options: string[];
   value: string;
   onChange: (v: string) => void;
+  cols?: number;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 8 }}>
       {options.map(opt => {
         const active = value === opt;
         return (
@@ -613,7 +614,7 @@ function ChurchSteps({ profile, cp, onDone }: { profile: Profile; cp: ChurchProf
           </div>
           <div className="field" style={{ marginTop: 18 }}>
             <label className="label">Worship theology</label>
-            <RadioCards options={WORSHIP_THEOLOGIES} value={worshipTheology} onChange={setWorshipTheology} />
+            <RadioCards options={WORSHIP_THEOLOGIES} value={worshipTheology} onChange={setWorshipTheology} cols={2} />
           </div>
         </>
       ),

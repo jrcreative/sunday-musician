@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { cancellationPolicyFor, cancellationPolicyLine, type CancellationPolicy } from "@/lib/disputes/policy";
 import { formatRehearsalSummary } from "@/lib/requests/rehearsals";
@@ -30,6 +31,7 @@ export function ThreadClient({
   currentUserId,
   isChurchSide,
   otherName,
+  otherHref,
   requestInfo,
   archivedAt,
   archiveReason,
@@ -46,6 +48,7 @@ export function ThreadClient({
   currentUserId: string;
   isChurchSide: boolean;
   otherName: string;
+  otherHref: string | null;
   requestInfo: RequestInfo | null;
   archivedAt: string | null;
   archiveReason: string | null;
@@ -371,7 +374,9 @@ export function ThreadClient({
       <div style={{ border: "1px solid var(--sm-border-subtle)", borderRadius: "var(--sm-radius-sm)", background: "var(--sm-bg-1)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Header */}
         <div style={{ padding: "13px 20px", borderBottom: "1px solid var(--sm-border-subtle)" }}>
-          <div style={{ fontWeight: 600, fontSize: 15, color: "var(--sm-fg-1)" }}>{otherName}</div>
+          <div style={{ fontWeight: 600, fontSize: 15, color: "var(--sm-fg-1)" }}>
+            {otherHref ? <Link href={otherHref}>{otherName}</Link> : otherName}
+          </div>
           {requestInfo && <div style={{ fontSize: 12.5, color: "var(--sm-fg-3)", marginTop: 1 }}>Re: {requestInfo.title}</div>}
         </div>
 
