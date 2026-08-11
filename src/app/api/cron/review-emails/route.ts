@@ -4,6 +4,7 @@ import type { Database } from "@/lib/supabase/types";
 import type { EmailMessage } from "@/lib/email/send";
 import { sendTransactionalEmail } from "@/lib/email/delivery";
 import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
+import { configuredBaseUrl } from "@/lib/app-url";
 import {
   reviewPromptEmail,
   reviewReminderEmail,
@@ -63,7 +64,7 @@ export async function GET(req: Request) {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const siteUrl = process.env.SITE_URL ?? process.env.URL ?? "";
+  const siteUrl = configuredBaseUrl() ?? "";
   if (!url || !serviceKey) {
     return NextResponse.json({ error: "Supabase env not configured" }, { status: 500 });
   }

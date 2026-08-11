@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { logAdminAction } from "@/app/admin/_lib/audit";
 import { withAdminJson } from "@/app/admin/_lib/with-admin-json";
+import { appUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export const POST = withAdminJson(async (
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const { error } = await admin.auth.resetPasswordForEmail(target.email, {
-    redirectTo: `${process.env.SITE_URL ?? process.env.URL ?? ""}/auth/reset-password`,
+    redirectTo: appUrl("/auth/callback?next=/auth/reset-password"),
   });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
