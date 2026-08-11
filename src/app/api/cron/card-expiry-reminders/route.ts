@@ -37,24 +37,29 @@ async function handle(req: Request) {
 
   // Fetch church stripe_customers where the card expires within 30 days
   // and the profile is active (not deleted/suspended).
+  // stripe_customers keys on church_profile_id, so the owning profile is two hops
+  // away: stripe_customers → church_profiles → profiles.
   const { data: expiringCards, error } = await admin
     .from("stripe_customers")
     .select(`
-      profile_id,
+      church_profile_id,
       card_last4,
       card_exp_month,
       card_exp_year,
-      profiles ( email, display_name, deleted_at, suspended_at )
+      church_profiles!inner ( profile_id, profiles!inner ( email, display_name, deleted_at, suspended_at ) )
     `)
     .not("card_last4", "is", null)
     .not("card_exp_month", "is", null)
     .not("card_exp_year", "is", null) as unknown as {
       data: Array<{
-        profile_id: string;
+        church_profile_id: string;
         card_last4: string;
         card_exp_month: number;
         card_exp_year: number;
-        profiles: { email: string; display_name: string; deleted_at: string | null; suspended_at: string | null } | null;
+        church_profiles: {
+          profile_id: string;
+          profiles: { email: string; display_name: string; deleted_at: string | null; suspended_at: string | null };
+        };
       }> | null;
       error: { message: string } | null;
     };
@@ -71,9 +76,12 @@ async function handle(req: Request) {
   const monthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 
   for (const row of expiringCards ?? []) {
+    const profileId = row.church_profiles.profile_id;
+    const profile = row.church_profiles.profiles;
+
     // Skip deleted or suspended accounts.
-    if (row.profiles?.deleted_at || row.profiles?.suspended_at) {
-      skipped.push(row.profile_id);
+    if (profile.deleted_at || profile.suspended_at) {
+      skipped.push(profileId);
       continue;
     }
 
@@ -84,13 +92,13 @@ async function handle(req: Request) {
     expiresAt.setMonth(expiresAt.getMonth() + 1);
 
     if (expiresAt > thirtyDaysOut) {
-      skipped.push(row.profile_id);
+      skipped.push(profileId);
       continue;
     }
 
-    const email = row.profiles?.email;
-    const name = row.profiles?.display_name ?? "there";
-    if (!email) { skipped.push(row.profile_id); continue; }
+    const email = profile.email;
+    const name = profile.display_name ?? "there";
+    if (!email) { skipped.push(profileId); continue; }
 
     const event = EMAIL_EVENTS.cardExpiringReminder;
     const billingUrl = appUrl("/profile/billing");
@@ -106,8 +114,8 @@ async function handle(req: Request) {
     const result = await sendTransactionalEmail({
       eventKey: event.key,
       category: event.category,
-      dedupeKey: `${event.key}:${row.profile_id}:${monthKey}`,
-      recipientProfileId: row.profile_id,
+      dedupeKey: `${event.key}:${profileId}:${monthKey}`,
+      recipientProfileId: profileId,
       message,
       template: configuredTemplateId(event) ? {
         templateId: configuredTemplateId(event),
@@ -119,12 +127,12 @@ async function handle(req: Request) {
           BILLING_URL: billingUrl,
         },
       } : undefined,
-      payload: { profile_id: row.profile_id, card_last4: row.card_last4 },
+      payload: { profile_id: profileId, card_last4: row.card_last4 },
     });
 
-    if (result.status === "sent") sent.push(row.profile_id);
-    else if (result.status === "failed") { failed.push(row.profile_id); console.error("[card-expiry-reminders] send failed:", result.error); }
-    else skipped.push(row.profile_id);
+    if (result.status === "sent") sent.push(profileId);
+    else if (result.status === "failed") { failed.push(profileId); console.error("[card-expiry-reminders] send failed:", result.error); }
+    else skipped.push(profileId);
   }
 
   return NextResponse.json({ sent: sent.length, skipped: skipped.length, failed: failed.length });
