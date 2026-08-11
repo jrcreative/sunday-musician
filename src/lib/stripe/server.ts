@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { configuredBaseUrl } from "@/lib/app-url";
 
 let _stripe: Stripe | null = null;
 
@@ -15,7 +16,7 @@ export function stripe(): Stripe {
 }
 
 export function siteUrl(): string {
-  const url = process.env.SITE_URL ?? process.env.URL;
-  if (!url) throw new Error("SITE_URL/URL not configured");
-  return url.replace(/\/$/, "");
+  const url = configuredBaseUrl();
+  if (!url) throw new Error("SITE_URL not configured");
+  return url;
 }

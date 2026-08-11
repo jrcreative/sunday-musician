@@ -1,9 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { hasSupabaseBrowserConfig } from "@/lib/supabase/env";
+import { redirect } from "next/navigation";
 import Image from "next/image";
 import { HomeClient } from "./HomeClient";
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
+  // Auth emails whose redirect_to isn't in Supabase's allow list land here with an
+  // unexchanged PKCE code, which reads to the user as "the link didn't work".
+  const { code } = await searchParams;
+  if (code) redirect(`/auth/callback?code=${encodeURIComponent(code)}`);
+
   const hasSupabase = hasSupabaseBrowserConfig();
   const supabase = hasSupabase ? await createClient() : null;
 

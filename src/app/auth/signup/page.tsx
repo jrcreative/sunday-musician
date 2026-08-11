@@ -24,7 +24,13 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { role, display_name: displayName } },
+      options: {
+        data: { role, display_name: displayName },
+        // Without this the confirmation link redirects to the bare Site URL, which
+        // has nothing to exchange the PKCE ?code= for a session. Same pattern as
+        // forgot-password. Requires this URL in Supabase → Auth → Redirect URLs.
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     if (error) { setError(error.message); setLoading(false); }
     else {

@@ -8,6 +8,7 @@ import { uniqueInstruments } from "@/lib/instruments";
 import { verifyUsAddress, type VerifiedAddress } from "@/lib/locations/verification";
 import { inferTimeZoneForUsLocation } from "@/lib/locations/timezone";
 import { normalizeServiceTimeForInput } from "@/lib/requests/time";
+import { appUrl } from "@/lib/app-url";
 
 type RequestPayload = {
   title?: string;
@@ -34,11 +35,6 @@ type RequestPayload = {
   fee_type?: string;
   notes?: string | null;
 };
-
-function appUrl(path: string) {
-  const base = process.env.SITE_URL ?? process.env.URL ?? "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}${path}`;
-}
 
 export async function POST(req: Request) {
   const active = await requireActiveUser();

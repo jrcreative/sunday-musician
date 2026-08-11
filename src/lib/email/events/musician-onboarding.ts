@@ -2,11 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTransactionalEmail } from "@/lib/email/delivery";
 import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
 import { musicianOnboardingEmail } from "@/lib/email/templates/onboarding";
-
-function appUrl(path: string) {
-  const base = process.env.SITE_URL ?? process.env.URL ?? "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}${path}`;
-}
+import { appUrl } from "@/lib/app-url";
 
 export async function sendMusicianOnboardingEmail(profileId: string) {
   const admin = createAdminClient();

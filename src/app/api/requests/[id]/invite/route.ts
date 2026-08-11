@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTransactionalEmail } from "@/lib/email/delivery";
 import { EMAIL_EVENTS, configuredTemplateId } from "@/lib/email/registry";
 import { requestInviteMusicianEmail } from "@/lib/email/templates/requests";
+import { appUrl } from "@/lib/app-url";
 
 type InvitePayload = {
   musicianProfileId?: string;
@@ -14,11 +15,6 @@ type MusicianRow = {
   profile_id: string;
   profiles: { email: string; display_name: string } | null;
 };
-
-function appUrl(path: string) {
-  const base = process.env.SITE_URL ?? process.env.URL ?? "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}${path}`;
-}
 
 function feeLabel(fee: number | null, feeType: string) {
   if (fee == null) return "Fee TBD";
