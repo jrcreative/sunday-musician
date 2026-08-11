@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Turnstile, TURNSTILE_SITE_KEY } from "@/components/Turnstile";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -11,13 +12,25 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaKey, setCaptchaKey] = useState(0);
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setError(error.message); setLoading(false); }
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken: captchaToken ?? undefined },
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      // Tokens are single-use — mint a fresh one so a retry can succeed.
+      setCaptchaToken(null);
+      setCaptchaKey(k => k + 1);
+    }
     else window.location.href = "/dashboard";
   }
 
@@ -49,7 +62,8 @@ export default function LoginPage() {
             </div>
             <input id="password" type="password" className="input" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
           </div>
-          <button type="submit" className="btn btn--primary btn--lg" disabled={loading} style={{ marginTop: 4 }}>
+          <Turnstile onToken={setCaptchaToken} resetKey={captchaKey} />
+          <button type="submit" className="btn btn--primary btn--lg" disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)} style={{ marginTop: 4 }}>
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
