@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Turnstile, TURNSTILE_SITE_KEY } from "@/components/Turnstile";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -16,6 +17,8 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaKey, setCaptchaKey] = useState(0);
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -25,6 +28,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
+        captchaToken: captchaToken ?? undefined,
         data: { role, display_name: displayName },
         // Without this the confirmation link redirects to the bare Site URL, which
         // has nothing to exchange the PKCE ?code= for a session. Same pattern as
@@ -32,7 +36,13 @@ export default function SignupPage() {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-    if (error) { setError(error.message); setLoading(false); }
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      // Tokens are single-use — mint a fresh one so a retry can succeed.
+      setCaptchaToken(null);
+      setCaptchaKey(k => k + 1);
+    }
     else {
       if (role === "musician") {
         await fetch("/api/email/musician-onboarding", { method: "POST" }).catch(() => null);
@@ -122,7 +132,8 @@ export default function SignupPage() {
             <div className="help">At least 8 characters</div>
           </div>
 
-          <button type="submit" className="btn btn--primary btn--lg" disabled={loading} style={{ marginTop: 4 }}>
+          <Turnstile onToken={setCaptchaToken} resetKey={captchaKey} />
+          <button type="submit" className="btn btn--primary btn--lg" disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)} style={{ marginTop: 4 }}>
             {loading ? "Creating account…" : "Create account"}
           </button>
         </form>

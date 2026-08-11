@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Turnstile, TURNSTILE_SITE_KEY } from "@/components/Turnstile";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -11,6 +12,8 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaKey, setCaptchaKey] = useState(0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,11 +23,15 @@ export default function ForgotPasswordPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+      captchaToken: captchaToken ?? undefined,
     });
 
     if (error) {
       setError(error.message);
       setLoading(false);
+      // Tokens are single-use — mint a fresh one so a retry can succeed.
+      setCaptchaToken(null);
+      setCaptchaKey(k => k + 1);
       return;
     }
 
@@ -63,7 +70,8 @@ export default function ForgotPasswordPage() {
               <label className="label" htmlFor="email">Email</label>
               <input id="email" type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
             </div>
-            <button type="submit" className="btn btn--primary btn--lg" disabled={loading} style={{ marginTop: 4 }}>
+            <Turnstile onToken={setCaptchaToken} resetKey={captchaKey} />
+            <button type="submit" className="btn btn--primary btn--lg" disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)} style={{ marginTop: 4 }}>
               {loading ? "Sending reset link…" : "Send reset link"}
             </button>
           </form>
