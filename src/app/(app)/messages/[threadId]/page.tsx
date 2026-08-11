@@ -91,6 +91,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
         currentUserId={user.id}
         isChurchSide={isChurchSide}
         otherName={otherName}
+        otherHref={isChurchSide ? `/musicians/${thread.musician_profile_id}` : null}
         requestInfo={requestInfo}
         archivedAt={thread.archived_at}
         archiveReason={thread.archive_reason}

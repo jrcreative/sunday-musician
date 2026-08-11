@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 import { INSTRUMENT_OPTIONS, uniqueInstruments } from "@/lib/instruments";
@@ -81,6 +82,7 @@ export function MusicianProfileForm({
   profile: Profile;
   musicianProfile: MusicianProfile | null;
 }) {
+  const router = useRouter();
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [bio, setBio] = useState(mp?.bio ?? "");
   const [available, setAvailable] = useState(mp?.available ?? true);
@@ -218,7 +220,10 @@ export function MusicianProfileForm({
       }).eq("profile_id", profile.id),
     ]);
     if (profErr || mpErr) setError((profErr ?? mpErr)!.message);
-    else setSaved(true);
+    else {
+      setSaved(true);
+      router.refresh(); // completeness bar is server-rendered; without this it stays stale
+    }
     setSaving(false);
   }
 

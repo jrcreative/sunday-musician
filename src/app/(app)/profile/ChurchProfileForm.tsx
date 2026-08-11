@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 import { AvatarUploader } from "./AvatarUploader";
 import { VerifiedAddressInput, type VerifiedAddressValue } from "@/components/VerifiedAddressInput";
 import { inferTimeZoneForUsLocation } from "@/lib/locations/timezone";
+import { WORSHIP_THEOLOGIES } from "@/lib/worship-theologies";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ChurchProfile = Database["public"]["Tables"]["church_profiles"]["Row"];
@@ -28,7 +30,6 @@ const PRODUCTION_LEVELS = [
   "High Production is implemented on occasion",
   "Every service is highly produced and coordinated",
 ];
-const WORSHIP_THEOLOGIES = ["Conservative", "Liturgical", "Charismatic"];
 
 export function ChurchProfileForm({
   profile,
@@ -37,6 +38,7 @@ export function ChurchProfileForm({
   profile: Profile;
   churchProfile: ChurchProfile | null;
 }) {
+  const router = useRouter();
   const [churchName, setChurchName] = useState(cp?.church_name ?? profile.display_name);
   const [contactName, setContactName] = useState(cp?.contact_name ?? "");
   const [denomination, setDenomination] = useState(cp?.denomination ?? "");
@@ -124,7 +126,10 @@ export function ChurchProfileForm({
       syncRequestTimeZones,
     ]);
     if (profErr || cpErr || tzErr) setError((profErr ?? cpErr ?? tzErr)!.message);
-    else setSaved(true);
+    else {
+      setSaved(true);
+      router.refresh(); // completeness bar is server-rendered; without this it stays stale
+    }
     setSaving(false);
   }
 
@@ -237,7 +242,7 @@ function RadioCards({ options, value, onChange, cols = 2 }: {
       {options.map(opt => {
         const active = value === opt;
         return (
-          <button key={opt} type="button" onClick={() => onChange(active ? "" : opt)} style={{
+          <button key={opt} type="button" aria-pressed={active} onClick={() => onChange(active ? "" : opt)} style={{
             border: `1.5px solid ${active ? "var(--sm-accent)" : "var(--sm-border-subtle)"}`,
             borderRadius: "var(--sm-radius-sm)", padding: "10px 14px",
             background: active ? "rgba(228,123,2,0.06)" : "var(--sm-bg-1)",
